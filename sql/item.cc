@@ -7530,6 +7530,227 @@ Item *Item_field::update_value_transformer(THD *thd, uchar *select_arg)
 }
 
 
+/**
+  @brief
+  Mark subformulas of a condition unusable for the pushed condition
+
+  @param tab_map    bitmap of tables used by derived table
+  @param subq_pred  subquery
+
+  @details
+
+    This method is called for both condition pushdown optimizations:
+    pushdown into the materialized views/derived tables (1) and
+    pushdown into the IN subqueries (2).
+    (1) :
+    When the method is called for the pushdown into the materialized views
+    or derived tables (object) the subq_pred parameter is set to 0.
+
+    (2) :
+    When the method is called for the pushdown into the IN subqueries (object) the
+    tab_map parameter is set to 0.
+
+    This method recursively traverses the AND-OR condition cond and for each subformula
+    of the condition it checks whether it can be usable for the extraction of a condition
+    that can be pushed into the object. The subformulas that are not usable are
+    marked with the flag NO_EXTRACTION_FL.
+  @note
+    This method is called before any call of build_pushable_cond.
+    The flag NO_EXTRACTION_FL set in a subformula allows to avoid building clone
+    for the subformula when extracting the pushable condition.
+**/
+void Item::check_pushable_cond(table_map tab_map, Item_in_subselect *subq_pred)
+{
+  clear_extraction_flag();
+  if (type() == Item::COND_ITEM)
+  {
+    bool and_cond= ((Item_cond*) this)->functype() == Item_func::COND_AND_FUNC;
+    List_iterator<Item> li(*((Item_cond*) this)->argument_list());
+    uint count= 0;
+    Item *item;
+    while ((item=li++))
+    {
+      item->check_pushable_cond(tab_map, subq_pred);
+      if (item->get_extraction_flag() !=  NO_EXTRACTION_FL)
+        count++;
+      else if (!and_cond)
+        break;
+    }
+    if ((and_cond && count == 0) || item)
+    {
+      set_extraction_flag(NO_EXTRACTION_FL);
+      if (and_cond)
+        li.rewind();
+      while ((item= li++))
+        item->clear_extraction_flag();
+    }
+  }
+  else if ((tab_map && !excl_dep_on_table(tab_map)) ||
+           (subq_pred && !excl_dep_on_in_subq_left_part(subq_pred)))
+    set_extraction_flag(NO_EXTRACTION_FL);
+}
+
+
+/**
+  @brief
+  Build condition extractable from the given one for the pushdown
+
+  @param thd        the thread handle
+  @param tab_map    bitmap of tables used by derived table
+  @param subq_pred  subquery
+
+  @details
+    This method is called for both condition pushdown optimizations:
+    pushdown into the materialized views/derived tables (1) and
+    pushdown into the IN subqueries (2).
+    (1) :
+    When the method is called for the pushdown into the materialized views
+    or derived tables the subq_pred parameter is set to 0. The condition c1
+    is the check of whether the item depends only on the tab_map of the
+    derived table.
+
+    (2) :
+    When the method is called for the pushdown into the IN subqueries the
+    tab_map parameter is set to 0. The condition c1 is the check of whether
+    the item depends only on the fields from the left part of the IN subquery.
+
+    For the given condition cond this method finds out what condition for which
+    c1 is satisfied can be extracted from cond. If such condition C exists
+    the method builds the item for it.
+    The method uses the flag NO_EXTRACTION_FL set by the preliminary call of
+    the method check_pushable_cond to figure out whether c1 is satisfied for the
+    subformula or not.
+  @note
+    The built condition C is always implied by the condition cond
+    (cond => C). The method tries to build the most restrictive such
+    condition (i.e. for any other condition C' such that cond => C'
+    we have C => C').
+   @note
+    The build item is not ready for usage: substitution for the field items
+    has to be done and it has to be re-fixed.
+
+ @retval
+    the built condition pushable into this table if such a condition exists
+    NULL if there is no such a condition
+**/
+Item *Item::build_pushable_cond(THD *thd, table_map tab_map,
+                                Item_in_subselect *subq_pred)
+{
+  bool is_multiple_equality= type() == Item::FUNC_ITEM &&
+  ((Item_func*) this)->functype() == Item_func::MULT_EQUAL_FUNC;
+
+  if (get_extraction_flag() == NO_EXTRACTION_FL)
+    return 0;
+
+  if (type() == Item::COND_ITEM)
+  {
+    bool cond_and= false;
+    Item_cond *new_cond;
+    if (((Item_cond*) this)->functype() == Item_func::COND_AND_FUNC)
+    {
+      cond_and= true;
+      new_cond=new (thd->mem_root) Item_cond_and(thd);
+    }
+    else
+      new_cond= new (thd->mem_root) Item_cond_or(thd);
+    if (!new_cond)
+      return 0;
+    List_iterator<Item> li(*((Item_cond*) this)->argument_list());
+    Item *item;
+
+    while ((item=li++))
+    {
+      if (item->get_extraction_flag() == NO_EXTRACTION_FL)
+      {
+        if (!cond_and)
+          return 0;
+        continue;
+      }
+      Item *fix= item->build_pushable_cond(thd, tab_map, subq_pred);
+      if (!fix && !cond_and)
+        return 0;
+      if (!fix)
+        continue;
+      new_cond->argument_list()->push_back(fix, thd->mem_root);
+    }
+
+    switch (new_cond->argument_list()->elements)
+    {
+    case 0:
+      return 0;
+    case 1:
+      return new_cond->argument_list()->head();
+    default:
+      return new_cond;
+    }
+  }
+  else if (is_multiple_equality)
+  {
+    if (tab_map && !(used_tables() & tab_map))
+      return 0;
+    Item *new_cond= NULL;
+    int i= 0;
+    Item_equal *item_equal= (Item_equal *) this;
+    Item *left_item = item_equal->get_const();
+    Item_equal_fields_iterator it(*item_equal);
+    Item *item;
+    Item *right_item;
+    if (!left_item)
+    {
+      while ((item=it++))
+      {
+        left_item= ((tab_map && (item->used_tables() == tab_map)) ||
+                    (subq_pred && item->find_field(subq_pred))) ? item : NULL;
+        if (left_item)
+          break;
+      }
+    }
+    if (!left_item)
+      return 0;
+    while ((item=it++))
+    {
+      right_item= ((tab_map && (item->used_tables() == tab_map)) ||
+                   (subq_pred && item->find_field(subq_pred))) ? item : NULL;
+      if (!right_item)
+        continue;
+      Item_func_eq *eq= 0;
+      Item *left_item_clone= left_item->build_clone(thd);
+      Item *right_item_clone= item->build_clone(thd);
+      if (left_item_clone && right_item_clone)
+      {
+        left_item_clone->set_item_equal(NULL);
+        right_item_clone->set_item_equal(NULL);
+        eq= new (thd->mem_root) Item_func_eq(thd, right_item_clone,
+                                             left_item_clone);
+      }
+      if (eq)
+      {
+        i++;
+        switch (i)
+        {
+        case 1:
+          new_cond= eq;
+          break;
+        case 2:
+          new_cond= new (thd->mem_root) Item_cond_and(thd, new_cond, eq);
+          break;
+        default:
+          ((Item_cond_and*)new_cond)->argument_list()->push_back(eq,
+                                                                thd->mem_root);
+          break;
+        }
+      }
+    }
+    if (new_cond)
+      new_cond->fix_fields(thd, &new_cond);
+    return new_cond;
+  }
+  else if (get_extraction_flag() != NO_EXTRACTION_FL)
+    return build_clone(thd);
+  return 0;
+}
+
+
 static
 Item *get_field_item_for_having(THD *thd, Item *item, st_select_lex *sel)
 {
@@ -7683,26 +7904,25 @@ Grouping_tmp_field *find_matching_grouping_field(Item *item,
 }
     
 
-Item *Item_field::derived_grouping_field_transformer_for_where(THD *thd,
-                                                               uchar *arg)
+Item *Item_field::grouping_field_transformer_for_where(THD *thd, uchar *arg)
 {
   st_select_lex *sel= (st_select_lex *)arg;
   Grouping_tmp_field *gr_field= find_matching_grouping_field(this, sel);
   if (gr_field)
-    return gr_field->producing_item->build_clone(thd);
+    return gr_field->corresponding_item->build_clone(thd);
   return this;
 }
 
 
 Item *
-Item_direct_view_ref::derived_grouping_field_transformer_for_where(THD *thd,
-                                                                   uchar *arg)
+Item_direct_view_ref::grouping_field_transformer_for_where(THD *thd,
+                                                           uchar *arg)
 {
   if (!item_equal)
     return this;
   st_select_lex *sel= (st_select_lex *)arg;
   Grouping_tmp_field *gr_field= find_matching_grouping_field(this, sel);
-  return gr_field->producing_item->build_clone(thd);
+  return gr_field->corresponding_item->build_clone(thd);
 }
 
 void Item_field::print(String *str, enum_query_type query_type)

@@ -7162,8 +7162,7 @@ void st_select_lex::collect_grouping_fields(THD *thd,
 */ 
 
 void 
-st_select_lex::check_cond_extraction_for_grouping_fields(Item *cond,
-                                                         TABLE_LIST *derived)
+st_select_lex::check_cond_extraction_for_grouping_fields(Item *cond)
 {
   cond->clear_extraction_flag();
   if (cond->type() == Item::COND_ITEM)
@@ -7176,7 +7175,7 @@ st_select_lex::check_cond_extraction_for_grouping_fields(Item *cond,
     Item *item;
     while ((item=li++))
     {
-      check_cond_extraction_for_grouping_fields(item, derived);
+      check_cond_extraction_for_grouping_fields(item);
       if (item->get_extraction_flag() !=  NO_EXTRACTION_FL)
       {
         count++;

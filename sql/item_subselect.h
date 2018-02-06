@@ -447,6 +447,23 @@ TABLE_LIST * const NO_JOIN_NEST=(TABLE_LIST*)0x1;
 #define SUBS_MAXMIN_ENGINE 128
 
 
+/*
+  The structure that consists of the field from the fields list
+  of the left part of in subquery and the field from the
+  projection list of the select from the right part of in subquery.
+  This fields stays on the same places (have the same indexes) in
+  their lists.
+*/
+class In_subq_field :public Sql_alloc
+{
+public:
+  Item *left_it;
+  Item *right_it;
+  In_subq_field(Item *l, Item *r)
+     :left_it(l), right_it(r) {}
+};
+
+
 /**
   Representation of IN subquery predicates of the form
   "left_expr IN (SELECT ...)".
@@ -568,6 +585,8 @@ public:
   */
   bool is_registered_semijoin;
   
+  List<In_subq_field> comparable_fields;
+
   /*
     Used to determine how this subselect item is represented in the item tree,
     in case there is a need to locate it there and replace with something else.
@@ -739,6 +758,8 @@ public:
     return 0;
   };
 
+  bool pushdown_cond_for_in_subquery(THD *thd, Item *cond);
+
   friend class Item_ref_null_helper;
   friend class Item_is_not_null_test;
   friend class Item_in_optimizer;
@@ -850,7 +871,7 @@ protected:
   void set_row(List<Item> &item_list, Item_cache **row);
 };
 
-
+class select_value_catcher;
 class subselect_single_select_engine: public subselect_engine
 {
   bool prepared;       /* simple subselect is prepared */
@@ -884,9 +905,10 @@ public:
 
   friend class subselect_hash_sj_engine;
   friend class Item_in_subselect;
-  friend bool setup_jtbm_semi_joins(JOIN *join, List<TABLE_LIST> *join_list,
-                                    Item **join_where);
-
+  friend bool execute_degenerate_jtbm_semi_join(THD *thd,
+                                                TABLE_LIST *tbl,
+                                                Item_in_subselect *subq_pred,
+                                                List<Item> &eq_list);
 };
 
 

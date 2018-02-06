@@ -1274,8 +1274,8 @@ bool pushdown_cond_for_derived(THD *thd, Item *cond, TABLE_LIST *derived)
     This condition has to be fixed yet.
   */
   Item *extracted_cond;
-  derived->check_pushable_cond_for_table(cond);
-  extracted_cond= derived->build_pushable_cond_for_table(thd, cond);
+  cond->check_pushable_cond(derived->table->map, 0);
+  extracted_cond= cond->build_pushable_cond(thd, derived->table->map, 0);
   if (!extracted_cond)
   {
     /* Nothing can be pushed into the derived table */
@@ -1305,14 +1305,13 @@ bool pushdown_cond_for_derived(THD *thd, Item *cond, TABLE_LIST *derived)
 
       Item *cond_over_partition_fields;; 
       sl->collect_grouping_fields(thd, common_partition_fields);
-      sl->check_cond_extraction_for_grouping_fields(extracted_cond_copy,
-                                                    derived);
+      sl->check_cond_extraction_for_grouping_fields(extracted_cond_copy);
       cond_over_partition_fields=
         sl->build_cond_for_grouping_fields(thd, extracted_cond_copy, true);
       if (cond_over_partition_fields)
         cond_over_partition_fields= cond_over_partition_fields->transform(thd,
-                         &Item::derived_grouping_field_transformer_for_where,
-                         (uchar*) sl);
+                                  &Item::grouping_field_transformer_for_where,
+                                  (uchar*) sl);
       if (cond_over_partition_fields)
       {
         cond_over_partition_fields->walk(
@@ -1355,8 +1354,7 @@ bool pushdown_cond_for_derived(THD *thd, Item *cond, TABLE_LIST *derived)
     */
     Item *cond_over_grouping_fields;
     sl->collect_grouping_fields(thd, sl->join->group_list);
-    sl->check_cond_extraction_for_grouping_fields(extracted_cond_copy,
-                                                  derived);
+    sl->check_cond_extraction_for_grouping_fields(extracted_cond_copy);
     cond_over_grouping_fields=
       sl->build_cond_for_grouping_fields(thd, extracted_cond_copy, true);
   
@@ -1366,8 +1364,8 @@ bool pushdown_cond_for_derived(THD *thd, Item *cond, TABLE_LIST *derived)
     */
     if (cond_over_grouping_fields)
       cond_over_grouping_fields= cond_over_grouping_fields->transform(thd,
-                         &Item::derived_grouping_field_transformer_for_where,
-                         (uchar*) sl);
+                              &Item::grouping_field_transformer_for_where,
+                              (uchar*) sl);
      
     if (cond_over_grouping_fields)
     {

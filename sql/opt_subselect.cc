@@ -5430,31 +5430,449 @@ int select_value_catcher::send_data(List<Item> &items)
 }
 
 
-/*
-  Setup JTBM join tabs for execution
+/**
+  @brief
+    Conjugate conditions after optimize_cond() call
+
+  @param thd         the thread handle
+  @param cond        the condition where to attach new conditions
+  @param cond_eq     IN/OUT the multiple equalities of cond
+  @param new_conds   IN/OUT the list of conditions needed to add
+  @param cond_value  the returned value of the condition
+
+  @details
+    The method creates new condition through conjunction of cond and
+    the conditions from new_conds list.
+    The method is called after optimize_cond() for cond. The result
+    of the conjunction should be the same as if it was done before the
+    the optimize_cond() call.
+
+  @retval NULL       if an error occurs
+  @retval otherwise  the created condition
 */
 
-bool setup_jtbm_semi_joins(JOIN *join, List<TABLE_LIST> *join_list, 
-                           Item **join_where)
+Item *and_new_conditions_to_optimized_cond(THD *thd, Item *cond,
+                                           COND_EQUAL **cond_eq,
+                                           List<Item> &new_conds,
+                                           Item::cond_result *cond_value)
+{
+  COND_EQUAL new_cond_equal;
+  Item *item;
+  Item_equal *equality;
+  bool is_simplified_cond= false;
+  List_iterator<Item> li(new_conds);
+  List_iterator_fast<Item_equal> it(new_cond_equal.current_level);
+
+  /*
+    Creates multiple equalities 'new_cond_equal' from new_conds list
+    equalities. If multiple equality can't be created or the condition
+    from new_conds list isn't an equality the method leaves it in new_conds
+    list.
+
+    The equality can't be converted into the multiple equality if it
+    is a knowingly false or true equality.
+    For example, (3 = 1) equality.
+  */
+  while ((item=li++))
+  {
+    if (item->type() == Item::FUNC_ITEM &&
+        ((Item_func *) item)->functype() == Item_func::EQ_FUNC &&
+       check_simple_equality(thd,
+                             Item::Context(Item::ANY_SUBST,
+                             ((Item_func_equal *)item)->compare_type_handler(),
+                             ((Item_func_equal *)item)->compare_collation()),
+                             ((Item_func *)item)->arguments()[0]->real_item(),
+                             ((Item_func *)item)->arguments()[1]->real_item(),
+                             &new_cond_equal))
+      li.remove();
+  }
+
+  it.rewind();
+  if (cond && cond->type() == Item::COND_ITEM &&
+      ((Item_cond*) cond)->functype() == Item_func::COND_AND_FUNC)
+  {
+    /*
+      cond is an AND-condition.
+      The method conjugates the AND-condition cond, created multiple
+      equalities 'new_cond_equal' and remain conditions from new_conds.
+
+      First, the method disjoins multiple equalities of cond and
+      merges 'new_cond_equal' multiple equalities with these equalities.
+      It checks if after the merge the multiple equalities are knowingly
+      true or false equalities.
+      It attaches to cond conditions from new_conds list and the result
+      of the merge of multiple equalities. The multiple equalities are
+      attached only to the upper level of cond AND-condition. So they
+      should be pushed down to the inner levels of cond AND-condition
+      if needed. It is done by propagate_new_equalities().
+    */
+    COND_EQUAL *cond_equal= &((Item_cond_and *) cond)->m_cond_equal;
+    List<Item_equal> *cond_equalities= &cond_equal->current_level;
+    List<Item> *and_args= ((Item_cond_and *)cond)->argument_list();
+    and_args->disjoin((List<Item> *) cond_equalities);
+    and_args->append(&new_conds);
+
+    while ((equality= it++))
+    {
+      equality->upper_levels= 0;
+      equality->merge_into_list(thd, cond_equalities, false, false);
+    }
+    List_iterator_fast<Item_equal> ei(*cond_equalities);
+    while ((equality= ei++))
+    {
+      if (equality->const_item() && !equality->val_int())
+        is_simplified_cond= true;
+      equality->fixed= 0;
+      if (equality->fix_fields(thd, NULL))
+        return NULL;
+    }
+
+    and_args->append((List<Item> *) cond_equalities);
+    *cond_eq= &((Item_cond_and *) cond)->m_cond_equal;
+
+    propagate_new_equalities(thd, cond, cond_equalities,
+                             cond_equal->upper_levels,
+                             &is_simplified_cond);
+    cond= cond->propagate_equal_fields(thd,
+                                       Item::Context_boolean(),
+                                       cond_equal);
+  }
+  else
+  {
+    /*
+      cond isn't AND-condition or is NULL.
+      There can be several cases:
+
+      1. cond is a multiple equality.
+         In this case cond is merged with the multiple equalities of
+         'new_cond_equal'.
+         The new condition is created with the conjunction of new_conds
+         list conditions and the result of merge of multiple equalities.
+      2. cond isn't a multiple equality and isn't NULL
+         In this case new condition is created from cond, remain conditions
+         from new_conds list and created multiple equalities from
+         'new_cond_equal'.
+      3. cond is NULL
+         The new condition is created from the conditions from new_conds
+         list and multiple equalities from 'new_cond_equal'.
+    */
+    List<Item> new_conds_list; // List to store new condition elements
+    bool is_mult_eq= (cond && cond->type() == Item::FUNC_ITEM &&
+        ((Item_func*) cond)->functype() == Item_func::MULT_EQUAL_FUNC);
+
+    if (cond && !is_mult_eq)
+      new_conds_list.push_back(cond, thd->mem_root);
+    if (new_conds.elements > 0)
+    {
+      li.rewind();
+      while ((item=li++))
+      {
+        if (!item->fixed && item->fix_fields(thd, NULL))
+          return NULL;
+        if (item->const_item() && !item->val_int())
+          is_simplified_cond= true;
+      }
+      if (new_conds.elements > 1)
+        new_conds_list.append(&new_conds);
+      else
+      {
+        li.rewind();
+        item= li++;
+        new_conds_list.push_back(item, thd->mem_root);
+      }
+    }
+
+    if (new_cond_equal.current_level.elements > 0)
+    {
+      if (is_mult_eq)
+      {
+        Item_equal *eq_cond= (Item_equal *)cond;
+        eq_cond->upper_levels= 0;
+        eq_cond->merge_into_list(thd, &new_cond_equal.current_level,
+                                 false, false);
+
+        while ((equality= it++))
+        {
+          if (equality->const_item() && !equality->val_int())
+            is_simplified_cond= true;
+        }
+
+        if (new_cond_equal.current_level.elements +
+            new_conds_list.elements == 1)
+        {
+          it.rewind();
+          equality= it++;
+          equality->fixed= 0;
+          if (equality->fix_fields(thd, NULL))
+            return NULL;
+        }
+        *cond_eq= &new_cond_equal;
+      }
+      new_conds_list.append((List<Item> *)&new_cond_equal.current_level);
+    }
+
+    if (new_conds_list.elements > 1)
+    {
+      Item_cond_and *and_cond=
+        new (thd->mem_root) Item_cond_and(thd, new_conds_list);
+
+      and_cond->m_cond_equal.copy(new_cond_equal);
+      cond= (Item *)and_cond;
+      *cond_eq= &((Item_cond_and *)cond)->m_cond_equal;
+    }
+    else
+    {
+      List_iterator_fast<Item> iter(new_conds_list);
+      cond= iter++;
+    }
+
+    if (!cond->fixed && cond->fix_fields(thd, NULL))
+      return NULL;
+
+    if (new_cond_equal.current_level.elements > 0)
+      cond= cond->propagate_equal_fields(thd,
+                                         Item::Context_boolean(),
+                                         &new_cond_equal);
+  }
+
+  /*
+    If it was found that some of the created condition parts are knowingly
+    true or false equalities method calls removes_eq_cond() to remove them
+    from the condition and set the cond_value to the appropriate value.
+  */
+  if (is_simplified_cond)
+    cond= cond->remove_eq_conds(thd, cond_value, true);
+  return cond;
+}
+
+
+/**
+  @brief  Materialize a degenerate jtbm semi join
+
+  @param thd        thread handler
+  @param tbl        table list for the target jtbm semi join table
+  @param subq_pred  IN subquery predicate with the degenerate jtbm semi join
+  @param eq_list    IN/OUT the list where to add produced equalities
+
+  @details
+    The method materializes the degenerate jtbm semi join for the
+    subquery from the IN subquery predicate subq_pred taking table
+    as the target for materialization.
+    Any degenerate table is guaranteed to produce 0 or 1 record.
+    Examples of both cases:
+
+    select * from ot where col in (select ... from it where 2>3)
+    select * from ot where col in (select MY_MIN(it.key) from it)
+
+    in this case, there is no necessity to create a temp.table for
+    materialization.
+    We now just need to
+    1. Check whether 1 or 0 records are produced, setup this as a
+       constant join tab.
+    2. Create a dummy temporary table, because all of the join
+       optimization code relies on TABLE object being present.
+
+    In the case when materialization produces one row the function
+    additionally creates equalities between the expressions from the
+    left part of the IN subquery predicate and the corresponding
+    columns of the produced row. These equalities are added to the
+    list eq_list. They are supposed to be conjuncted with the condition
+    of the WHERE clause.
+
+  @retval TRUE   if an error occurs
+  @retval FALSE  otherwise
+*/
+
+bool execute_degenerate_jtbm_semi_join(THD *thd,
+                                       TABLE_LIST *tbl,
+                                       Item_in_subselect *subq_pred,
+                                       List<Item> &eq_list)
+{
+  DBUG_ENTER("execute_degenerate_jtbm_semi_join");
+  select_value_catcher *new_sink;
+
+  DBUG_ASSERT(subq_pred->engine->engine_type() ==
+              subselect_engine::SINGLE_SELECT_ENGINE);
+  subselect_single_select_engine *engine=
+    (subselect_single_select_engine*)subq_pred->engine;
+  if (!(new_sink= new (thd->mem_root) select_value_catcher(thd, subq_pred)))
+    DBUG_RETURN(TRUE);
+  if (new_sink->setup(&engine->select_lex->join->fields_list) ||
+      engine->select_lex->join->change_result(new_sink, NULL) ||
+      engine->exec())
+  {
+    DBUG_RETURN(TRUE);
+  }
+  subq_pred->is_jtbm_const_tab= TRUE;
+
+  if (new_sink->assigned)
+  {
+    /*
+      Subselect produced one row, which is saved in new_sink->row.
+      Save "left_expr[i] == row[i]" equalities into the eq_list.
+    */
+    subq_pred->jtbm_const_row_found= TRUE;
+
+    Item *eq_cond;
+    for (uint i= 0; i < subq_pred->left_expr->cols(); i++)
+    {
+      eq_cond=
+        new (thd->mem_root) Item_func_eq(thd,
+                                         subq_pred->left_expr->element_index(i),
+                                         new_sink->row[i]);
+      if (!eq_cond)
+        DBUG_RETURN(TRUE);
+
+      eq_list.push_back(eq_cond, thd->mem_root);
+    }
+  }
+  else
+  {
+    /* Subselect produced no rows. Just set the flag */
+    subq_pred->jtbm_const_row_found= FALSE;
+  }
+
+  TABLE *dummy_table;
+  if (!(dummy_table= create_dummy_tmp_table(thd)))
+    DBUG_RETURN(TRUE);
+  tbl->table= dummy_table;
+  tbl->table->pos_in_table_list= tbl;
+  /*
+    Note: the table created above may be freed by:
+    1. JOIN_TAB::cleanup(), when the parent join is a regular join.
+    2. cleanup_empty_jtbm_semi_joins(), when the parent join is a
+       degenerate join (e.g. one with "Impossible where").
+  */
+  setup_table_map(tbl->table, tbl, tbl->jtbm_table_no);
+  DBUG_RETURN(FALSE);
+}
+
+
+/**
+  @brief
+    Execute degenerate jtbm semi joins before optimize_cond() for parent
+
+  @param join       the parent join for jtbm semi joins
+  @param join_list  the list of tables where jtbm semi joins are processed
+  @param eq_list    IN/OUT the list where to add equalities produced after
+                    materialization of single-row degenerate jtbm semi joins
+
+  @details
+    The method traverses join_list trying to find any degenerate jtbm semi
+    joins for subqueries of IN predicates. For each degenerate jtbm
+    semi join execute_degenerate_jtbm_semi_join() is called. As a result
+    of this call new equalities that substitute for single-row materialized
+    jtbm semi join are added to eq_list.
+
+    In the case when a table is nested in another table 'nested_join' the
+    method is recursively called for the join_list of the 'nested_join' trying
+    to find in the list any degenerate jtbm semi joins. Currently a jtbm semi
+    join may occur in a mergeable semi join nest.
+
+  @retval TRUE   if an error occurs
+  @retval FALSE  otherwise
+*/
+
+bool
+setup_degenerate_jtbm_semi_joins(JOIN *join,
+                                 List<TABLE_LIST> *join_list,
+                                 List<Item> &eq_list)
+{
+  TABLE_LIST *table;
+  NESTED_JOIN *nested_join;
+  List_iterator<TABLE_LIST> li(*join_list);
+  THD *thd= join->thd;
+  DBUG_ENTER("setup_degenerate_jtbm_semi_joins");
+
+  while ((table= li++))
+  {
+    Item_in_subselect *subq_pred;
+
+    if ((subq_pred= table->jtbm_subselect))
+    {
+      JOIN *subq_join= subq_pred->unit->first_select()->join;
+
+      if (!subq_join->tables_list || !subq_join->table_count)
+      {
+        if (execute_degenerate_jtbm_semi_join(thd,
+                                              table,
+                                              subq_pred,
+                                              eq_list))
+          DBUG_RETURN(TRUE);
+
+        join->is_orig_degenerated= true;
+      }
+    }
+    if ((nested_join= table->nested_join))
+    {
+      if (setup_degenerate_jtbm_semi_joins(join, &nested_join->join_list, eq_list))
+          DBUG_RETURN(TRUE);
+    }
+  }
+
+  DBUG_RETURN(FALSE);
+}
+
+
+/**
+  @brief
+    Optimize jtbm semi joins for materialization
+
+  @param join       the parent join for jtbm semi joins
+  @param join_list  the list of TABLE_LIST objects where jtbm semi join
+                    can occur
+  @param eq_list    IN/OUT the list where to add produced equalities
+
+  @details
+    This method is called by the optimizer after the call of
+    optimize_cond() for parent select.
+    The method traverses join_list trying to find any jtbm semi joins for
+    subqueries from IN predicates and optimizes them.
+    After the optimization some of jtbm semi joins may become degenerate.
+    For example the subquery SELECT MAX(b) FROM t2 from the query
+    SELECT * FROM t1 WHERE 4 IN (SELECT MAX(b) FROM t2);
+    will become degenerate if there is an index on t2.b.
+    If a subquery becomes degenerate it is handled by the function
+    execute_degenerate_jtbm_semi_join().
+
+    Otherwise the method creates a temporary table in which the subquery
+    of the jtbm semi join will be materialied.
+
+    The function saves the equalities between all pairs of the expressions
+    from the left part of the IN subquery predicate and the corresponding
+    columns of the subquery from the predicate in eq_list appending them
+    to the list. The equalities of eq_list will be later conjucted with the
+    condition of the WHERE clause.
+
+    In the case when a table is nested in another table 'nested_join' the
+    method is recursively called for the join_list of the 'nested_join' trying
+    to find in the list any degenerate jtbm semi joins. Currently a jtbm semi
+    join may occur in a mergeable semi join nest.
+
+  @retval TRUE   if an error occurs
+  @retval FALSE  otherwise
+*/
+
+bool setup_jtbm_semi_joins(JOIN *join, List<TABLE_LIST> *join_list,
+                           List<Item> &eq_list)
 {
   TABLE_LIST *table;
   NESTED_JOIN *nested_join;
   List_iterator<TABLE_LIST> li(*join_list);
   THD *thd= join->thd;
   DBUG_ENTER("setup_jtbm_semi_joins");
-  
+
   while ((table= li++))
   {
-    Item_in_subselect *item;
+    Item_in_subselect *subq_pred;
     
-    if ((item= table->jtbm_subselect))
+    if ((subq_pred= table->jtbm_subselect))
     {
-      Item_in_subselect *subq_pred= item;
       double rows;
       double read_time;
 
       /*
-        Perform optimization of the subquery, so that we know estmated
+        Perform optimization of the subquery, so that we know estimated
         - cost of materialization process 
         - how many records will be in the materialized temp.table
       */
@@ -5467,103 +5885,33 @@ bool setup_jtbm_semi_joins(JOIN *join, List<TABLE_LIST> *join_list,
 
       if (!subq_join->tables_list || !subq_join->table_count)
       {
-        /*
-          A special case; subquery's join is degenerate, and it either produces
-          0 or 1 record. Examples of both cases:
-
-            select * from ot where col in (select ... from it where 2>3) 
-            select * from ot where col in (select MY_MIN(it.key) from it)
-          
-          in this case, the subquery predicate has not been setup for
-          materialization. In particular, there is no materialized temp.table.
-          We'll now need to
-          1. Check whether 1 or 0 records are produced, setup this as a
-             constant join tab.
-          2. Create a dummy temporary table, because all of the join
-             optimization code relies on TABLE object being present (here we
-             follow a bad tradition started by derived tables)
-        */
-        DBUG_ASSERT(subq_pred->engine->engine_type() == 
-                    subselect_engine::SINGLE_SELECT_ENGINE);
-        subselect_single_select_engine *engine=
-          (subselect_single_select_engine*)subq_pred->engine;
-        select_value_catcher *new_sink;
-        if (!(new_sink=
-                new (thd->mem_root) select_value_catcher(thd, subq_pred)))
+        if (!join->is_orig_degenerated &&
+            execute_degenerate_jtbm_semi_join(thd, table, subq_pred,
+                                               eq_list))
           DBUG_RETURN(TRUE);
-        if (new_sink->setup(&engine->select_lex->join->fields_list) ||
-            engine->select_lex->join->change_result(new_sink, NULL) ||
-            engine->exec())
-        {
-          DBUG_RETURN(TRUE);
-        }
-        subq_pred->is_jtbm_const_tab= TRUE;
-
-        if (new_sink->assigned)
-        {
-          subq_pred->jtbm_const_row_found= TRUE;
-          /* 
-            Subselect produced one row, which is saved in new_sink->row. 
-            Inject "left_expr[i] == row[i] equalities into parent's WHERE.
-          */
-          Item *eq_cond;
-          for (uint i= 0; i < subq_pred->left_expr->cols(); i++)
-          {
-            eq_cond= new (thd->mem_root)
-              Item_func_eq(thd, subq_pred->left_expr->element_index(i),
-                           new_sink->row[i]);
-            if (!eq_cond)
-              DBUG_RETURN(1);
-
-            if (!((*join_where)= and_items(thd, *join_where, eq_cond)) ||
-                (*join_where)->fix_fields(thd, join_where))
-              DBUG_RETURN(1);
-          }
-        }
-        else
-        {
-          /* Subselect produced no rows. Just set the flag, */
-          subq_pred->jtbm_const_row_found= FALSE;
-        }
-
-        /* Set up a dummy TABLE*, optimizer code needs JOIN_TABs to have TABLE */
-        TABLE *dummy_table;
-        if (!(dummy_table= create_dummy_tmp_table(thd)))
-          DBUG_RETURN(1);
-        table->table= dummy_table;
-        table->table->pos_in_table_list= table;
-        /*
-          Note: the table created above may be freed by:
-          1. JOIN_TAB::cleanup(), when the parent join is a regular join.
-          2. cleanup_empty_jtbm_semi_joins(), when the parent join is a
-             degenerate join (e.g. one with "Impossible where").
-        */
-        setup_table_map(table->table, table, table->jtbm_table_no);
       }
       else
       {
         DBUG_ASSERT(subq_pred->test_set_strategy(SUBS_MATERIALIZATION));
         subq_pred->is_jtbm_const_tab= FALSE;
         subselect_hash_sj_engine *hash_sj_engine=
-          ((subselect_hash_sj_engine*)item->engine);
+          ((subselect_hash_sj_engine*)subq_pred->engine);
         
         table->table= hash_sj_engine->tmp_table;
         table->table->pos_in_table_list= table;
 
         setup_table_map(table->table, table, table->jtbm_table_no);
 
-        Item *sj_conds= hash_sj_engine->semi_join_conds;
-
-        (*join_where)= and_items(thd, *join_where, sj_conds);
-        if (!(*join_where)->fixed)
-          (*join_where)->fix_fields(thd, join_where);
+        List_iterator<Item> li(*hash_sj_engine->semi_join_conds->argument_list());
+        Item *item;
+        while ((item=li++))
+          eq_list.push_back(item, thd->mem_root);
       }
       table->table->maybe_null= MY_TEST(join->mixed_implicit_grouping);
     }
-
     if ((nested_join= table->nested_join))
     {
-      if (setup_jtbm_semi_joins(join, &nested_join->join_list, join_where))
+      if (setup_jtbm_semi_joins(join, &nested_join->join_list, eq_list))
         DBUG_RETURN(TRUE);
     }
   }
@@ -5956,4 +6304,408 @@ bool JOIN::choose_tableless_subquery_plan()
     }
   }
   return FALSE;
+}
+
+
+/**
+  @brief
+    Check if item exists in the list of fields from the left part of subquery
+
+  @param item    the search field
+  @param fields  list of In_subq_fields
+
+  @retval TRUE   if the item was found in the list
+  @retval FALSE  otherwise
+*/
+bool Item::find_field(Item_in_subselect *subq_pred)
+{
+  DBUG_ASSERT(type() == Item::FIELD_ITEM ||
+              (type() == Item::REF_ITEM &&
+               ((Item_ref *) this)->ref_type() == Item_ref::VIEW_REF));
+
+  List_iterator<In_subq_field> it(subq_pred->comparable_fields);
+  In_subq_field *ret;
+  Item_field *field_item= (Item_field *) (real_item());
+  while ((ret= it++))
+  {
+    if (field_item->field ==
+        ((Item_field *) (ret->left_it->real_item()))->field)
+      return true;
+  }
+  return false;
+}
+
+
+bool Item_field::excl_dep_on_in_subq_left_part(Item_in_subselect *subq_pred)
+{
+  if (((Item *)this)->find_field(subq_pred))
+    return true;
+  if (item_equal)
+  {
+    Item_equal_fields_iterator it(*item_equal);
+    Item *equal_item;
+    while ((equal_item= it++))
+    {
+      if (equal_item->const_item())
+	continue;
+      if (equal_item->find_field(subq_pred))
+	return true;
+    }
+  }
+  return false;
+}
+
+
+bool Item_direct_view_ref::excl_dep_on_in_subq_left_part(Item_in_subselect *subq_pred)
+{
+  if (item_equal)
+  {
+    DBUG_ASSERT(real_item()->type() == Item::FIELD_ITEM);
+    return ((Item *)this)->find_field(subq_pred);
+  }
+  return (*ref)->excl_dep_on_in_subq_left_part(subq_pred);
+}
+
+
+bool Item_equal::excl_dep_on_in_subq_left_part(Item_in_subselect *subq_pred)
+{
+  Item *left_item = get_const();
+  Item_equal_fields_iterator it(*this);
+  Item *item;
+  if (!left_item)
+  {
+    while ((item=it++))
+    {
+      if (item->excl_dep_on_in_subq_left_part(subq_pred))
+      {
+        left_item= item;
+        break;
+      }
+    }
+  }
+  if (!left_item)
+    return false;
+  while ((item=it++))
+  {
+    if (item->excl_dep_on_in_subq_left_part(subq_pred))
+      return true;
+  }
+  return false;
+}
+
+
+/**
+  @brief
+    Transforms item so it can be pushed into the IN subquery HAVING clause
+
+  @param thd        the thread handle
+  @param in_item    the item for which pushable item should be created
+  @param subq_pred  the IN subquery predicate
+
+  @details
+    This method traverses the fields of the select of the IN subquery predicate
+    subq_pred trying to find the corresponding item 'new_item' for in_item.
+    If in_item has equal items it traverses the fields of the select of
+    subq_pred for each equal item trying to find corresponding item 'new_item'.
+    If 'new_item' is found, a shell for this item is created. This shell can be
+    pushed into the HAVING part of subq_pred select.
+
+  @retval <item*>  reference to the created corresonding item shell for in_item
+  @retval NULL     if mistake occurs
+*/
+
+static
+Item *get_corresponding_item_for_in_subq_having(THD *thd, Item *in_item,
+                                                Item_in_subselect *subq_pred)
+{
+  DBUG_ASSERT(in_item->type() == Item::FIELD_ITEM ||
+              (in_item->type() == Item::REF_ITEM &&
+              ((Item_ref *) in_item)->ref_type() == Item_ref::VIEW_REF));
+
+  In_subq_field *fi;
+  Item *new_item;
+  List_iterator<In_subq_field> li(subq_pred->comparable_fields);
+  Item_field *field_item= (Item_field *) (in_item->real_item());
+  Item_equal *item_equal= in_item->get_item_equal();
+
+  if (item_equal)
+  {
+    Item_equal_fields_iterator it(*item_equal);
+    Item *equal_item;
+    while ((equal_item= it++))
+    {
+      field_item= (Item_field *) (equal_item->real_item());
+      li.rewind();
+      while ((fi= li++))
+      {
+        if (field_item->field ==
+            ((Item_field *) (fi->left_it->real_item()))->field)
+        {
+          new_item= fi->right_it;
+          break;
+        }
+      }
+    }
+  }
+  else
+  {
+    li.rewind();
+    while ((fi= li++))
+    {
+      if (field_item->field ==
+        ((Item_field *) (fi->left_it->real_item()))->field)
+      {
+        new_item= fi->right_it;
+        break;
+      }
+    }
+  }
+
+  if (new_item)
+  {
+    Item_ref *ref=
+      new (thd->mem_root) Item_ref(thd,
+                                   &subq_pred->unit->first_select()->context,
+                                   NullS, NullS,
+                                   &new_item->name);
+    return ref;
+  }
+  DBUG_ASSERT(0);
+  return NULL;
+}
+
+
+Item *Item_field::in_subq_field_transformer_for_having(THD *thd, uchar *arg)
+{
+  return get_corresponding_item_for_in_subq_having(thd, this,
+                                                   (Item_in_subselect *)arg);
+}
+
+
+Item *Item_direct_view_ref::in_subq_field_transformer_for_having(THD *thd,
+                                                                 uchar *arg)
+{
+  return get_corresponding_item_for_in_subq_having(thd, this,
+                                                   (Item_in_subselect *)arg);
+}
+
+
+/**
+  @brief
+    Find fields that are used in the GROUP BY of the select
+
+  @param thd     the thread handle
+  @param sel     the select of the IN subquery predicate
+  @param fields  fields of the left part of the IN subquery predicate
+
+  @details
+    This method traverses fields which are used in the GROUP BY of
+    sel and saves them with their corresponding items from fields.
+*/
+
+void grouping_fields_in_the_in_subq_left_part(THD *thd,
+                                              st_select_lex *sel,
+                                              List<In_subq_field> *fields,
+                                              ORDER *grouping_list)
+{
+  sel->grouping_tmp_fields.empty();
+  List_iterator<In_subq_field> it(*fields);
+  In_subq_field *item;
+  while ((item= it++))
+  {
+    for (ORDER *ord= grouping_list; ord; ord= ord->next)
+    {
+      if ((*ord->item)->eq(item->right_it, 0))
+      {
+        Field *field=
+          ((Item_field *)(item->left_it->real_item()))->field;
+        Grouping_tmp_field *grouping_tmp_field=
+          new Grouping_tmp_field(field, item->right_it);
+        sel->grouping_tmp_fields.push_back(grouping_tmp_field);
+      }
+    }
+  }
+}
+
+
+/**
+  @brief
+    Extract the condition that depends only on the fields from the
+    left part of the IN subquery and push it into the select of
+    the right part of the IN subquery
+
+  @param thd   the thread handle
+  @param cond  current condition
+
+  @details
+    How the pushdown is made on the example:
+
+    select * from t1
+    where a>3 and b>10 and
+          (a,b) in (select x,max(y) from t2 group by x);
+
+    -->
+
+    select * from t1
+    where a>3 and b>10 and
+          (a,b) in (select x,max(y)
+                    from t2
+                    where x>3
+                    group by x
+                    having max(y)>10);
+
+    The implementation scheme:
+
+    1. It extracts the condition extr from condition cond that depends only on
+       the fields of the left part of the IN subquery (left_part).
+    2. Finds fields F_group in the right part of the IN subquery (right_part)
+       that are used in the GROUP BY.
+    3. Extracts from the extr condition cond_where that depends only on the
+       those fields from the left_part that stay at the same places in the left_part
+       (have the same indexes) as the F_group fields in the projection of the
+       right_part.
+    4. Transforms cond_where so it can be pushed into the WHERE clause of the
+       right_part and delete cond_where from the extr.
+    5. Transforms extr so it can be pushed into the HAVING clause of the right_part
+  @note
+    This method is similar with pushdown_cond_for_derived()
+
+  @retval TRUE   if an error occurs
+  @retval FALSE  otherwise
+*/
+
+bool Item_in_subselect::pushdown_cond_for_in_subquery(THD *thd, Item *cond)
+{
+  DBUG_ENTER("Item_in_subselect::pushdown_cond_for_in_subquery");
+  if (!cond)
+    DBUG_RETURN(FALSE);
+
+  st_select_lex *sel = unit->first_select();
+
+  if (is_jtbm_const_tab)
+    DBUG_RETURN(FALSE);
+
+  if (!sel->cond_pushdown_is_allowed())
+    DBUG_RETURN(FALSE);
+
+  /*
+    Create the list of In_subq_field items for this IN subquery:
+    it consists of the pairs of fields from the left part of the IN subquery
+    'left_part' and the respective fields from the select of the right part of
+    the IN subquery 'right_part' (fields that stay on the same places as fields
+    of left_part in the projection list of right_part).
+  */
+  comparable_fields.empty();
+  List_iterator_fast<Item> it(sel->join->fields_list);
+  Item *item;
+  for (uint i= 0; i < left_expr->cols(); i++)
+  {
+    item= it++;
+    Item *elem= left_expr->element_index(i);
+
+    if (elem->real_item()->type() != Item::FIELD_ITEM)
+      continue;
+
+    comparable_fields.push_back(new In_subq_field(elem, item));
+  }
+
+  /*
+    Build the new condition from cond that can be pushed into sel
+  */
+  Item *extracted_cond;
+  cond->check_pushable_cond(0, this);
+  extracted_cond= cond->build_pushable_cond(thd, 0, this);
+  /*
+    Nothing to push
+  */
+  if (!extracted_cond)
+  {
+    DBUG_RETURN(FALSE);
+  }
+
+  st_select_lex *save_curr_select= thd->lex->current_select;
+  thd->lex->current_select= sel;
+
+  if (sel->have_window_funcs())
+  {
+    if (sel->group_list.first || sel->join->implicit_grouping)
+      goto exit;
+    ORDER *common_partition_fields=
+	     sel->find_common_window_func_partition_fields(thd);
+    if (!common_partition_fields)
+      goto exit;
+
+    Item *cond_over_partition_fields;
+    grouping_fields_in_the_in_subq_left_part(thd, sel, &comparable_fields,
+					     common_partition_fields);
+
+    sel->check_cond_extraction_for_grouping_fields(extracted_cond);
+    cond_over_partition_fields=
+      sel->build_cond_for_grouping_fields(thd, extracted_cond, true);
+
+    if (cond_over_partition_fields)
+      cond_over_partition_fields= cond_over_partition_fields->transform(thd,
+        &Item::grouping_field_transformer_for_where, (uchar*) sel);
+
+    if (cond_over_partition_fields)
+    {
+      cond_over_partition_fields->walk(
+	      &Item::cleanup_excluding_const_fields_processor, 0, 0);
+      sel->cond_pushed_into_where= cond_over_partition_fields;
+    }
+    goto exit;
+  }
+
+  /*
+    Checks what can be pushed into the WHERE clause of sel from the
+    extracted condition
+  */
+  Item *cond_over_grouping_fields;
+  grouping_fields_in_the_in_subq_left_part(thd, sel, &comparable_fields,
+                                           sel->group_list.first);
+  sel->check_cond_extraction_for_grouping_fields(extracted_cond);
+  cond_over_grouping_fields=
+    sel->build_cond_for_grouping_fields(thd, extracted_cond, true);
+
+  /*
+    Transforms the references to the left_part fields so they can be pushed
+    into sel of the WHERE clause.
+  */
+  if (cond_over_grouping_fields)
+      cond_over_grouping_fields=
+        cond_over_grouping_fields->transform(thd,
+                                   &Item::grouping_field_transformer_for_where,
+                                   (uchar*) sel);
+
+  if (cond_over_grouping_fields)
+  {
+    /*
+      Removes from extracted_cond all parts that can be pushed into the
+      WHERE clause
+    */
+    extracted_cond= remove_pushed_top_conjuncts(thd, extracted_cond);
+
+    cond_over_grouping_fields->walk(
+      &Item::cleanup_excluding_const_fields_processor, 0, 0);
+    sel->cond_pushed_into_where= cond_over_grouping_fields;
+
+    if (!extracted_cond)
+      goto exit;
+  }
+  /*
+    Transforms the references to the left_part fields so the transformed
+    condition can be pushed into sel of the HAVING clause
+  */
+  extracted_cond= extracted_cond->transform(thd,
+                         &Item::in_subq_field_transformer_for_having,
+                         (uchar*) this);
+  if (!extracted_cond)
+    goto exit;
+
+  extracted_cond->walk(&Item::cleanup_excluding_const_fields_processor, 0, 0);
+  sel->cond_pushed_into_having= extracted_cond;
+
+exit:
+  thd->lex->current_select= save_curr_select;
+  DBUG_RETURN(FALSE);
 }
