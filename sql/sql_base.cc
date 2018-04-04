@@ -1781,7 +1781,7 @@ retry_share:
 
   share= tdc_acquire_share(thd, table_list, gts_flags, &table);
 
-  if (!share)
+  if (unlikely(!share))
   {
     /*
       Hide "Table doesn't exist" errors if the table belongs to a view.
@@ -1923,7 +1923,7 @@ retry_share:
                                  thd->open_options, table, FALSE,
                                  IF_PARTITIONING(table_list->partition_names,0));
 
-    if (error)
+    if (unlikely(error))
     {
       my_free(table);
 
@@ -1968,7 +1968,7 @@ retry_share:
   table_list->table= table;
 
 #ifdef WITH_PARTITION_STORAGE_ENGINE
-  if (table->part_info)
+  if (unlikely(table->part_info))
   {
     /* Partitions specified were incorrect.*/
     if (part_names_error)
@@ -2053,7 +2053,7 @@ TABLE *find_table_for_mdl_upgrade(THD *thd, const char *db,
 {
   TABLE *tab= find_locked_table(thd->open_tables, db, table_name);
 
-  if (!tab)
+  if (unlikely(!tab))
   {
     if (!no_error)
       my_error(ER_TABLE_NOT_LOCKED, MYF(0), table_name);
@@ -2066,8 +2066,8 @@ TABLE *find_table_for_mdl_upgrade(THD *thd, const char *db,
     cases don't take a global IX lock in order to be compatible with
     global read lock.
   */
-  if (!thd->mdl_context.is_lock_owner(MDL_key::GLOBAL, "", "",
-                                      MDL_INTENTION_EXCLUSIVE))
+  if (unlikely(!thd->mdl_context.is_lock_owner(MDL_key::GLOBAL, "", "",
+                                               MDL_INTENTION_EXCLUSIVE)))
   {
     if (!no_error)
       my_error(ER_TABLE_NOT_LOCKED_FOR_WRITE, MYF(0), table_name);
@@ -2079,7 +2079,7 @@ TABLE *find_table_for_mdl_upgrade(THD *thd, const char *db,
          (tab= find_locked_table(tab->next, db, table_name)))
     continue;
 
-  if (!tab && !no_error)
+  if (unlikely(!tab && !no_error))
     my_error(ER_TABLE_NOT_LOCKED_FOR_WRITE, MYF(0), table_name);
 
   return tab;
@@ -3512,7 +3512,7 @@ open_and_process_table(THD *thd, LEX *lex, TABLE_LIST *tables,
       error= open_table(thd, tables, ot_ctx);
   }
 
-  if (error)
+  if (unlikely(error))
   {
     if (! ot_ctx->can_recover_from_failed_open() && safe_to_ignore_table)
     {
@@ -3592,7 +3592,7 @@ open_and_process_table(THD *thd, LEX *lex, TABLE_LIST *tables,
     if (need_prelocking && ! lex->requires_prelocking())
       lex->mark_as_requiring_prelocking(save_query_tables_last);
 
-    if (error)
+    if (unlikely(error))
       goto end;
   }
 
@@ -3602,7 +3602,7 @@ open_and_process_table(THD *thd, LEX *lex, TABLE_LIST *tables,
   /* Check and update metadata version of a base table. */
   error= check_and_update_table_version(thd, tables, tables->table->s);
 
-  if (error)
+  if (unlikely(error))
     goto end;
   /*
     After opening a MERGE table add the children to the query list of
@@ -3662,7 +3662,7 @@ process_view_routines:
     if (need_prelocking && ! lex->requires_prelocking())
       lex->mark_as_requiring_prelocking(save_query_tables_last);
 
-    if (error)
+    if (unlikely(error))
       goto end;
   }
 
@@ -4031,7 +4031,7 @@ restart:
                                     flags, prelocking_strategy,
                                     has_prelocking_list, &ot_ctx);
 
-      if (error)
+      if (unlikely(error))
       {
         if (ot_ctx.can_recover_from_failed_open())
         {
@@ -4113,7 +4113,7 @@ restart:
         if (need_prelocking && ! *start)
           *start= thd->lex->query_tables;
 
-        if (error)
+        if (unlikely(error))
         {
           if (ot_ctx.can_recover_from_failed_open())
           {
@@ -4209,7 +4209,7 @@ error:
   THD_STAGE_INFO(thd, stage_after_opening_tables);
   thd_proc_info(thd, 0);
 
-  if (error && *table_to_open)
+  if (unlikely(error) && *table_to_open)
   {
     (*table_to_open)->table= NULL;
   }
@@ -4387,7 +4387,7 @@ handle_table(THD *thd, Query_tables_list *prelocking_ctx,
       arena= thd->activate_stmt_arena_if_needed(&backup);
 
       table->file->get_parent_foreign_key_list(thd, &fk_list);
-      if (thd->is_error())
+      if (unlikely(thd->is_error()))
       {
         if (arena)
           thd->restore_active_arena(arena, &backup);
@@ -4438,7 +4438,7 @@ handle_table(THD *thd, Query_tables_list *prelocking_ctx,
                                table->internal_tables);
     if (arena)
       thd->restore_active_arena(arena, &backup);
-    if (error)
+    if (unlikely(error))
     {
       *need_prelocking= TRUE;
       return TRUE;
@@ -4679,7 +4679,7 @@ static bool check_lock_and_start_stmt(THD *thd,
              table_list->table->alias.c_ptr());
     DBUG_RETURN(1);
   }
-  if ((error= table_list->table->file->start_stmt(thd, lock_type)))
+  if (unlikely((error= table_list->table->file->start_stmt(thd, lock_type))))
   {
     table_list->table->file->print_error(error, MYF(0));
     DBUG_RETURN(1);
@@ -4819,7 +4819,7 @@ TABLE *open_ltable(THD *thd, TABLE_LIST *table_list, thr_lock_type lock_type,
       break;
   }
 
-  if (!error)
+  if (likely(!error))
   {
     /*
       We can't have a view or some special "open_strategy" in this function
@@ -6161,7 +6161,7 @@ find_field_in_tables(THD *thd, Item_ident *item,
       if (db)
         return cur_field;
       
-      if (found)
+      if (unlikely(found))
       {
         if (report_error == REPORT_ALL_ERRORS ||
             report_error == IGNORE_EXCEPT_NON_UNIQUE)
@@ -6173,7 +6173,7 @@ find_field_in_tables(THD *thd, Item_ident *item,
     }
   }
 
-  if (found)
+  if (likely(found))
     return found;
   
   /*
@@ -6292,7 +6292,7 @@ find_item_in_list(Item *find, List<Item> &items, uint *counter,
 	(if this field created from expression argument of group_concat()),
 	=> we have to check presence of name before compare
       */ 
-      if (!item_field->name.str)
+      if (unlikely(!item_field->name.str))
         continue;
 
       if (table_name)
@@ -6410,24 +6410,27 @@ find_item_in_list(Item *find, List<Item> &items, uint *counter,
       }
     }
   }
-  if (!found)
+
+  if (likely(found))
+    return found;
+
+  if (unlikely(found_unaliased_non_uniq))
   {
-    if (found_unaliased_non_uniq)
-    {
-      if (report_error != IGNORE_ERRORS)
-        my_error(ER_NON_UNIQ_ERROR, MYF(0),
-                 find->full_name(), current_thd->where);
-      return (Item **) 0;
-    }
-    if (found_unaliased)
-    {
-      found= found_unaliased;
-      *counter= unaliased_counter;
-      *resolution= RESOLVED_BEHIND_ALIAS;
-    }
+    if (report_error != IGNORE_ERRORS)
+      my_error(ER_NON_UNIQ_ERROR, MYF(0),
+               find->full_name(), current_thd->where);
+    return (Item **) 0;
   }
+  if (found_unaliased)
+  {
+    found= found_unaliased;
+    *counter= unaliased_counter;
+    *resolution= RESOLVED_BEHIND_ALIAS;
+  }
+
   if (found)
     return found;
+
   if (report_error != REPORT_EXCEPT_NOT_FOUND)
   {
     if (report_error == REPORT_ALL_ERRORS)
@@ -8168,7 +8171,7 @@ fill_record(THD *thd, TABLE *table_arg, List<Item> &fields, List<Item> &values,
 
     if (rfield->stored_in_db())
     {
-      if (value->save_in_field(rfield, 0) < 0 && !ignore_errors)
+      if (unlikely(value->save_in_field(rfield, 0)) < 0 && !ignore_errors)
       {
         my_message(ER_UNKNOWN_ERROR, ER_THD(thd, ER_UNKNOWN_ERROR), MYF(0));
         goto err;
@@ -8423,7 +8426,7 @@ fill_record(THD *thd, TABLE *table, Field **ptr, List<Item> &values,
     /* Ensure that all fields are from the same table */
     DBUG_ASSERT(field->table == table);
 
-    if (field->invisible)
+    if (unlikely(field->invisible))
     {
       all_fields_have_values= false;
       continue;
@@ -8435,7 +8438,7 @@ fill_record(THD *thd, TABLE *table, Field **ptr, List<Item> &values,
 
     if (field->field_index == autoinc_index)
       table->auto_increment_field_not_null= TRUE;
-    if (field->vcol_info || (vers_sys_field && !ignore_errors))
+    if (unlikely(field->vcol_info) || (vers_sys_field && !ignore_errors))
     {
       Item::Type type= value->type();
       if (type != Item::DEFAULT_VALUE_ITEM &&
@@ -8836,7 +8839,7 @@ open_log_table(THD *thd, TABLE_LIST *one_table, Open_tables_backup *backup)
         table->current_lock= F_UNLCK;
         error= table->file->ha_external_lock(thd, F_UNLCK);
       }
-      if (error)
+      if (unlikely(error))
         table->file->print_error(error, MYF(0));
       else
       {

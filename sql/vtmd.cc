@@ -31,7 +31,7 @@ VTMD_table::create(THD *thd)
   thd->lex->add_to_query_tables(&src_table);
 
   MDL_auto_lock mdl_lock(thd, table);
-  if (mdl_lock.acquire_error())
+  if (unlikely(mdl_lock.acquire_error()))
     return true;
 
   Reprepare_observer *reprepare_observer= thd->m_reprepare_observer;
@@ -65,11 +65,12 @@ VTMD_table::find_record(ulonglong row_end, bool &found)
   vtmd.table->vers_end_field()->store(row_end, true);
   key_copy(key, vtmd.table->record[0], vtmd.table->key_info + IDX_TRX_END, 0);
 
-  error= vtmd.table->file->ha_index_read_idx_map(vtmd.table->record[1], IDX_TRX_END,
-                                            key,
-                                            HA_WHOLE_KEY,
-                                            HA_READ_KEY_EXACT);
-  if (error)
+  error= vtmd.table->file->ha_index_read_idx_map(vtmd.table->record[1],
+                                                 IDX_TRX_END,
+                                                 key,
+                                                 HA_WHOLE_KEY,
+                                                 HA_READ_KEY_EXACT);
+  if (unlikely(error))
   {
     if (error == HA_ERR_RECORD_DELETED || error == HA_ERR_KEY_NOT_FOUND)
       return false;
@@ -90,7 +91,7 @@ VTMD_table::open(THD *thd, Local_da &local_da, bool *created)
   if (created)
     *created= false;
 
-  if (0 == vtmd_name.length() && about.vers_vtmd_name(vtmd_name))
+  if (unlikely(0 == vtmd_name.length() && about.vers_vtmd_name(vtmd_name)))
     return true;
 
   while (true) // max 2 iterations
@@ -100,7 +101,7 @@ VTMD_table::open(THD *thd, Local_da &local_da, bool *created)
                         TL_WRITE_CONCURRENT_INSERT);
 
     TABLE *res= open_log_table(thd, &vtmd, &open_tables_backup);
-    if (res)
+    if (likely(res))
       return false;
 
     if (created && !*created && local_da.is_error() &&
@@ -132,7 +133,7 @@ VTMD_table::update(THD *thd, const char* archive_name)
     save_thd_options= thd->variables.option_bits;
     thd->variables.option_bits&= ~OPTION_BIN_LOG;
 
-    if (open(thd, local_da, &created))
+    if (unlikely(open(thd, local_da, &created)))
       goto open_error;
 
     if (!vtmd.table->versioned())
@@ -141,10 +142,10 @@ VTMD_table::update(THD *thd, const char* archive_name)
       goto quit;
     }
 
-    if (!created && find_record(ULONGLONG_MAX, found))
+    if (!created && unlikely(find_record(ULONGLONG_MAX, found)))
       goto quit;
 
-    if ((error= vtmd.table->file->extra(HA_EXTRA_MARK_AS_LOG_TABLE)))
+    if (unlikely((error= vtmd.table->file->extra(HA_EXTRA_MARK_AS_LOG_TABLE))))
     {
       vtmd.table->file->print_error(error, MYF(0));
       goto quit;
@@ -153,7 +154,7 @@ VTMD_table::update(THD *thd, const char* archive_name)
     /* Honor next number columns if present */
     vtmd.table->next_number_field= vtmd.table->found_next_number_field;
 
-    if (vtmd.table->s->fields != FIELD_COUNT)
+    if (unlikely(vtmd.table->s->fields != FIELD_COUNT))
     {
       my_printf_error(ER_VERS_VTMD_ERROR, "`%s.%s` unexpected fields count: %d", MYF(0),
                       vtmd.table->s->db.str, vtmd.table->s->table_name.str, vtmd.table->s->fields);
@@ -174,7 +175,7 @@ VTMD_table::update(THD *thd, const char* archive_name)
 
     if (found)
     {
-      if (thd->lex->sql_command == SQLCOM_CREATE_TABLE)
+      if (unlikely(thd->lex->sql_command == SQLCOM_CREATE_TABLE))
       {
         my_printf_error(ER_VERS_VTMD_ERROR, "`%s.%s` exists and not empty!", MYF(0),
                         vtmd.table->s->db.str, vtmd.table->s->table_name.str);
@@ -187,7 +188,7 @@ VTMD_table::update(THD *thd, const char* archive_name)
         error= vtmd.table->file->ha_update_row(vtmd.table->record[1], vtmd.table->record[0]);
         vtmd.table->vers_write= true;
 
-        if (!error)
+        if (likely(!error))
         {
           if (thd->lex->sql_command == SQLCOM_DROP_TABLE)
           {
@@ -202,14 +203,15 @@ VTMD_table::update(THD *thd, const char* archive_name)
             vtmd.table->field[FLD_NAME]->set_notnull();
             vtmd.table->field[FLD_ARCHIVE_NAME]->set_null();
             error= vtmd.table->file->ha_update_row(vtmd.table->record[1], vtmd.table->record[0]);
-            if (error)
+            if (unlikely(error))
               goto err;
 
             DBUG_ASSERT(an_len);
             while (true)
-            { // fill archive_name of last sequential renames
+            {
+              // fill archive_name of last sequential renames
               bool found;
-              if (find_record(row_end, found))
+              if (unlikely(find_record(row_end, found)))
                 goto quit;
               if (!found || !vtmd.table->field[FLD_ARCHIVE_NAME]->is_null())
                 break;
@@ -220,7 +222,7 @@ VTMD_table::update(THD *thd, const char* archive_name)
               vtmd.table->vers_write= false;
               error= vtmd.table->file->ha_update_row(vtmd.table->record[1], vtmd.table->record[0]);
               vtmd.table->vers_write= true;
-              if (error)
+              if (unlikely(error))
                 goto err;
               row_end= (ulonglong) vtmd.table->vers_start_field()->val_int();
             } // while (true)
@@ -247,7 +249,7 @@ VTMD_table::update(THD *thd, const char* archive_name)
       error= vtmd.table->file->ha_write_row(vtmd.table->record[0]);
     }
 
-    if (error)
+    if (unlikely(error))
     {
 err:
       vtmd.table->file->print_error(error, MYF(0));
@@ -288,25 +290,26 @@ VTMD_rename::move_archives(THD *thd, LString &new_db)
   vtmd.init_one_table(&about.db, &table_name, NULL, TL_READ);
 
   TABLE *res= open_log_table(thd, &vtmd, &open_tables_backup);
-  if (!res)
+  if (unlikely(!res))
     return true;
 
-  if (key.allocate(vtmd.table->key_info[IDX_ARCHIVE_NAME].key_length))
+  if (unlikely(key.allocate(vtmd.table->key_info[IDX_ARCHIVE_NAME].key_length)))
   {
     close_log_table(thd, &open_tables_backup);
     return true;
   }
 
-  if ((error= vtmd.table->file->ha_start_keyread(IDX_ARCHIVE_NAME)))
+  if (unlikely((error= vtmd.table->file->ha_start_keyread(IDX_ARCHIVE_NAME))))
     goto err;
   end_keyread= true;
 
-  if ((error= vtmd.table->file->ha_index_init(IDX_ARCHIVE_NAME, true)))
+  if (unlikely((error=
+                vtmd.table->file->ha_index_init(IDX_ARCHIVE_NAME, true))))
     goto err;
   index_end= true;
 
   error= vtmd.table->file->ha_index_first(vtmd.table->record[0]);
-  while (!error)
+  while (likely(!error))
   {
     if (!vtmd.table->field[FLD_ARCHIVE_NAME]->is_null())
     {
@@ -316,12 +319,13 @@ VTMD_rename::move_archives(THD *thd, LString &new_db)
                 &vtmd.table->key_info[IDX_ARCHIVE_NAME],
                 vtmd.table->key_info[IDX_ARCHIVE_NAME].key_length,
                 false);
-      error= vtmd.table->file->ha_index_read_map(
-        vtmd.table->record[0],
-        key,
-        vtmd.table->key_info[IDX_ARCHIVE_NAME].ext_key_part_map,
-        HA_READ_PREFIX_LAST);
-      if (!error)
+      error= vtmd.table->file->ha_index_read_map(vtmd.table->record[0],
+                                                 key,
+                                                 vtmd.table->
+                                                 key_info[IDX_ARCHIVE_NAME].
+                                                 ext_key_part_map,
+                                                 HA_READ_PREFIX_LAST);
+      if (likely(!error))
       {
         if ((rc= move_table(thd, archive, new_db)))
           break;
@@ -336,7 +340,7 @@ VTMD_rename::move_archives(THD *thd, LString &new_db)
     }
   }
 
-  if (error && error != HA_ERR_END_OF_FILE)
+  if (unlikely(error && error != HA_ERR_END_OF_FILE))
   {
 err:
     vtmd.table->file->print_error(error, MYF(0));
@@ -449,12 +453,12 @@ VTMD_rename::try_rename(THD *thd, LString new_db, LString new_alias, const char 
   if (lock_table_names(thd, &vtmd_tl, 0, thd->variables.lock_wait_timeout, 0))
     return true;
   tdc_remove_table(thd, TDC_RT_REMOVE_ALL, about.db.str, vtmd_name, false);
-  if (local_da.is_error()) // just safety check
+  if (unlikely(local_da.is_error())) // just safety check
     return true;
   bool rc= mysql_rename_table(hton, &about.db, &table_name,
                               &new_db_name, &new_name,
                               NO_FK_CHECKS);
-  if (!rc)
+  if (likely(!rc))
   {
     query_cache_invalidate3(thd, &vtmd_tl, 0);
     if (same_db || archive_name ||
@@ -482,7 +486,8 @@ VTMD_rename::revert_rename(THD *thd, LString new_db)
   vtmd_tl.init_one_table(&about.db, &new_name, NULL, TL_WRITE_ONLY);
   vtmd_tl.mdl_request.set_type(MDL_EXCLUSIVE);
   mysql_ha_rm_tables(thd, &vtmd_tl);
-  if (lock_table_names(thd, &vtmd_tl, 0, thd->variables.lock_wait_timeout, 0))
+  if (unlikely(lock_table_names(thd, &vtmd_tl, 0,
+                                thd->variables.lock_wait_timeout, 0)))
     return true;
   tdc_remove_table(thd, TDC_RT_REMOVE_ALL, new_db, vtmd_new_name, false);
 
@@ -490,7 +495,7 @@ VTMD_rename::revert_rename(THD *thd, LString new_db)
                               &new_db_name, &v_name,
                               NO_FK_CHECKS);
 
-  if (!rc)
+  if (likely(!rc))
     query_cache_invalidate3(thd, &vtmd_tl, 0);
 
   return rc;
@@ -532,18 +537,18 @@ VTMD_table::find_archive_name(THD *thd, String &out)
   vtmd.table->map= 1;
 
   vtmd.vers_conditions= about.vers_conditions;
-  if ((error= select_lex.vers_setup_conds(thd, &vtmd, &conds)) ||
-      (error= setup_conds(thd, &vtmd, dummy, &conds)))
+  if (unlikely((error= select_lex.vers_setup_conds(thd, &vtmd, &conds))) ||
+      unlikely((error= setup_conds(thd, &vtmd, dummy, &conds))))
     goto err;
 
   select= make_select(vtmd.table, 0, 0, conds, NULL, 0, &error);
-  if (error)
+  if (unlikely(error))
     goto loc_err;
 
   error= init_read_record(&info, thd, vtmd.table, select, NULL,
                           1 /* use_record_cache */, true /* print_error */,
                           false /* disable_rr_cache */);
-  if (error)
+  if (unlikely(error))
     goto loc_err;
 
   while (!(error= info.read_record()) && !thd->killed && !thd->is_error())
@@ -555,7 +560,7 @@ VTMD_table::find_archive_name(THD *thd, String &out)
     }
   }
 
-  if (error < 0)
+  if (unlikely(error < 0))
     my_error(ER_NO_SUCH_TABLE, MYF(0), about.db.str, about.alias.str);
 
 loc_err:
@@ -624,13 +629,13 @@ VTMD_table::get_archive_tables(THD *thd, const char *db, size_t db_length,
     READ_RECORD read_record;
     int error= 0;
     SQL_SELECT *sql_select= make_select(table, 0, 0, NULL, NULL, 0, &error);
-    if (error)
+    if (unlikely(error))
     {
       close_log_table(thd, &open_tables_backup);
       return true;
     }
     error= init_read_record(&read_record, thd, table, sql_select, NULL, 1, 1, false);
-    if (error)
+    if (unlikely(error))
     {
       delete sql_select;
       close_log_table(thd, &open_tables_backup);
@@ -651,7 +656,7 @@ VTMD_table::get_archive_tables(THD *thd, const char *db, size_t db_length,
       result.push(archive_name);
     }
     // check for EOF
-    if (!thd->is_error())
+    if (likely(!thd->is_error()))
       error= 0;
 
     end_read_record(&read_record);

@@ -73,13 +73,13 @@ bool reload_acl_and_cache(THD *thd, unsigned long long options,
       If reload_acl_and_cache() is called from SIGHUP handler we have to
       allocate temporary THD for execution of acl_reload()/grant_reload().
     */
-    if (!thd && (thd= (tmp_thd= new THD(0))))
+    if (unlikely(!thd) && (thd= (tmp_thd= new THD(0))))
     {
       thd->thread_stack= (char*) &tmp_thd;
       thd->store_globals();
     }
 
-    if (thd)
+    if (likely(thd))
     {
       bool reload_acl_failed= acl_reload(thd);
       bool reload_grants_failed= grant_reload(thd);
@@ -97,7 +97,7 @@ bool reload_acl_and_cache(THD *thd, unsigned long long options,
     }
     opt_noacl= 0;
 
-    if (tmp_thd)
+    if (unlikely(tmp_thd))
     {
       delete tmp_thd;
       thd= 0;
@@ -122,7 +122,7 @@ bool reload_acl_and_cache(THD *thd, unsigned long long options,
   }
 
   if (options & REFRESH_ERROR_LOG)
-    if (flush_error_log())
+    if (unlikely(flush_error_log()))
     {
       /*
         When flush_error_log() failed, my_error() has not been called.
