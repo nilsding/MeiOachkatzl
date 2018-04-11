@@ -37,7 +37,7 @@
 #include "sql_priv.h"
 #include "sql_parse.h"                        /* comp_*_creator */
 #include "sql_table.h"                        /* primary_key_name */
-#include "sql_partition.h"  /* mem_alloc_error, partition_info, HASH_PARTITION */
+#include "sql_partition.h"  /* partition_info, HASH_PARTITION */
 #include "sql_acl.h"                          /* *_ACL */
 #include "sql_class.h"      /* Key_part_spec, enum_filetype, Diag_condition_item_name */
 #include "slave.h"
@@ -758,11 +758,8 @@ bool LEX::set_bincmp(CHARSET_INFO *cs, bool bin)
 Virtual_column_info *add_virtual_expression(THD *thd, Item *expr)
 {
   Virtual_column_info *v= new (thd->mem_root) Virtual_column_info();
-  if (!v)
-  {
-     mem_alloc_error(sizeof(Virtual_column_info));
+  if (unlikely(!v))
      return 0;
-   }
    v->expr= expr;
    v->utf8= 0;  /* connection charset */
    return v;
@@ -5163,10 +5160,8 @@ partitioning:
             LEX *lex= Lex;
             lex->part_info= new (thd->mem_root) partition_info();
             if (unlikely(!lex->part_info))
-            {
-              mem_alloc_error(sizeof(partition_info));
               MYSQL_YYABORT;
-            }
+
             if (lex->sql_command == SQLCOM_ALTER_TABLE)
             {
               lex->alter_info.partition_flags|= ALTER_PARTITION_INFO;
@@ -5286,11 +5281,9 @@ part_field_item:
             part_info->num_columns++;
             if (unlikely(part_info->part_field_list.push_back($1.str,
                          thd->mem_root)))
-            {
-              mem_alloc_error(1);
               MYSQL_YYABORT;
-            }
-            if (part_info->num_columns > MAX_REF_PARTS)
+
+            if (unlikely(part_info->num_columns > MAX_REF_PARTS))
               my_yyabort_error((ER_TOO_MANY_PARTITION_FUNC_FIELDS_ERROR, MYF(0),
                                 "list of partition fields"));
           }
@@ -5366,10 +5359,8 @@ sub_part_field_item:
             partition_info *part_info= Lex->part_info;
             if (unlikely(part_info->subpart_field_list.push_back($1.str,
                          thd->mem_root)))
-            {
-              mem_alloc_error(1);
               MYSQL_YYABORT;
-            }
+
             if (unlikely(part_info->subpart_field_list.elements > MAX_REF_PARTS))
               my_yyabort_error((ER_TOO_MANY_PARTITION_FUNC_FIELDS_ERROR, MYF(0),
                                 "list of subpartition fields"));
@@ -5446,10 +5437,8 @@ part_definition:
 
             if (unlikely(!p_elem) ||
                 unlikely(part_info->partitions.push_back(p_elem, thd->mem_root)))
-            {
-              mem_alloc_error(sizeof(partition_element));
               MYSQL_YYABORT;
-            }
+
             p_elem->part_state= PART_NORMAL;
             p_elem->id= part_info->partitions.elements - 1;
             part_info->curr_part_elem= p_elem;
@@ -5818,10 +5807,8 @@ sub_part_definition:
             }
             if (unlikely(!sub_p_elem) ||
                 unlikely(curr_part->subpartitions.push_back(sub_p_elem, thd->mem_root)))
-            {
-              mem_alloc_error(sizeof(partition_element));
               MYSQL_YYABORT;
-            }
+
             sub_p_elem->id= curr_part->subpartitions.elements - 1;
             part_info->curr_part_elem= sub_p_elem;
             part_info->use_default_subpartitions= FALSE;
@@ -8059,10 +8046,8 @@ add_partition_rule:
             LEX *lex= Lex;
             lex->part_info= new (thd->mem_root) partition_info();
             if (unlikely(!lex->part_info))
-            {
-              mem_alloc_error(sizeof(partition_info));
               MYSQL_YYABORT;
-            }
+
             lex->alter_info.partition_flags|= ALTER_PARTITION_ADD;
             DBUG_ASSERT(!Lex->create_info.if_not_exists());
             lex->create_info.set($3);
@@ -8091,10 +8076,8 @@ reorg_partition_rule:
             LEX *lex= Lex;
             lex->part_info= new (thd->mem_root) partition_info();
             if (unlikely(!lex->part_info))
-            {
-              mem_alloc_error(sizeof(partition_info));
               MYSQL_YYABORT;
-            }
+
             lex->no_write_to_binlog= $3;
           }
           reorg_parts_rule
@@ -8126,10 +8109,7 @@ alt_part_name_item:
           {
             if (unlikely(Lex->alter_info.partition_names.push_back($1.str,
                                                                    thd->mem_root)))
-            {
-              mem_alloc_error(1);
               MYSQL_YYABORT;
-            }
           }
         ;
 
