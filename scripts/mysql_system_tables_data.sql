@@ -26,16 +26,6 @@
 -- a plain character
 SELECT LOWER( REPLACE((SELECT REPLACE(@@hostname,'_','\_')),'%','\%') )INTO @current_hostname;
 
-
--- Fill "db" table with default grants for anyone to
--- access database 'test' and 'test_%' if "db" table didn't exist
-CREATE TEMPORARY TABLE tmp_db LIKE db;
-INSERT INTO tmp_db VALUES ('%','test','','Y','Y','Y','Y','Y','Y','N','Y','Y','Y','Y','Y','Y','Y','Y','N','N','Y','Y','Y');
-INSERT INTO tmp_db VALUES ('%','test\_%','','Y','Y','Y','Y','Y','Y','N','Y','Y','Y','Y','Y','Y','Y','Y','N','N','Y','Y','Y');
-INSERT INTO db SELECT * FROM tmp_db WHERE @had_db_table=0;
-DROP TABLE tmp_db;
-
-
 -- Fill "user" table with default users allowing root access
 -- from local machine if "user" table didn't exist before
 CREATE TEMPORARY TABLE tmp_user_nopasswd LIKE user;

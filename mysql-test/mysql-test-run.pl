@@ -3211,6 +3211,10 @@ sub mysql_install_db {
       mtr_appendfile_to_file("$sql_dir/fill_help_tables.sql",
            $bootstrap_sql_file);
 
+      # Create test database
+      mtr_appendfile_to_file("$sql_dir/mysql_test_db.sql",
+                            $bootstrap_sql_file);
+
       # mysql.gtid_slave_pos was created in InnoDB, but many tests
       # run without InnoDB. Alter it to MyISAM now
       mtr_tofile($bootstrap_sql_file, "ALTER TABLE gtid_slave_pos ENGINE=MyISAM;\n");
@@ -3248,7 +3252,6 @@ sub mysql_install_db {
 
   # Create directories mysql and test
   mkpath("$install_datadir/mysql");
-  mkpath("$install_datadir/test");
 
   if ( My::SafeProcess->run
        (
