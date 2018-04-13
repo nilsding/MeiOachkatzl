@@ -13082,8 +13082,6 @@ Rows_log_event::write_row(rpl_group_info *rgi,
       if (error)
       {
         DBUG_PRINT("info",("rnd_pos() returns error %d",error));
-        if (error == HA_ERR_RECORD_DELETED)
-          error= HA_ERR_KEY_NOT_FOUND;
         table->file->print_error(error, MYF(0));
         DBUG_RETURN(error);
       }
@@ -13117,8 +13115,6 @@ Rows_log_event::write_row(rpl_group_info *rgi,
       if (error)
       {
         DBUG_PRINT("info",("index_read_idx() returns %s", HA_ERR(error)));
-        if (error == HA_ERR_RECORD_DELETED)
-          error= HA_ERR_KEY_NOT_FOUND;
         table->file->print_error(error, MYF(0));
         DBUG_RETURN(error);
       }
@@ -13616,8 +13612,6 @@ int Rows_log_event::find_row(rpl_group_info *rgi)
     if (error)
     {
       DBUG_PRINT("info",("rnd_pos returns error %d",error));
-      if (error == HA_ERR_RECORD_DELETED)
-        error= HA_ERR_KEY_NOT_FOUND;
       table->file->print_error(error, MYF(0));
     }
     DBUG_RETURN(error);
@@ -13682,8 +13676,6 @@ int Rows_log_event::find_row(rpl_group_info *rgi)
                                                HA_READ_KEY_EXACT)))
     {
       DBUG_PRINT("info",("no record matching the key found in the table"));
-      if (error == HA_ERR_RECORD_DELETED)
-        error= HA_ERR_KEY_NOT_FOUND;
       table->file->print_error(error, MYF(0));
       table->file->ha_index_end();
       goto end;
@@ -13759,9 +13751,6 @@ int Rows_log_event::find_row(rpl_group_info *rgi)
     {
       while ((error= table->file->ha_index_next(table->record[0])))
       {
-        /* We just skip records that has already been deleted */
-        if (error == HA_ERR_RECORD_DELETED)
-          continue;
         DBUG_PRINT("info",("no record matching the given row found"));
         table->file->print_error(error, MYF(0));
         table->file->ha_index_end();
@@ -13788,7 +13777,6 @@ int Rows_log_event::find_row(rpl_group_info *rgi)
     /* Continue until we find the right record or have made a full loop */
     do
     {
-  restart_rnd_next:
       error= table->file->ha_rnd_next(table->record[0]);
 
       if (error)
@@ -13803,13 +13791,6 @@ int Rows_log_event::find_row(rpl_group_info *rgi)
         DBUG_PRINT("info", ("Record not found"));
         table->file->ha_rnd_end();
         goto end;
-
-      /*
-        If the record was deleted, we pick the next one without doing
-        any comparisons.
-      */
-      case HA_ERR_RECORD_DELETED:
-        goto restart_rnd_next;
 
       default:
         DBUG_PRINT("info", ("Failed to get next record"
