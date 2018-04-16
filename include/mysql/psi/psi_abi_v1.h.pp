@@ -1,6 +1,7 @@
 C_MODE_START
 struct TABLE_SHARE;
 struct sql_digest_storage;
+extern my_bool pfs_enabled;
 struct PSI_mutex;
 typedef struct PSI_mutex PSI_mutex;
 struct PSI_rwlock;

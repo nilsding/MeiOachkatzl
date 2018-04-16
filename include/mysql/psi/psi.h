@@ -40,11 +40,28 @@
 #error "You must include my_global.h in the code for the build to be correct."
 #endif
 
+/*
+  If PSI_ON_BY_DFAULT is defined, assume PSI will be enabled by default and
+  optimize jumps testing for PSI this case. If not, optimize the binary for
+  that PSI is not enabled
+*/
+
+#ifdef PSI_ON_BY_DEFAULT
+#define psi_likely(A) likely(A)
+#define psi_unlikely(A) unlikely(A)
+#else
+#define psi_likely(A) unlikely(A)
+#define psi_unlikely(A) likely(A)
+#endif
+
+
 C_MODE_START
 
 struct TABLE_SHARE;
 
 struct sql_digest_storage;
+
+extern my_bool pfs_enabled;
 
 /**
   @file mysql/psi/psi.h
