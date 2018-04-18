@@ -1827,6 +1827,7 @@ public:
   void empty() { unit= VERS_UNDEFINED; item= NULL; }
   void print(String *str, enum_query_type, const char *prefix, size_t plen);
   void resolve_unit(bool timestamps_only);
+  bool eq(const vers_history_point_t &point);
 };
 
 struct vers_select_conds_t
@@ -1876,6 +1877,7 @@ struct vers_select_conds_t
   {
     return !from_query && type != SYSTEM_TIME_UNSPECIFIED;
   }
+  bool eq(const vers_select_conds_t &conds);
 };
 
 /*
