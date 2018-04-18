@@ -3484,3 +3484,38 @@ t1	CREATE TABLE `t1` (
   `c5` varchar(100) DEFAULT NULL
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1
 DROP TABLE t1;
+CREATE TABLE t_ts   (a timestamp(6));
+CREATE TABLE t_trig (a timestamp(6));
+CREATE TABLE t1   (a timestamp(6));
+CREATE TABLE t2   (a timestamp(6));
+CREATE FUNCTION fn_sleep_before_now() returns int
+BEGIN
+INSERT INTO t_ts SET a= current_timestamp(6);
+RETURN 0;
+END//
+CREATE TRIGGER trg_insert_t_ts AFTER INSERT ON t_ts FOR EACH ROW
+BEGIN
+INSERT into t_trig set a= current_timestamp(6);
+END//
+CREATE PROCEDURE sp()
+BEGIN
+INSERT INTO t1 SET a=current_timestamp(6);
+INSERT INTO t2 SET a=current_timestamp(6);
+END//
+SET @sav_slow_query_log= @@session.slow_query_log;
+SET @@session.slow_query_log= ON;
+SELECT current_timestamp(6),fn_sleep_before_now() INTO @ts_cur, @ts_func;
+SELECT a FROM t_ts   LIMIT 1 into @ts_func;
+SELECT a FROM t_trig LIMIT 1 into @ts_trig;
+DELETE FROM t_ts;
+DELETE FROM t_trig;
+SET @@session.slow_query_log= OFF;
+SELECT current_timestamp(6),fn_sleep_before_now() INTO @ts_cur, @func_ts;
+SELECT a FROM t_ts   LIMIT 1 into @ts_func;
+SELECT a FROM t_trig LIMIT 1 into @ts_trig;
+CALL sp();
+SET @@session.slow_query_log= @sav_slow_query_log;
+DROP PROCEDURE sp;
+DROP FUNCTION fn_sleep_before_now;
+DROP TRIGGER trg_insert_t_ts;
+DROP TABLE t_ts, t_trig, t1, t2;

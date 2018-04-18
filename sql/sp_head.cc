@@ -66,7 +66,7 @@ extern "C" uchar *sp_table_key(const uchar *ptr, size_t *plen, my_bool first);
 static void reset_start_time_for_sp(THD *thd)
 {
   if (!thd->in_sub_stmt)
-    thd->set_start_time();
+    thd->set_time();
 }
 
 
@@ -3459,9 +3459,7 @@ int
 sp_instr_stmt::execute(THD *thd, uint *nextp)
 {
   int res;
-  bool save_enable_slow_log;
   const CSET_STRING query_backup= thd->query_string;
-  QUERY_START_TIME_INFO time_info;
   Sub_statement_state backup_state;
   DBUG_ENTER("sp_instr_stmt::execute");
   DBUG_PRINT("info", ("command: %d", m_lex_keeper.sql_command()));
@@ -3471,15 +3469,6 @@ sp_instr_stmt::execute(THD *thd, uint *nextp)
   thd->profiling.set_query_source(m_query.str, m_query.length);
 #endif
 
-  if ((save_enable_slow_log= thd->enable_slow_log))
-  {
-    /*
-      Save start time info for the CALL statement and overwrite it with the
-      current time for log_slow_statement() to log the individual query timing.
-    */
-    thd->backup_query_start_time(&time_info);
-    thd->set_time();
-  }
   thd->store_slow_query_state(&backup_state);
 
   if (!(res= alloc_query(thd, m_query.str, m_query.length)) &&
@@ -3515,12 +3504,6 @@ sp_instr_stmt::execute(THD *thd, uint *nextp)
       if (log_slow)
         log_slow_statement(thd);
 
-      /*
-        Restore enable_slow_log, that can be changed by a admin or call
-        command
-      */
-      thd->enable_slow_log= save_enable_slow_log;
-
       /* Add the number of rows to thd for the 'call' statistics */
       thd->add_slow_query_state(&backup_state);
     }
@@ -3543,9 +3526,6 @@ sp_instr_stmt::execute(THD *thd, uint *nextp)
       thd->get_stmt_da()->reset_diagnostics_area();
     }
   }
-  /* Restore the original query start time */
-  if (thd->enable_slow_log)
-    thd->restore_query_start_time(&time_info);
 
   DBUG_RETURN(res || thd->is_error());
 }

@@ -2057,3 +2057,78 @@ EXECUTE IMMEDIATE
 USING NULL, '10', 10, 10.0, 10e0, TIME'10:20:30';
 SHOW CREATE TABLE t1;
 DROP TABLE t1;
+
+
+############
+# MDEV-13727
+# Current timestamp functions inside stored functions must return the
+# value of the top-level statement's timestamp (its start time).
+# This must hold regardless of @@slow_query_log option.
+# In contrast the current timestamp of stored procedure
+# monotonically grows from statement to statement.
+
+CREATE TABLE t_ts   (a timestamp(6));
+CREATE TABLE t_trig (a timestamp(6));
+CREATE TABLE t1   (a timestamp(6));
+CREATE TABLE t2   (a timestamp(6));
+delimiter //;
+CREATE FUNCTION fn_sleep_before_now() returns int
+BEGIN
+  INSERT INTO t_ts SET a= current_timestamp(6);
+  RETURN 0;
+END//
+CREATE TRIGGER trg_insert_t_ts AFTER INSERT ON t_ts FOR EACH ROW
+BEGIN
+  INSERT into t_trig set a= current_timestamp(6);
+END//
+CREATE PROCEDURE sp()
+BEGIN
+  INSERT INTO t1 SET a=current_timestamp(6);
+  INSERT INTO t2 SET a=current_timestamp(6);
+END//
+delimiter ;//
+
+SET @sav_slow_query_log= @@session.slow_query_log;
+
+# @@slow_query_log ON check
+SET @@session.slow_query_log= ON;
+SELECT current_timestamp(6),fn_sleep_before_now() INTO @ts_cur, @ts_func;
+
+SELECT a FROM t_ts   LIMIT 1 into @ts_func;
+SELECT a FROM t_trig LIMIT 1 into @ts_trig;
+if (!`SELECT @ts_cur = @ts_func AND @ts_func = @ts_trig`)
+{
+  SELECT @ts_cur, @ts_func, @ts_trig;
+  --die Error: timestamps must be equal but they diverge
+}
+DELETE FROM t_ts;
+DELETE FROM t_trig;
+
+# @@slow_query_log OFF check
+SET @@session.slow_query_log= OFF;
+SELECT current_timestamp(6),fn_sleep_before_now() INTO @ts_cur, @func_ts;
+SELECT a FROM t_ts   LIMIT 1 into @ts_func;
+SELECT a FROM t_trig LIMIT 1 into @ts_trig;
+if (!`SELECT @ts_cur = @ts_func AND @ts_func = @ts_trig`)
+{
+  SELECT @ts_cur, @ts_func, @ts_trig;
+  --die Error: timestamps must be equal but they diverge
+}
+
+CALL sp();
+if (!`SELECT t2.a > t1.a FROM t1,t2`)
+{
+  SELECT t1.a, t2.a FROM t1,t2;
+  --die Error: timestamps must be growing monotonically
+}
+
+# Cleanup
+SET @@session.slow_query_log= @sav_slow_query_log;
+DROP PROCEDURE sp;
+DROP FUNCTION fn_sleep_before_now;
+DROP TRIGGER trg_insert_t_ts;
+DROP TABLE t_ts, t_trig, t1, t2;
+
+#
+# End of MDEV-13727
+###################
