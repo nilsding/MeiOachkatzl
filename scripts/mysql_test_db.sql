@@ -22,3 +22,10 @@ INSERT INTO tmp_db VALUES ('%','test','','Y','Y','Y','Y','Y','Y','N','Y','Y','Y'
 INSERT INTO tmp_db VALUES ('%','test\_%','','Y','Y','Y','Y','Y','Y','N','Y','Y','Y','Y','Y','Y','Y','Y','N','N','Y','Y','Y');
 INSERT INTO db SELECT * FROM tmp_db WHERE @had_db_table=0;
 DROP TABLE tmp_db;
+
+-- Anonymous user with no privileges.
+CREATE TEMPORARY TABLE tmp_user_anonymous LIKE user;
+INSERT INTO tmp_user_anonymous (host,user) VALUES ('localhost','');
+INSERT INTO tmp_user_anonymous (host,user) SELECT @current_hostname,'' FROM dual WHERE @current_hostname != 'localhost';
+INSERT INTO user SELECT * FROM tmp_user_anonymous WHERE @had_user_table=0;
+DROP TABLE tmp_user_anonymous;

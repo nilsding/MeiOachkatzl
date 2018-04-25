@@ -37,7 +37,6 @@ force=0
 in_rpm=0
 ip_only=0
 cross_bootstrap=0
-install_params=""
 auth_root_authentication_method=normal
 auth_root_socket_user='root'
 skip_test_db=0
@@ -81,8 +80,6 @@ Usage: $0 [OPTIONS]
   --defaults-file=path Read only this configuration file.
   --rpm                For internal use.  This option is used by RPM files
                        during the MariaDB installation process.
-  --skip-auth-anonymous-user
-                       Do not install an unprivileged anonymous user.
   --skip-name-resolve  Use IP addresses rather than hostnames when creating
                        grant table entries.  This option can be useful if
                        your DNS does not work.
@@ -170,9 +167,6 @@ parse_arguments()
         #
         # --windows is a deprecated alias
         cross_bootstrap=1 ;;
-      --skip-auth-anonymous-user)
-	install_params="$install_params
-SET @skip_auth_anonymous=1;" ;;
       --auth-root-authentication-method=normal)
 	auth_root_authentication_method=normal ;;
       --auth-root-authentication-method=socket)
@@ -474,7 +468,18 @@ mysqld_install_cmd_line()
 cat_sql()
 {
   echo "use mysql;"
-  echo "$install_params"
+
+  case "$auth_root_authentication_method" in
+    normal)
+      echo "SET @skip_auth_root_nopasswd=NULL;"
+      echo "SET @auth_root_socket=NULL;"
+      ;;
+    socket)
+      echo "SET @skip_auth_root_nopasswd=1;"
+      echo "SET @auth_root_socket='$auth_root_socket_user';"
+      ;;
+  esac
+
   cat "$create_system_tables" "$create_system_tables2" "$fill_system_tables" "$fill_help_tables" "$maria_add_gis_sp"
   if test "$skip_test_db" -eq 0
   then
@@ -484,16 +489,6 @@ cat_sql()
 
 # Create the system and help tables by passing them to "mysqld --bootstrap"
 s_echo "Installing MariaDB/MySQL system tables in '$ldata' ..."
-case "$auth_root_authentication_method" in
-  normal)
-    install_params="$install_params
-SET @skip_auth_root_nopasswd=NULL;
-SET @auth_root_socket=NULL;" ;;
-  socket)
-    install_params="$install_params
-SET @skip_auth_root_nopasswd=1;
-SET @auth_root_socket='$auth_root_socket_user';" ;;
-esac
 if cat_sql | eval "$filter_cmd_line" | mysqld_install_cmd_line > /dev/null
 then
   s_echo "OK"

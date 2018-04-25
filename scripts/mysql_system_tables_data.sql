@@ -30,7 +30,6 @@ SELECT LOWER( REPLACE((SELECT REPLACE(@@hostname,'_','\_')),'%','\%') )INTO @cur
 -- from local machine if "user" table didn't exist before
 CREATE TEMPORARY TABLE tmp_user_nopasswd LIKE user;
 CREATE TEMPORARY TABLE tmp_user_socket LIKE user;
-CREATE TEMPORARY TABLE tmp_user_anonymous LIKE user;
 -- Classic passwordless root account.
 INSERT INTO tmp_user_nopasswd VALUES ('localhost','root','','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','','','','',0,0,0,0,'','','N', 'N','', 0);
 REPLACE INTO tmp_user_nopasswd SELECT @current_hostname,'root','','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','','','','',0,0,0,0,'','','N','N','',0 FROM dual WHERE @current_hostname != 'localhost';
@@ -38,14 +37,10 @@ REPLACE INTO tmp_user_nopasswd VALUES ('127.0.0.1','root','','Y','Y','Y','Y','Y'
 REPLACE INTO tmp_user_nopasswd VALUES ('::1','root','','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','','','','',0,0,0,0,'','','N','N', '', 0);
 -- More secure root account using unix sucket auth.
 INSERT INTO tmp_user_socket VALUES ('localhost',IFNULL(@auth_root_socket, 'root'),'','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','Y','','','','',0,0,0,0,'unix_socket','','N', 'N','', 0);
--- Anonymous user with no privileges.
-INSERT INTO tmp_user_anonymous (host,user) VALUES ('localhost','');
-INSERT INTO tmp_user_anonymous (host,user) SELECT @current_hostname,'' FROM dual WHERE @current_hostname != 'localhost';
 
 INSERT INTO user SELECT * FROM tmp_user_nopasswd WHERE @had_user_table=0 AND @skip_auth_root_nopasswd IS NULL;
 INSERT INTO user SELECT * FROM tmp_user_socket WHERE @had_user_table=0 AND @auth_root_socket IS NOT NULL;
-INSERT INTO user SELECT * FROM tmp_user_anonymous WHERE @had_user_table=0 AND @skip_auth_anonymous IS NULL;
-DROP TABLE tmp_user_nopasswd, tmp_user_socket, tmp_user_anonymous;
+DROP TABLE tmp_user_nopasswd, tmp_user_socket;
 
 CREATE TEMPORARY TABLE tmp_proxies_priv LIKE proxies_priv;
 INSERT INTO tmp_proxies_priv VALUES ('localhost', 'root', '', '', TRUE, '', now());
