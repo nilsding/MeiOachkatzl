@@ -57,6 +57,8 @@ check.
 If you make a change in this module make sure that no codepath is
 introduced where a call to log_free_check() is bypassed. */
 
+static const ulint PURGE_LIST_MAX_SIZE = 20;
+
 /** Create a purge node to a query graph.
 @param[in]	parent	parent node, i.e., a thr node
 @param[in]	heap	memory heap where created
@@ -922,13 +924,21 @@ row_purge_parse_undo_rec(
 		break;
 	}
 
-	/* Prevent DROP TABLE etc. from running when we are doing the purge
-	for this row */
+	typedef std::vector<table_id_t,
+			    ut_allocator<table_id_t> > table_ids;
+
+	table_ids&	unaccessible_ids = node->unaccessible_table_ids;
 
 try_again:
 
 	ut_ad(!sync_check_iterate(sync_check()));
 	THD* purge_thd = current_thd;
+
+	if (std::find(unaccessible_ids.begin(),
+		      unaccessible_ids.end(), table_id)
+	    != unaccessible_ids.end()) {
+		goto err_exit;
+	}
 
 	node->table = dict_table_open_on_id(
 		table_id, FALSE, DICT_TABLE_OP_NORMAL, purge_thd,
@@ -937,6 +947,11 @@ try_again:
 	if (node->table == NULL) {
 		/* The table has been dropped: no need to do purge and
 		release mdl happened as a part of open process itself */
+		if (unaccessible_ids.size() >= PURGE_LIST_MAX_SIZE) {
+			unaccessible_ids.clear();
+		}
+
+		unaccessible_ids.push_back(table_id);
 		goto err_exit;
 	}
 

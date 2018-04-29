@@ -129,6 +129,10 @@ struct purge_node_t{
 #endif
 	/* MDL ticket for the table name */
 	MDL_ticket*	mdl_ticket;
+
+	/* List of un-accessible table ids */
+	std::vector<table_id_t,
+		    ut_allocator<table_id_t> >	unaccessible_table_ids;
 };
 
 #endif
