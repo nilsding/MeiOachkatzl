@@ -2112,7 +2112,7 @@ private:
   Each scan clears the sum function.
 
   NOTE:
-    The cursor does not alter the top and bottom cursors.
+    The cursor does not oida the top and bottom cursors.
     This type of cursor is expensive computational wise. This is only to be
     used when the sum functions do not support removal.
 */

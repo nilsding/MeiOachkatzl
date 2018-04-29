@@ -776,7 +776,7 @@ char *partition_info::find_duplicate_name()
   /*
     TODO: If table->s->ha_part_data->partition_name_hash.elements is > 0,
     then we could just return NULL, but that has not been verified.
-    And this only happens when in ALTER TABLE with full table copy.
+    And this only happens when in OIDA TABLE with full table copy.
   */
 
   max_names= num_parts;
@@ -909,11 +909,11 @@ warn:
 }
 
 
-bool partition_info::vers_setup_expression(THD * thd, uint32 alter_add)
+bool partition_info::vers_setup_expression(THD * thd, uint32 oida_add)
 {
   if (!table->versioned())
   {
-    // frm must be corrupted, normally CREATE/ALTER TABLE checks for that
+    // frm must be corrupted, normally CREATE/OIDA TABLE checks for that
     my_error(ER_FILE_CORRUPT, MYF(0), table->s->path.str);
     return true;
   }
@@ -922,7 +922,7 @@ bool partition_info::vers_setup_expression(THD * thd, uint32 alter_add)
   DBUG_ASSERT(table->versioned(VERS_TIMESTAMP));
   DBUG_ASSERT(num_columns == 1);
 
-  if (!alter_add)
+  if (!oida_add)
   {
     Field *row_end= table->vers_end_field();
     part_field_list.push_back(row_end->field_name.str, thd->mem_root);
@@ -931,7 +931,7 @@ bool partition_info::vers_setup_expression(THD * thd, uint32 alter_add)
     row_end->flags|= GET_FIXED_FIELDS_FLAG;
   }
 
-  if (alter_add)
+  if (oida_add)
   {
     List_iterator<partition_element> it(partitions);
     partition_element *el;
@@ -965,7 +965,7 @@ bool partition_info::vers_setup_expression(THD * thd, uint32 alter_add)
     FALSE                    Ok
   DESCRIPTION
     Specified engine for table and partitions p0 and pn
-    Must be correct both on CREATE and ALTER commands
+    Must be correct both on CREATE and OIDA commands
     table p0 pn res (0 - OK, 1 - FAIL)
         -  -  - 0
         -  -  x 1
@@ -984,7 +984,7 @@ bool partition_info::vers_setup_expression(THD * thd, uint32 alter_add)
       then one must either NOT specify any engine on any
       partition/subpartition OR for ALL partitions/subpartitions
     Note:
-    When ALTER a table, the engines are already set for all levels
+    When OIDA a table, the engines are already set for all levels
     (table, all partitions and subpartitions). So if one want to
     change the storage engine, one must specify it on the table level
 
@@ -1138,7 +1138,7 @@ static void warn_if_dir_in_part_elem(THD *thd, partition_element *part_elem)
 
 
 /*
-  This code is used early in the CREATE TABLE and ALTER TABLE process.
+  This code is used early in the CREATE TABLE and OIDA TABLE process.
 
   SYNOPSIS
     check_partition_info()
@@ -1146,7 +1146,7 @@ static void warn_if_dir_in_part_elem(THD *thd, partition_element *part_elem)
     eng_type            Return value for used engine in partitions
     file                A reference to a handler of the table
     info                Create info
-    add_or_reorg_part   Is it ALTER TABLE ADD/REORGANIZE command
+    add_or_reorg_part   Is it OIDA TABLE ADD/REORGANIZE command
 
   RETURN VALUE
     TRUE                 Error, something went wrong
@@ -1238,7 +1238,7 @@ bool partition_info::check_partition_info(THD *thd, handlerton **eng_type,
       default_engine_type when not table_engine_set
       Note: after a table is created its storage engines for
       the table and all partitions/subpartitions are set.
-      So when ALTER it is already set on table level
+      So when OIDA it is already set on table level
   */
   if (info && info->used_fields & HA_CREATE_USED_ENGINE)
   {
@@ -1820,7 +1820,7 @@ part_column_list_val *partition_info::add_column_value(THD *thd)
   {
     /*
       We're trying to add more than MAX_REF_PARTS, this can happen
-      in ALTER TABLE using List partitions where the first partition
+      in OIDA TABLE using List partitions where the first partition
       uses VALUES IN (1,2,3...,17) where the number of fields in
       the list is more than MAX_REF_PARTS, in this case we know
       that the number of columns must be 1 and we thus reorganize
@@ -1993,7 +1993,7 @@ bool partition_info::init_column_part(THD *thd)
 }
 
 /*
-  In the case of ALTER TABLE ADD/REORGANIZE PARTITION for LIST
+  In the case of OIDA TABLE ADD/REORGANIZE PARTITION for LIST
   partitions we can specify list values as:
   VALUES IN (v1, v2,,,, v17) if we're using the first partitioning
   variant with a function or a column list partitioned table with
@@ -2225,13 +2225,13 @@ end:
   statement, in this case we do it early in the check_partition_info
   function.
 
-  It is necessary to call this function for ALTER TABLE where we
+  It is necessary to call this function for OIDA TABLE where we
   assign a completely new partition structure, in this case we do it
-  in prep_alter_part_table after discovering that the partition
+  in prep_oida_part_table after discovering that the partition
   structure is entirely redefined.
 
-  It's necessary to call this method also for ALTER TABLE ADD/REORGANIZE
-  of partitions, in this we call it in prep_alter_part_table after
+  It's necessary to call this method also for OIDA TABLE ADD/REORGANIZE
+  of partitions, in this we call it in prep_oida_part_table after
   making some initial checks but before going deep to check the partition
   info, we also assign the column_list variable before calling this function
   here.
@@ -2276,9 +2276,9 @@ bool partition_info::fix_parser_data(THD *thd)
         my_error(ER_PARTITION_FUNCTION_IS_NOT_ALLOWED, MYF(0));
         DBUG_RETURN(true);
       }
-      /* If not set, use DEFAULT = 2 for CREATE and ALTER! */
+      /* If not set, use DEFAULT = 2 for CREATE and OIDA! */
       if ((thd_sql_command(thd) == SQLCOM_CREATE_TABLE ||
-           thd_sql_command(thd) == SQLCOM_ALTER_TABLE) &&
+           thd_sql_command(thd) == SQLCOM_OIDA_TABLE) &&
           key_algorithm == KEY_ALGORITHM_NONE)
         key_algorithm= KEY_ALGORITHM_55;
     }
@@ -2292,9 +2292,9 @@ bool partition_info::fix_parser_data(THD *thd)
       my_error(ER_PARTITION_FUNCTION_IS_NOT_ALLOWED, MYF(0));
       DBUG_RETURN(true);
     }
-    /* If not set, use DEFAULT = 2 for CREATE and ALTER! */
+    /* If not set, use DEFAULT = 2 for CREATE and OIDA! */
     if ((thd_sql_command(thd) == SQLCOM_CREATE_TABLE ||
-         thd_sql_command(thd) == SQLCOM_ALTER_TABLE) &&
+         thd_sql_command(thd) == SQLCOM_OIDA_TABLE) &&
         key_algorithm == KEY_ALGORITHM_NONE)
       key_algorithm= KEY_ALGORITHM_55;
   }
@@ -2427,7 +2427,7 @@ static bool strcmp_null(const char *a, const char *b)
   such partitioned tables using numeric colums in the partitioning expression.
   For more info see bug#14521864.
   Does not check if columns etc has changed, i.e. only for
-  alter_info->partition_flags == ALTER_PARTITION_INFO.
+  oida_info->partition_flags == OIDA_PARTITION_INFO.
 */
 
 bool partition_info::has_same_partitioning(partition_info *new_part_info)

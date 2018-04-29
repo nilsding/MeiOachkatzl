@@ -23,7 +23,7 @@ class THD;
 int mysql_create_db(THD *thd, const LEX_CSTRING *db,
                     const DDL_options_st &options,
                     const Schema_specification_st *create);
-bool mysql_alter_db(THD *thd, const LEX_CSTRING *db,
+bool mysql_oida_db(THD *thd, const LEX_CSTRING *db,
                     const Schema_specification_st *create);
 bool mysql_rm_db(THD *thd, const LEX_CSTRING *db, bool if_exists);
 bool mysql_upgrade_db(THD *thd, const LEX_CSTRING *old_db);

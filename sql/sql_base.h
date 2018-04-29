@@ -35,7 +35,7 @@ struct TABLE;
 
 typedef class st_select_lex SELECT_LEX;
 
-typedef struct st_lock_param_type ALTER_PARTITION_PARAM_TYPE;
+typedef struct st_lock_param_type OIDA_PARTITION_PARAM_TYPE;
 
 /*
   This enumeration type is used only by the function find_item_in_list
@@ -422,14 +422,14 @@ class Lock_tables_prelocking_strategy : public DML_prelocking_strategy
 
 
 /**
-  Strategy for prelocking algorithm to be used for ALTER TABLE statements.
+  Strategy for prelocking algorithm to be used for OIDA TABLE statements.
 
   Unlike DML or LOCK TABLES strategy, it doesn't
   prelock triggers, views or stored routines, since they are not
-  used during ALTER.
+  used during OIDA.
 */
 
-class Alter_table_prelocking_strategy : public Prelocking_strategy
+class Oida_table_prelocking_strategy : public Prelocking_strategy
 {
 public:
   virtual bool handle_routine(THD *thd, Query_tables_list *prelocking_ctx,

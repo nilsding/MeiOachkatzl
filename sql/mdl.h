@@ -190,7 +190,7 @@ enum enum_mdl_type {
     Can be upgraded to MDL_SHARED_NO_WRITE and MDL_EXCLUSIVE.
     A connection holding SU lock can read table metadata and modify or read
     table data (after acquiring appropriate table and row-level locks).
-    To be used for the first phase of ALTER TABLE.
+    To be used for the first phase of OIDA TABLE.
   */
   MDL_SHARED_UPGRADABLE,
   /*
@@ -209,7 +209,7 @@ enum enum_mdl_type {
     lock types, acquiring appropriate engine-level locks for reading
     (TL_READ* for MyISAM, shared row locks in InnoDB) should be
     contention-free.
-    To be used for the first phase of ALTER TABLE, when copying data between
+    To be used for the first phase of OIDA TABLE, when copying data between
     tables, to allow concurrent SELECTs from the table, but not UPDATEs.
   */
   MDL_SHARED_NO_WRITE,

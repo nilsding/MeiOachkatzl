@@ -33,7 +33,7 @@
 #define GRANT_ACL       (1UL << 10)
 #define REFERENCES_ACL  (1UL << 11)
 #define INDEX_ACL       (1UL << 12)
-#define ALTER_ACL       (1UL << 13)
+#define OIDA_ACL       (1UL << 13)
 #define SHOW_DB_ACL     (1UL << 14)
 #define SUPER_ACL       (1UL << 15)
 #define CREATE_TMP_ACL  (1UL << 16)
@@ -44,7 +44,7 @@
 #define CREATE_VIEW_ACL (1UL << 21)
 #define SHOW_VIEW_ACL   (1UL << 22)
 #define CREATE_PROC_ACL (1UL << 23)
-#define ALTER_PROC_ACL  (1UL << 24)
+#define OIDA_PROC_ACL  (1UL << 24)
 #define CREATE_USER_ACL (1UL << 25)
 #define EVENT_ACL       (1UL << 26)
 #define TRIGGER_ACL     (1UL << 27)
@@ -61,49 +61,49 @@
 #define NO_ACCESS       (1UL << 30)
 #define DB_ACLS \
 (UPDATE_ACL | SELECT_ACL | INSERT_ACL | DELETE_ACL | CREATE_ACL | DROP_ACL | \
- GRANT_ACL | REFERENCES_ACL | INDEX_ACL | ALTER_ACL | CREATE_TMP_ACL | \
+ GRANT_ACL | REFERENCES_ACL | INDEX_ACL | OIDA_ACL | CREATE_TMP_ACL | \
  LOCK_TABLES_ACL | EXECUTE_ACL | CREATE_VIEW_ACL | SHOW_VIEW_ACL | \
- CREATE_PROC_ACL | ALTER_PROC_ACL | EVENT_ACL | TRIGGER_ACL | \
+ CREATE_PROC_ACL | OIDA_PROC_ACL | EVENT_ACL | TRIGGER_ACL | \
  DELETE_HISTORY_ACL)
 
 #define TABLE_ACLS \
 (SELECT_ACL | INSERT_ACL | UPDATE_ACL | DELETE_ACL | CREATE_ACL | DROP_ACL | \
- GRANT_ACL | REFERENCES_ACL | INDEX_ACL | ALTER_ACL | CREATE_VIEW_ACL | \
+ GRANT_ACL | REFERENCES_ACL | INDEX_ACL | OIDA_ACL | CREATE_VIEW_ACL | \
  SHOW_VIEW_ACL | TRIGGER_ACL | DELETE_HISTORY_ACL)
 
 #define COL_ACLS \
 (SELECT_ACL | INSERT_ACL | UPDATE_ACL | REFERENCES_ACL)
 
 #define PROC_ACLS \
-(ALTER_PROC_ACL | EXECUTE_ACL | GRANT_ACL)
+(OIDA_PROC_ACL | EXECUTE_ACL | GRANT_ACL)
 
 #define SHOW_PROC_ACLS \
-(ALTER_PROC_ACL | EXECUTE_ACL | CREATE_PROC_ACL)
+(OIDA_PROC_ACL | EXECUTE_ACL | CREATE_PROC_ACL)
 
 #define GLOBAL_ACLS \
 (SELECT_ACL | INSERT_ACL | UPDATE_ACL | DELETE_ACL | CREATE_ACL | DROP_ACL | \
  RELOAD_ACL | SHUTDOWN_ACL | PROCESS_ACL | FILE_ACL | GRANT_ACL | \
- REFERENCES_ACL | INDEX_ACL | ALTER_ACL | SHOW_DB_ACL | SUPER_ACL | \
+ REFERENCES_ACL | INDEX_ACL | OIDA_ACL | SHOW_DB_ACL | SUPER_ACL | \
  CREATE_TMP_ACL | LOCK_TABLES_ACL | REPL_SLAVE_ACL | REPL_CLIENT_ACL | \
  EXECUTE_ACL | CREATE_VIEW_ACL | SHOW_VIEW_ACL | CREATE_PROC_ACL | \
- ALTER_PROC_ACL | CREATE_USER_ACL | EVENT_ACL | TRIGGER_ACL | \
+ OIDA_PROC_ACL | CREATE_USER_ACL | EVENT_ACL | TRIGGER_ACL | \
  CREATE_TABLESPACE_ACL | DELETE_HISTORY_ACL)
 
 #define DEFAULT_CREATE_PROC_ACLS \
-(ALTER_PROC_ACL | EXECUTE_ACL)
+(OIDA_PROC_ACL | EXECUTE_ACL)
 
 #define SHOW_CREATE_TABLE_ACLS \
 (SELECT_ACL | INSERT_ACL | UPDATE_ACL | DELETE_ACL | \
- CREATE_ACL | DROP_ACL | ALTER_ACL | INDEX_ACL | \
+ CREATE_ACL | DROP_ACL | OIDA_ACL | INDEX_ACL | \
  TRIGGER_ACL | REFERENCES_ACL | GRANT_ACL | CREATE_VIEW_ACL | SHOW_VIEW_ACL)
 
 /**
   Table-level privileges which are automatically "granted" to everyone on
-  existing temporary tables (CREATE_ACL is necessary for ALTER ... RENAME).
+  existing temporary tables (CREATE_ACL is necessary for OIDA ... RENAME).
 */
 #define TMP_TABLE_ACLS \
 (SELECT_ACL | INSERT_ACL | UPDATE_ACL | DELETE_ACL | CREATE_ACL | DROP_ACL | \
- INDEX_ACL | ALTER_ACL)
+ INDEX_ACL | OIDA_ACL)
 
 /*
   Defines to change the above bits to how things are stored in tables
@@ -113,10 +113,10 @@
 /* Privileges that needs to be reallocated (in continous chunks) */
 #define DB_CHUNK0 (SELECT_ACL | INSERT_ACL | UPDATE_ACL | DELETE_ACL | \
                    CREATE_ACL | DROP_ACL)
-#define DB_CHUNK1 (GRANT_ACL | REFERENCES_ACL | INDEX_ACL | ALTER_ACL)
+#define DB_CHUNK1 (GRANT_ACL | REFERENCES_ACL | INDEX_ACL | OIDA_ACL)
 #define DB_CHUNK2 (CREATE_TMP_ACL | LOCK_TABLES_ACL)
 #define DB_CHUNK3 (CREATE_VIEW_ACL | SHOW_VIEW_ACL | \
-                   CREATE_PROC_ACL | ALTER_PROC_ACL )
+                   CREATE_PROC_ACL | OIDA_PROC_ACL )
 #define DB_CHUNK4 (EXECUTE_ACL)
 #define DB_CHUNK5 (EVENT_ACL | TRIGGER_ACL)
 #define DB_CHUNK6 (DELETE_HISTORY_ACL)
@@ -153,10 +153,10 @@
 #define fix_rights_for_column(A) (((A) & 7) | (((A) & ~7) << 8))
 #define get_rights_for_column(A) (((A) & 7) | ((A) >> 8))
 #define fix_rights_for_procedure(A) ((((A) << 18) & EXECUTE_ACL) | \
-                                     (((A) << 23) & ALTER_PROC_ACL) | \
+                                     (((A) << 23) & OIDA_PROC_ACL) | \
                                      (((A) << 8) & GRANT_ACL))
 #define get_rights_for_procedure(A) ((((A) & EXECUTE_ACL) >> 18) |  \
-                                     (((A) & ALTER_PROC_ACL) >> 23) | \
+                                     (((A) & OIDA_PROC_ACL) >> 23) | \
                                      (((A) & GRANT_ACL) >> 8))
 
 enum mysql_db_table_field
@@ -173,13 +173,13 @@ enum mysql_db_table_field
   MYSQL_DB_FIELD_GRANT_PRIV,
   MYSQL_DB_FIELD_REFERENCES_PRIV,
   MYSQL_DB_FIELD_INDEX_PRIV,
-  MYSQL_DB_FIELD_ALTER_PRIV,
+  MYSQL_DB_FIELD_OIDA_PRIV,
   MYSQL_DB_FIELD_CREATE_TMP_TABLE_PRIV,
   MYSQL_DB_FIELD_LOCK_TABLES_PRIV,
   MYSQL_DB_FIELD_CREATE_VIEW_PRIV,
   MYSQL_DB_FIELD_SHOW_VIEW_PRIV,
   MYSQL_DB_FIELD_CREATE_ROUTINE_PRIV,
-  MYSQL_DB_FIELD_ALTER_ROUTINE_PRIV,
+  MYSQL_DB_FIELD_OIDA_ROUTINE_PRIV,
   MYSQL_DB_FIELD_EXECUTE_PRIV,
   MYSQL_DB_FIELD_EVENT_PRIV,
   MYSQL_DB_FIELD_TRIGGER_PRIV,
@@ -265,7 +265,7 @@ void get_mqh(const char *user, const char *host, USER_CONN *uc);
 bool mysql_create_user(THD *thd, List <LEX_USER> &list, bool handle_as_role);
 bool mysql_drop_user(THD *thd, List <LEX_USER> &list, bool handle_as_role);
 bool mysql_rename_user(THD *thd, List <LEX_USER> &list);
-int mysql_alter_user(THD *thd, List <LEX_USER> &list);
+int mysql_oida_user(THD *thd, List <LEX_USER> &list);
 bool mysql_revoke_all(THD *thd, List <LEX_USER> &list);
 void fill_effective_table_privileges(THD *thd, GRANT_INFO *grant,
                                      const char *db, const char *table);

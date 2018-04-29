@@ -44,7 +44,7 @@
 #include <mysql/psi/mysql_table.h>
 #include "sql_sequence.h"
 
-class Alter_info;
+class Oida_info;
 class Virtual_column_info;
 class sequence_definition;
 
@@ -58,27 +58,27 @@ class sequence_definition;
 #define HA_ADMIN_INTERNAL_ERROR  -4
 #define HA_ADMIN_INVALID         -5
 #define HA_ADMIN_REJECT          -6
-#define HA_ADMIN_TRY_ALTER       -7
+#define HA_ADMIN_TRY_OIDA       -7
 #define HA_ADMIN_WRONG_CHECKSUM  -8
 #define HA_ADMIN_NOT_BASE_TABLE  -9
 #define HA_ADMIN_NEEDS_UPGRADE  -10
-#define HA_ADMIN_NEEDS_ALTER    -11
+#define HA_ADMIN_NEEDS_OIDA    -11
 #define HA_ADMIN_NEEDS_CHECK    -12
 
 /**
-   Return values for check_if_supported_inplace_alter().
+   Return values for check_if_supported_inplace_oida().
 
-   @see check_if_supported_inplace_alter() for description of
+   @see check_if_supported_inplace_oida() for description of
    the individual values.
 */
-enum enum_alter_inplace_result {
-  HA_ALTER_ERROR,
-  HA_ALTER_INPLACE_NOT_SUPPORTED,
-  HA_ALTER_INPLACE_EXCLUSIVE_LOCK,
-  HA_ALTER_INPLACE_SHARED_LOCK_AFTER_PREPARE,
-  HA_ALTER_INPLACE_SHARED_LOCK,
-  HA_ALTER_INPLACE_NO_LOCK_AFTER_PREPARE,
-  HA_ALTER_INPLACE_NO_LOCK
+enum enum_oida_inplace_result {
+  HA_OIDA_ERROR,
+  HA_OIDA_INPLACE_NOT_SUPPORTED,
+  HA_OIDA_INPLACE_EXCLUSIVE_LOCK,
+  HA_OIDA_INPLACE_SHARED_LOCK_AFTER_PREPARE,
+  HA_OIDA_INPLACE_SHARED_LOCK,
+  HA_OIDA_INPLACE_NO_LOCK_AFTER_PREPARE,
+  HA_OIDA_INPLACE_NO_LOCK
 };
 
 /* Bits in table_flags() to show what database can do */
@@ -152,7 +152,7 @@ enum enum_alter_inplace_result {
 #define HA_CAN_BIT_FIELD       (1ULL << 28) /* supports bit fields */
 #define HA_NEED_READ_RANGE_BUFFER (1ULL << 29) /* for read_multi_range */
 #define HA_ANY_INDEX_MAY_BE_UNIQUE (1ULL << 30)
-#define HA_NO_COPY_ON_ALTER    (1ULL << 31)
+#define HA_NO_COPY_ON_OIDA    (1ULL << 31)
 #define HA_HAS_RECORDS	       (1ULL << 32) /* records() gives exact count*/
 /* Has it's own method of binlog logging */
 #define HA_HAS_OWN_BINLOGGING  (1ULL << 33)
@@ -320,7 +320,7 @@ enum enum_alter_inplace_result {
 #define HA_CLUSTERED_INDEX      512
 
 /*
-  bits in alter_table_flags:
+  bits in oida_table_flags:
 */
 /*
   These bits are set if different kinds of indexes can be created or dropped
@@ -363,7 +363,7 @@ enum enum_alter_inplace_result {
   set.
   This is actually removed even before it was introduced the first time.
   The new idea is that handlers will handle the lock level already in
-  store_lock for ALTER TABLE partitions.
+  store_lock for OIDA TABLE partitions.
 
   HA_PARTITION_ONE_PHASE is a flag that can be set by handlers that take
   care of changing the partitions online and in one phase. Thus all phases
@@ -411,7 +411,7 @@ enum enum_alter_inplace_result {
 #define HA_KEY_BLOB_LENGTH	2
 
 #define HA_LEX_CREATE_TMP_TABLE	1U
-#define HA_CREATE_TMP_ALTER     8U
+#define HA_CREATE_TMP_OIDA     8U
 #define HA_LEX_CREATE_SEQUENCE  16U
 #define HA_VERSIONED_TABLE      32U
 
@@ -508,11 +508,11 @@ enum enum_binlog_func {
 
 enum enum_binlog_command {
   LOGCOM_CREATE_TABLE,
-  LOGCOM_ALTER_TABLE,
+  LOGCOM_OIDA_TABLE,
   LOGCOM_RENAME_TABLE,
   LOGCOM_DROP_TABLE,
   LOGCOM_CREATE_DB,
-  LOGCOM_ALTER_DB,
+  LOGCOM_OIDA_DB,
   LOGCOM_DROP_DB
 };
 
@@ -543,21 +543,21 @@ enum enum_binlog_command {
 #define HA_CREATE_USED_TRANSACTIONAL    (1UL << 20)
 #define HA_CREATE_USED_PAGE_CHECKSUM    (1UL << 21)
 /** This is set whenever STATS_PERSISTENT=0|1|default has been
-specified in CREATE/ALTER TABLE. See also HA_OPTION_STATS_PERSISTENT in
+specified in CREATE/OIDA TABLE. See also HA_OPTION_STATS_PERSISTENT in
 include/my_base.h. It is possible to distinguish whether
 STATS_PERSISTENT=default has been specified or no STATS_PERSISTENT= is
 given at all. */
 #define HA_CREATE_USED_STATS_PERSISTENT (1UL << 22)
 /**
    This is set whenever STATS_AUTO_RECALC=0|1|default has been
-   specified in CREATE/ALTER TABLE. See enum_stats_auto_recalc.
+   specified in CREATE/OIDA TABLE. See enum_stats_auto_recalc.
    It is possible to distinguish whether STATS_AUTO_RECALC=default
    has been specified or no STATS_AUTO_RECALC= is given at all.
 */
 #define HA_CREATE_USED_STATS_AUTO_RECALC (1UL << 23)
 /**
    This is set whenever STATS_SAMPLE_PAGES=N|default has been
-   specified in CREATE/ALTER TABLE. It is possible to distinguish whether
+   specified in CREATE/OIDA TABLE. It is possible to distinguish whether
    STATS_SAMPLE_PAGES=default has been specified or no STATS_SAMPLE_PAGES= is
    given at all.
 */
@@ -566,105 +566,105 @@ given at all. */
 /* Create a sequence */
 #define HA_CREATE_USED_SEQUENCE           (1UL << 25)
 
-typedef ulonglong alter_table_operations;
+typedef ulonglong oida_table_operations;
 
 /*
   These flags are set by the parser and describes the type of
-  operation(s) specified by the ALTER TABLE statement.
+  operation(s) specified by the OIDA TABLE statement.
 */
 
 // Set by parser for ADD [COLUMN]
-#define ALTER_PARSER_ADD_COLUMN     (1ULL <<  0)
+#define OIDA_PARSER_ADD_COLUMN     (1ULL <<  0)
 // Set by parser for DROP [COLUMN]
-#define ALTER_PARSER_DROP_COLUMN    (1ULL <<  1)
+#define OIDA_PARSER_DROP_COLUMN    (1ULL <<  1)
 // Set for CHANGE [COLUMN] | MODIFY [CHANGE] & mysql_recreate_table
-#define ALTER_CHANGE_COLUMN         (1ULL <<  2)
+#define OIDA_CHANGE_COLUMN         (1ULL <<  2)
 // Set for ADD INDEX | ADD KEY | ADD PRIMARY KEY | ADD UNIQUE KEY |
-//         ADD UNIQUE INDEX | ALTER ADD [COLUMN]
-#define ALTER_ADD_INDEX             (1ULL <<  3)
+//         ADD UNIQUE INDEX | OIDA ADD [COLUMN]
+#define OIDA_ADD_INDEX             (1ULL <<  3)
 // Set for DROP PRIMARY KEY | DROP FOREIGN KEY | DROP KEY | DROP INDEX
-#define ALTER_DROP_INDEX            (1ULL <<  4)
+#define OIDA_DROP_INDEX            (1ULL <<  4)
 // Set for RENAME [TO]
-#define ALTER_RENAME                (1ULL <<  5)
+#define OIDA_RENAME                (1ULL <<  5)
 // Set for ORDER BY
-#define ALTER_ORDER                 (1ULL <<  6)
+#define OIDA_ORDER                 (1ULL <<  6)
 // Set for table_options, like table comment
-#define ALTER_OPTIONS               (1ULL <<  7)
-// Set for ALTER [COLUMN] ... SET DEFAULT ... | DROP DEFAULT
-#define ALTER_CHANGE_COLUMN_DEFAULT (1ULL <<  8)
+#define OIDA_OPTIONS               (1ULL <<  7)
+// Set for OIDA [COLUMN] ... SET DEFAULT ... | DROP DEFAULT
+#define OIDA_CHANGE_COLUMN_DEFAULT (1ULL <<  8)
 // Set for DISABLE KEYS | ENABLE KEYS
-#define ALTER_KEYS_ONOFF            (1ULL <<  9)
+#define OIDA_KEYS_ONOFF            (1ULL <<  9)
 // Set for FORCE, ENGINE(same engine), by mysql_recreate_table()
-#define ALTER_RECREATE              (1ULL << 10)
+#define OIDA_RECREATE              (1ULL << 10)
 // Set for ADD FOREIGN KEY
-#define ALTER_ADD_FOREIGN_KEY       (1ULL << 21)
+#define OIDA_ADD_FOREIGN_KEY       (1ULL << 21)
 // Set for DROP FOREIGN KEY
-#define ALTER_DROP_FOREIGN_KEY      (1ULL << 22)
+#define OIDA_DROP_FOREIGN_KEY      (1ULL << 22)
 // Set for ADD [COLUMN] FIRST | AFTER
-#define ALTER_COLUMN_ORDER          (1ULL << 25)
-#define ALTER_ADD_CHECK_CONSTRAINT  (1ULL << 27)
-#define ALTER_DROP_CHECK_CONSTRAINT (1ULL << 28)
-#define ALTER_RENAME_COLUMN         (1ULL << 29)
-#define ALTER_COLUMN_UNVERSIONED    (1ULL << 30)
-#define ALTER_ADD_SYSTEM_VERSIONING (1ULL << 31)
-#define ALTER_DROP_SYSTEM_VERSIONING (1ULL << 32)
-#define ALTER_ADD_PERIOD             (1ULL << 33)
-#define ALTER_DROP_PERIOD            (1ULL << 34)
+#define OIDA_COLUMN_ORDER          (1ULL << 25)
+#define OIDA_ADD_CHECK_CONSTRAINT  (1ULL << 27)
+#define OIDA_DROP_CHECK_CONSTRAINT (1ULL << 28)
+#define OIDA_RENAME_COLUMN         (1ULL << 29)
+#define OIDA_COLUMN_UNVERSIONED    (1ULL << 30)
+#define OIDA_ADD_SYSTEM_VERSIONING (1ULL << 31)
+#define OIDA_DROP_SYSTEM_VERSIONING (1ULL << 32)
+#define OIDA_ADD_PERIOD             (1ULL << 33)
+#define OIDA_DROP_PERIOD            (1ULL << 34)
 
 /*
-  Following defines are used by ALTER_INPLACE_TABLE
+  Following defines are used by OIDA_INPLACE_TABLE
 
   They do describe in more detail the type operation(s) to be executed
   by the storage engine. For example, which type of type of index to be
-  added/dropped.  These are set by fill_alter_inplace_info().
+  added/dropped.  These are set by fill_oida_inplace_info().
 */
 
-#define ALTER_RECREATE_TABLE	     ALTER_RECREATE
-#define ALTER_CHANGE_CREATE_OPTION   ALTER_OPTIONS
-#define ALTER_ADD_COLUMN             (ALTER_ADD_VIRTUAL_COLUMN | \
-                                      ALTER_ADD_STORED_BASE_COLUMN | \
-                                      ALTER_ADD_STORED_GENERATED_COLUMN)
-#define ALTER_DROP_COLUMN             (ALTER_DROP_VIRTUAL_COLUMN | \
-                                       ALTER_DROP_STORED_COLUMN)
-#define ALTER_COLUMN_DEFAULT          ALTER_CHANGE_COLUMN_DEFAULT
+#define OIDA_RECREATE_TABLE	     OIDA_RECREATE
+#define OIDA_CHANGE_CREATE_OPTION   OIDA_OPTIONS
+#define OIDA_ADD_COLUMN             (OIDA_ADD_VIRTUAL_COLUMN | \
+                                      OIDA_ADD_STORED_BASE_COLUMN | \
+                                      OIDA_ADD_STORED_GENERATED_COLUMN)
+#define OIDA_DROP_COLUMN             (OIDA_DROP_VIRTUAL_COLUMN | \
+                                       OIDA_DROP_STORED_COLUMN)
+#define OIDA_COLUMN_DEFAULT          OIDA_CHANGE_COLUMN_DEFAULT
 
-#define ALTER_DROP_HISTORICAL        (1ULL << 35)
+#define OIDA_DROP_HISTORICAL        (1ULL << 35)
 
 // Add non-unique, non-primary index
-#define ALTER_ADD_NON_UNIQUE_NON_PRIM_INDEX  (1ULL << 36)
+#define OIDA_ADD_NON_UNIQUE_NON_PRIM_INDEX  (1ULL << 36)
 
 // Drop non-unique, non-primary index
-#define ALTER_DROP_NON_UNIQUE_NON_PRIM_INDEX (1ULL << 37)
+#define OIDA_DROP_NON_UNIQUE_NON_PRIM_INDEX (1ULL << 37)
 
 // Add unique, non-primary index
-#define ALTER_ADD_UNIQUE_INDEX               (1ULL << 38)
+#define OIDA_ADD_UNIQUE_INDEX               (1ULL << 38)
 
 // Drop unique, non-primary index
-#define ALTER_DROP_UNIQUE_INDEX              (1ULL << 39)
+#define OIDA_DROP_UNIQUE_INDEX              (1ULL << 39)
 
 // Add primary index
-#define ALTER_ADD_PK_INDEX                   (1ULL << 40)
+#define OIDA_ADD_PK_INDEX                   (1ULL << 40)
 
 // Drop primary index
-#define ALTER_DROP_PK_INDEX                  (1ULL << 41)
+#define OIDA_DROP_PK_INDEX                  (1ULL << 41)
 
 // Virtual generated column
-#define ALTER_ADD_VIRTUAL_COLUMN             (1ULL << 42)
+#define OIDA_ADD_VIRTUAL_COLUMN             (1ULL << 42)
 // Stored base (non-generated) column
-#define ALTER_ADD_STORED_BASE_COLUMN         (1ULL << 43)
+#define OIDA_ADD_STORED_BASE_COLUMN         (1ULL << 43)
 // Stored generated column
-#define ALTER_ADD_STORED_GENERATED_COLUMN    (1ULL << 44)
+#define OIDA_ADD_STORED_GENERATED_COLUMN    (1ULL << 44)
 
 // Drop column
-#define ALTER_DROP_VIRTUAL_COLUMN            (1ULL << 45)
-#define ALTER_DROP_STORED_COLUMN             (1ULL << 46)
+#define OIDA_DROP_VIRTUAL_COLUMN            (1ULL << 45)
+#define OIDA_DROP_STORED_COLUMN             (1ULL << 46)
 
-// Rename column (verified; ALTER_RENAME_COLUMN may use original name)
-#define ALTER_COLUMN_NAME          	     (1ULL << 47)
+// Rename column (verified; OIDA_RENAME_COLUMN may use original name)
+#define OIDA_COLUMN_NAME          	     (1ULL << 47)
 
 // Change column datatype
-#define ALTER_VIRTUAL_COLUMN_TYPE            (1ULL << 48)
-#define ALTER_STORED_COLUMN_TYPE             (1ULL << 49)
+#define OIDA_VIRTUAL_COLUMN_TYPE            (1ULL << 48)
+#define OIDA_STORED_COLUMN_TYPE             (1ULL << 49)
 
 /**
   Change column datatype in such way that new type has compatible
@@ -672,75 +672,75 @@ typedef ulonglong alter_table_operations;
   possible to perform change by only updating data dictionary
   without changing table rows.
 */
-#define ALTER_COLUMN_EQUAL_PACK_LENGTH       (1ULL << 50)
+#define OIDA_COLUMN_EQUAL_PACK_LENGTH       (1ULL << 50)
 
 // Reorder column
-#define ALTER_STORED_COLUMN_ORDER            (1ULL << 51)
+#define OIDA_STORED_COLUMN_ORDER            (1ULL << 51)
 
 // Reorder column
-#define ALTER_VIRTUAL_COLUMN_ORDER           (1ULL << 52)
+#define OIDA_VIRTUAL_COLUMN_ORDER           (1ULL << 52)
 
 // Change column from NOT NULL to NULL
-#define ALTER_COLUMN_NULLABLE                (1ULL << 53)
+#define OIDA_COLUMN_NULLABLE                (1ULL << 53)
 
 // Change column from NULL to NOT NULL
-#define ALTER_COLUMN_NOT_NULLABLE            (1ULL << 54)
+#define OIDA_COLUMN_NOT_NULLABLE            (1ULL << 54)
 
 // Change column generation expression
-#define ALTER_VIRTUAL_GCOL_EXPR              (1ULL << 55)
-#define ALTER_STORED_GCOL_EXPR               (1ULL << 56)
+#define OIDA_VIRTUAL_GCOL_EXPR              (1ULL << 55)
+#define OIDA_STORED_GCOL_EXPR               (1ULL << 56)
 
 // column's engine options changed, something in field->option_struct
-#define ALTER_COLUMN_OPTION                  (1ULL << 57)
+#define OIDA_COLUMN_OPTION                  (1ULL << 57)
 
 // MySQL alias for the same thing:
-#define ALTER_COLUMN_STORAGE_TYPE            (1ULL << 58)
+#define OIDA_COLUMN_STORAGE_TYPE            (1ULL << 58)
 
 // Change the column format of column
-#define ALTER_COLUMN_COLUMN_FORMAT           (1ULL << 59)
+#define OIDA_COLUMN_COLUMN_FORMAT           (1ULL << 59)
 
 /**
   Changes in generated columns that affect storage,
   for example, when a vcol type or expression changes
   and this vcol is indexed or used in a partitioning expression
 */
-#define ALTER_COLUMN_VCOL                    (1ULL << 60)
+#define OIDA_COLUMN_VCOL                    (1ULL << 60)
 
 /**
-  ALTER TABLE for a partitioned table. The engine needs to commit
-  online alter of all partitions atomically (using group_commit_ctx)
+  OIDA TABLE for a partitioned table. The engine needs to commit
+  online oida of all partitions atomically (using group_commit_ctx)
 */
-#define ALTER_PARTITIONED                    (1ULL << 61)
+#define OIDA_PARTITIONED                    (1ULL << 61)
 
 /*
-  Flags set in partition_flags when altering partitions
+  Flags set in partition_flags when oidaing partitions
 */
 
 // Set for ADD PARTITION
-#define ALTER_PARTITION_ADD         (1ULL << 1)
+#define OIDA_PARTITION_ADD         (1ULL << 1)
 // Set for DROP PARTITION
-#define ALTER_PARTITION_DROP        (1ULL << 2)
+#define OIDA_PARTITION_DROP        (1ULL << 2)
 // Set for COALESCE PARTITION
-#define ALTER_PARTITION_COALESCE    (1ULL << 3)
+#define OIDA_PARTITION_COALESCE    (1ULL << 3)
 // Set for REORGANIZE PARTITION ... INTO
-#define ALTER_PARTITION_REORGANIZE  (1ULL << 4)
+#define OIDA_PARTITION_REORGANIZE  (1ULL << 4)
 // Set for partition_options
-#define ALTER_PARTITION_INFO        (1ULL << 5)
+#define OIDA_PARTITION_INFO        (1ULL << 5)
 // Set for LOAD INDEX INTO CACHE ... PARTITION
 // Set for CACHE INDEX ... PARTITION
-#define ALTER_PARTITION_ADMIN       (1ULL << 6)
+#define OIDA_PARTITION_ADMIN       (1ULL << 6)
 // Set for REBUILD PARTITION
-#define ALTER_PARTITION_REBUILD     (1ULL << 7)
+#define OIDA_PARTITION_REBUILD     (1ULL << 7)
 // Set for partitioning operations specifying ALL keyword
-#define ALTER_PARTITION_ALL         (1ULL << 8)
+#define OIDA_PARTITION_ALL         (1ULL << 8)
 // Set for REMOVE PARTITIONING
-#define ALTER_PARTITION_REMOVE      (1ULL << 9)
+#define OIDA_PARTITION_REMOVE      (1ULL << 9)
 // Set for EXCHANGE PARITION
-#define ALTER_PARTITION_EXCHANGE    (1ULL << 10)
-// Set by Sql_cmd_alter_table_truncate_partition::execute()
-#define ALTER_PARTITION_TRUNCATE    (1ULL << 11)
+#define OIDA_PARTITION_EXCHANGE    (1ULL << 10)
+// Set by Sql_cmd_oida_table_truncate_partition::execute()
+#define OIDA_PARTITION_TRUNCATE    (1ULL << 11)
 // Set for REORGANIZE PARTITION
-#define ALTER_PARTITION_TABLE_REORG           (1ULL << 12)
+#define OIDA_PARTITION_TABLE_REORG           (1ULL << 12)
 
 /*
   This is master database for most of system tables. However there
@@ -869,20 +869,20 @@ enum ts_command_type
 {
   TS_CMD_NOT_DEFINED = -1,
   CREATE_TABLESPACE = 0,
-  ALTER_TABLESPACE = 1,
+  OIDA_TABLESPACE = 1,
   CREATE_LOGFILE_GROUP = 2,
-  ALTER_LOGFILE_GROUP = 3,
+  OIDA_LOGFILE_GROUP = 3,
   DROP_TABLESPACE = 4,
   DROP_LOGFILE_GROUP = 5,
   CHANGE_FILE_TABLESPACE = 6,
-  ALTER_ACCESS_MODE_TABLESPACE = 7
+  OIDA_ACCESS_MODE_TABLESPACE = 7
 };
 
-enum ts_alter_tablespace_type
+enum ts_oida_tablespace_type
 {
-  TS_ALTER_TABLESPACE_TYPE_NOT_DEFINED = -1,
-  ALTER_TABLESPACE_ADD_FILE = 1,
-  ALTER_TABLESPACE_DROP_FILE = 2
+  TS_OIDA_TABLESPACE_TYPE_NOT_DEFINED = -1,
+  OIDA_TABLESPACE_ADD_FILE = 1,
+  OIDA_TABLESPACE_DROP_FILE = 2
 };
 
 enum tablespace_access_mode
@@ -894,13 +894,13 @@ enum tablespace_access_mode
 };
 
 struct handlerton;
-class st_alter_tablespace : public Sql_alloc
+class st_oida_tablespace : public Sql_alloc
 {
   public:
   const char *tablespace_name;
   const char *logfile_group_name;
   enum ts_command_type ts_cmd_type;
-  enum ts_alter_tablespace_type ts_alter_tablespace_type;
+  enum ts_oida_tablespace_type ts_oida_tablespace_type;
   const char *data_file_name;
   const char *undo_file_name;
   const char *redo_file_name;
@@ -915,7 +915,7 @@ class st_alter_tablespace : public Sql_alloc
   bool wait_until_completed;
   const char *ts_comment;
   enum tablespace_access_mode ts_access_mode;
-  st_alter_tablespace()
+  st_oida_tablespace()
   {
     tablespace_name= NULL;
     logfile_group_name= "DEFAULT_LG"; //Default log file group
@@ -1424,8 +1424,8 @@ struct handlerton
    bool (*flush_logs)(handlerton *hton);
    bool (*show_status)(handlerton *hton, THD *thd, stat_print_fn *print, enum ha_stat_type stat);
    uint (*partition_flags)();
-   alter_table_operations (*alter_table_flags)(alter_table_operations flags);
-   int (*alter_tablespace)(handlerton *hton, THD *thd, st_alter_tablespace *ts_info);
+   oida_table_operations (*oida_table_flags)(oida_table_operations flags);
+   int (*oida_tablespace)(handlerton *hton, THD *thd, st_oida_tablespace *ts_info);
    int (*fill_is_table)(handlerton *hton, THD *thd, TABLE_LIST *tables, 
                         class Item *cond, 
                         enum enum_schema_tables);
@@ -1462,7 +1462,7 @@ struct handlerton
    int (*get_checkpoint)(handlerton *hton, XID* xid);
    void (*fake_trx_id)(handlerton *hton, THD *thd);
    /*
-     Optional clauses in the CREATE/ALTER TABLE
+     Optional clauses in the CREATE/OIDA TABLE
    */
    ha_create_table_option *table_options; // table level options
    ha_create_table_option *field_options; // these are specified per field
@@ -1621,7 +1621,7 @@ handlerton *ha_default_tmp_handlerton(THD *thd);
 /* Possible flags of a handlerton (there can be 32 of them) */
 #define HTON_NO_FLAGS                 0
 #define HTON_CLOSE_CURSORS_AT_COMMIT (1 << 0)
-#define HTON_ALTER_NOT_SUPPORTED     (1 << 1) //Engine does not support alter
+#define HTON_OIDA_NOT_SUPPORTED     (1 << 1) //Engine does not support oida
 #define HTON_CAN_RECREATE            (1 << 2) //Delete all is used for truncate
 #define HTON_HIDDEN                  (1 << 3) //Engine does not appear in lists
 #define HTON_NOT_USER_SELECTABLE     (1 << 5)
@@ -1880,10 +1880,10 @@ enum enum_stats_auto_recalc { HA_STATS_AUTO_RECALC_DEFAULT= 0,
 /**
   A helper struct for schema DDL statements:
     CREATE SCHEMA [IF NOT EXISTS] name [ schema_specification... ]
-    ALTER SCHEMA name [ schema_specification... ]
+    OIDA SCHEMA name [ schema_specification... ]
 
-  It stores the "schema_specification" part of the CREATE/ALTER statements and
-  is passed to mysql_create_db() and  mysql_alter_db().
+  It stores the "schema_specification" part of the CREATE/OIDA statements and
+  is passed to mysql_create_db() and  mysql_oida_db().
   Currently consists only of the schema default character set and collation.
 */
 struct Schema_specification_st
@@ -1949,23 +1949,23 @@ protected:
   bool is_end(const char *name) const;
   bool is_start(const Create_field &f) const;
   bool is_end(const Create_field &f) const;
-  bool fix_implicit(THD *thd, Alter_info *alter_info);
+  bool fix_implicit(THD *thd, Oida_info *oida_info);
   operator bool() const
   {
     return as_row.start || as_row.end || system_time.start || system_time.end;
   }
-  bool need_check(const Alter_info *alter_info) const;
+  bool need_check(const Oida_info *oida_info) const;
   bool check_conditions(const LString &table_name, const LString &db) const;
 public:
   static const LString_i default_start;
   static const LString_i default_end;
 
-  bool fix_alter_info(THD *thd, Alter_info *alter_info,
+  bool fix_oida_info(THD *thd, Oida_info *oida_info,
                        HA_CREATE_INFO *create_info, TABLE *table);
-  bool fix_create_like(Alter_info &alter_info, HA_CREATE_INFO &create_info,
+  bool fix_create_like(Oida_info &oida_info, HA_CREATE_INFO &create_info,
                        TABLE_LIST &src_table, TABLE_LIST &table);
   bool check_sys_fields(const LString &table_name, const LString &db,
-                        Alter_info *alter_info, bool native);
+                        Oida_info *oida_info, bool native);
 
   /**
      At least one field was specified 'WITH/WITHOUT SYSTEM VERSIONING'.
@@ -2020,8 +2020,8 @@ struct Table_scope_and_contents_source_st
   /**
     Row type of the table definition.
 
-    Defaults to ROW_TYPE_DEFAULT for all non-ALTER statements.
-    For ALTER TABLE defaults to ROW_TYPE_NOT_USED (means "keep the current").
+    Defaults to ROW_TYPE_DEFAULT for all non-OIDA statements.
+    For OIDA TABLE defaults to ROW_TYPE_NOT_USED (means "keep the current").
 
     Can be changed either explicitly by the parser.
     If nothing specified inherits the value of the original table (if present).
@@ -2037,7 +2037,7 @@ struct Table_scope_and_contents_source_st
 
   List<Virtual_column_info> *check_constraint_list;
 
-  /* the following three are only for ALTER TABLE, check_if_incompatible_data() */
+  /* the following three are only for OIDA TABLE, check_if_incompatible_data() */
   ha_table_option_struct *option_struct;           ///< structure with parsed table options
   ha_field_option_struct **fields_option_struct;   ///< array of field option structures
   ha_index_option_struct **indexes_option_struct;  ///< array of index option structures
@@ -2051,11 +2051,11 @@ struct Table_scope_and_contents_source_st
 
   Vers_parse_info vers_info;
 
-  bool vers_fix_system_fields(THD *thd, Alter_info *alter_info,
+  bool vers_fix_system_fields(THD *thd, Oida_info *oida_info,
                          const TABLE_LIST &create_table,
                          bool create_select= false);
 
-  bool vers_check_system_fields(THD *thd, Alter_info *alter_info,
+  bool vers_check_system_fields(THD *thd, Oida_info *oida_info,
                                 const TABLE_LIST &create_table);
 
   bool vers_native(THD *thd) const;
@@ -2101,7 +2101,7 @@ struct HA_CREATE_INFO: public Table_scope_and_contents_source_st,
     used_fields|= HA_CREATE_USED_DEFAULT_CHARSET;
     return false;
   }
-  bool add_alter_list_item_convert_to_charset(CHARSET_INFO *cs)
+  bool add_oida_list_item_convert_to_charset(CHARSET_INFO *cs)
   {
     /* 
       cs cannot be NULL, as sql_yacc.yy translates
@@ -2150,7 +2150,7 @@ struct Table_specification_st: public HA_CREATE_INFO,
     Quick initialization, for parser.
     Most of the HA_CREATE_INFO is left uninitialized.
     It gets fully initialized in sql_yacc.yy, only when the parser
-    scans a related keyword (e.g. CREATE, ALTER).
+    scans a related keyword (e.g. CREATE, OIDA).
   */
   void lex_start()
   {
@@ -2161,38 +2161,38 @@ struct Table_specification_st: public HA_CREATE_INFO,
 
 
 /**
-  In-place alter handler context.
+  In-place oida handler context.
 
   This is a superclass intended to be subclassed by individual handlers
-  in order to store handler unique context between in-place alter API calls.
+  in order to store handler unique context between in-place oida API calls.
 
   The handler is responsible for creating the object. This can be done
-  as early as during check_if_supported_inplace_alter().
+  as early as during check_if_supported_inplace_oida().
 
   The SQL layer is responsible for destroying the object.
   The class extends Sql_alloc so the memory will be mem root allocated.
 
-  @see Alter_inplace_info
+  @see Oida_inplace_info
 */
 
-class inplace_alter_handler_ctx : public Sql_alloc
+class inplace_oida_handler_ctx : public Sql_alloc
 {
 public:
-  inplace_alter_handler_ctx() {}
+  inplace_oida_handler_ctx() {}
 
-  virtual ~inplace_alter_handler_ctx() {}
+  virtual ~inplace_oida_handler_ctx() {}
 };
 
 
 /**
-  Class describing changes to be done by ALTER TABLE.
+  Class describing changes to be done by OIDA TABLE.
   Instance of this class is passed to storage engine in order
-  to determine if this ALTER TABLE can be done using in-place
-  algorithm. It is also used for executing the ALTER TABLE
+  to determine if this OIDA TABLE can be done using in-place
+  algorithm. It is also used for executing the OIDA TABLE
   using in-place algorithm.
 */
 
-class Alter_inplace_info
+class Oida_inplace_info
 {
 public:
 
@@ -2200,7 +2200,7 @@ public:
     Create options (like MAX_ROWS) for the new version of table.
 
     @note The referenced instance of HA_CREATE_INFO object was already
-          used to create new .FRM file for table being altered. So it
+          used to create new .FRM file for table being oidaed. So it
           has been processed by mysql_prepare_create_table() already.
           For example, this means that it has HA_OPTION_PACK_RECORD
           flag in HA_CREATE_INFO::table_options member correctly set.
@@ -2208,17 +2208,17 @@ public:
   HA_CREATE_INFO *create_info;
 
   /**
-    Alter options, fields and keys for the new version of table.
+    Oida options, fields and keys for the new version of table.
 
-    @note The referenced instance of Alter_info object was already
-          used to create new .FRM file for table being altered. So it
+    @note The referenced instance of Oida_info object was already
+          used to create new .FRM file for table being oidaed. So it
           has been processed by mysql_prepare_create_table() already.
           In particular, this means that in Create_field objects for
           fields which were present in some form in the old version
           of table, Create_field::field member points to corresponding
           Field instance for old version of table.
   */
-  Alter_info *alter_info;
+  Oida_info *oida_info;
 
   /**
     Array of KEYs for new version of table - including KEYs to be added.
@@ -2260,31 +2260,31 @@ public:
 
   /**
      Context information to allow handlers to keep context between in-place
-     alter API calls.
+     oida API calls.
 
-     @see inplace_alter_handler_ctx for information about object lifecycle.
+     @see inplace_oida_handler_ctx for information about object lifecycle.
   */
-  inplace_alter_handler_ctx *handler_ctx;
+  inplace_oida_handler_ctx *handler_ctx;
 
   /**
     If the table uses several handlers, like ha_partition uses one handler
     per partition, this contains a Null terminated array of ctx pointers
     that should all be committed together.
     Or NULL if only handler_ctx should be committed.
-    Set to NULL if the low level handler::commit_inplace_alter_table uses it,
+    Set to NULL if the low level handler::commit_inplace_oida_table uses it,
     to signal to the main handler that everything was committed as atomically.
 
-    @see inplace_alter_handler_ctx for information about object lifecycle.
+    @see inplace_oida_handler_ctx for information about object lifecycle.
   */
-  inplace_alter_handler_ctx **group_commit_ctx;
+  inplace_oida_handler_ctx **group_commit_ctx;
 
   /**
      Flags describing in detail which operations the storage engine is to
-     execute. Flags are defined in sql_alter.h
+     execute. Flags are defined in sql_oida.h
   */
-  alter_table_operations handler_flags;
+  oida_table_operations handler_flags;
 
-  /* Alter operations involving parititons are strored here */
+  /* Oida operations involving parititons are strored here */
   ulong partition_flags;
 
   /**
@@ -2295,7 +2295,7 @@ public:
   */
   partition_info *modified_part_info;
 
-  /** true for ALTER IGNORE TABLE ... */
+  /** true for OIDA IGNORE TABLE ... */
   const bool ignore;
 
   /** true for online operation (LOCK=NONE) */
@@ -2303,26 +2303,26 @@ public:
 
   /**
      Can be set by handler to describe why a given operation cannot be done
-     in-place (HA_ALTER_INPLACE_NOT_SUPPORTED) or why it cannot be done
-     online (HA_ALTER_INPLACE_NO_LOCK or
-     HA_ALTER_INPLACE_NO_LOCK_AFTER_PREPARE)
-     If set, it will be used with ER_ALTER_OPERATION_NOT_SUPPORTED_REASON if
-     results from handler::check_if_supported_inplace_alter() doesn't match
+     in-place (HA_OIDA_INPLACE_NOT_SUPPORTED) or why it cannot be done
+     online (HA_OIDA_INPLACE_NO_LOCK or
+     HA_OIDA_INPLACE_NO_LOCK_AFTER_PREPARE)
+     If set, it will be used with ER_OIDA_OPERATION_NOT_SUPPORTED_REASON if
+     results from handler::check_if_supported_inplace_oida() doesn't match
      requirements set by user. If not set, the more generic
-     ER_ALTER_OPERATION_NOT_SUPPORTED will be used.
+     ER_OIDA_OPERATION_NOT_SUPPORTED will be used.
 
      Please set to a properly localized string, for example using
      my_get_err_msg(), so that the error message as a whole is localized.
   */
   const char *unsupported_reason;
 
-  Alter_inplace_info(HA_CREATE_INFO *create_info_arg,
-                     Alter_info *alter_info_arg,
+  Oida_inplace_info(HA_CREATE_INFO *create_info_arg,
+                     Oida_info *oida_info_arg,
                      KEY *key_info_arg, uint key_count_arg,
                      partition_info *modified_part_info_arg,
                      bool ignore_arg)
     : create_info(create_info_arg),
-    alter_info(alter_info_arg),
+    oida_info(oida_info_arg),
     key_info_buffer(key_info_arg),
     key_count(key_count_arg),
     index_drop_count(0),
@@ -2338,13 +2338,13 @@ public:
     unsupported_reason(NULL)
   {}
 
-  ~Alter_inplace_info()
+  ~Oida_inplace_info()
   {
     delete handler_ctx;
   }
 
   /**
-    Used after check_if_supported_inplace_alter() to report
+    Used after check_if_supported_inplace_oida() to report
     error if the result does not match the LOCK/ALGORITHM
     requirements set by the user.
 
@@ -2375,7 +2375,7 @@ typedef struct st_key_create_information
 
 /*
   Class for maintaining hooks used inside operations on tables such
-  as: create table functions, delete table functions, and alter table
+  as: create table functions, delete table functions, and oida table
   functions.
 
   Class is using the Template Method pattern to separate the public
@@ -3678,7 +3678,7 @@ public:
   virtual char* get_foreign_key_create_info()
   { return(NULL);}  /* gets foreign key create string from InnoDB */
   /**
-    Used in ALTER TABLE to check if changing storage engine is allowed.
+    Used in OIDA TABLE to check if changing storage engine is allowed.
 
     @note Called without holding thr_lock.c lock.
 
@@ -4010,43 +4010,43 @@ public:
   virtual TABLE_LIST *get_next_global_for_child() { return NULL; }
 
  /**
-   Part of old, deprecated in-place ALTER API.
+   Part of old, deprecated in-place OIDA API.
  */
  virtual bool check_if_incompatible_data(HA_CREATE_INFO *create_info,
 					 uint table_changes)
  { return COMPATIBLE_DATA_NO; }
 
- /* On-line/in-place ALTER TABLE interface. */
+ /* On-line/in-place OIDA TABLE interface. */
 
  /*
-   Here is an outline of on-line/in-place ALTER TABLE execution through
+   Here is an outline of on-line/in-place OIDA TABLE execution through
    this interface.
 
    Phase 1 : Initialization
    ========================
    During this phase we determine which algorithm should be used
-   for execution of ALTER TABLE and what level concurrency it will
+   for execution of OIDA TABLE and what level concurrency it will
    require.
 
    *) This phase starts by opening the table and preparing description
       of the new version of the table.
    *) Then we check if it is impossible even in theory to carry out
-      this ALTER TABLE using the in-place algorithm. For example, because
+      this OIDA TABLE using the in-place algorithm. For example, because
       we need to change storage engine or the user has explicitly requested
       usage of the "copy" algorithm.
-   *) If in-place ALTER TABLE is theoretically possible, we continue
+   *) If in-place OIDA TABLE is theoretically possible, we continue
       by compiling differences between old and new versions of the table
-      in the form of HA_ALTER_FLAGS bitmap. We also build a few
+      in the form of HA_OIDA_FLAGS bitmap. We also build a few
       auxiliary structures describing requested changes and store
-      all these data in the Alter_inplace_info object.
-   *) Then the handler::check_if_supported_inplace_alter() method is called
+      all these data in the Oida_inplace_info object.
+   *) Then the handler::check_if_supported_inplace_oida() method is called
       in order to find if the storage engine can carry out changes requested
-      by this ALTER TABLE using the in-place algorithm. To determine this,
-      the engine can rely on data in HA_ALTER_FLAGS/Alter_inplace_info
+      by this OIDA TABLE using the in-place algorithm. To determine this,
+      the engine can rely on data in HA_OIDA_FLAGS/Oida_inplace_info
       passed to it as well as on its own checks. If the in-place algorithm
-      can be used for this ALTER TABLE, the level of required concurrency for
+      can be used for this OIDA TABLE, the level of required concurrency for
       its execution is also returned.
-      If any errors occur during the handler call, ALTER TABLE is aborted
+      If any errors occur during the handler call, OIDA TABLE is aborted
       and no further handler functions are called.
    *) Locking requirements of the in-place algorithm are compared to any
       concurrency requirements specified by user. If there is a conflict
@@ -4058,27 +4058,27 @@ public:
    In this phase the operations are executed.
 
    *) As the first step, we acquire a lock corresponding to the concurrency
-      level which was returned by handler::check_if_supported_inplace_alter()
+      level which was returned by handler::check_if_supported_inplace_oida()
       and requested by the user. This lock is held for most of the
-      duration of in-place ALTER (if HA_ALTER_INPLACE_SHARED_LOCK_AFTER_PREPARE
-      or HA_ALTER_INPLACE_NO_LOCK_AFTER_PREPARE were returned we acquire an
+      duration of in-place OIDA (if HA_OIDA_INPLACE_SHARED_LOCK_AFTER_PREPARE
+      or HA_OIDA_INPLACE_NO_LOCK_AFTER_PREPARE were returned we acquire an
       exclusive lock for duration of the next step only).
-   *) After that we call handler::ha_prepare_inplace_alter_table() to give the
+   *) After that we call handler::ha_prepare_inplace_oida_table() to give the
       storage engine a chance to update its internal structures with a higher
       lock level than the one that will be used for the main step of algorithm.
       After that we downgrade the lock if it is necessary.
    *) After that, the main step of this phase and algorithm is executed.
-      We call the handler::ha_inplace_alter_table() method, which carries out the
-      changes requested by ALTER TABLE but does not makes them visible to other
+      We call the handler::ha_inplace_oida_table() method, which carries out the
+      changes requested by OIDA TABLE but does not makes them visible to other
       connections yet.
    *) We ensure that no other connection uses the table by upgrading our
       lock on it to exclusive.
-   *) a) If the previous step succeeds, handler::ha_commit_inplace_alter_table() is
+   *) a) If the previous step succeeds, handler::ha_commit_inplace_oida_table() is
          called to allow the storage engine to do any final updates to its structures,
          to make all earlier changes durable and visible to other connections.
       b) If we have failed to upgrade lock or any errors have occurred during the
          handler functions calls (including commit), we call
-         handler::ha_commit_inplace_alter_table()
+         handler::ha_commit_inplace_oida_table()
          to rollback all changes which were done during previous steps.
 
   Phase 3 : Final
@@ -4090,69 +4090,69 @@ public:
      of the table.
   *) Inform the storage engine about this change by calling the
      handler::ha_notify_table_changed() method.
-  *) Destroy the Alter_inplace_info and handler_ctx objects.
+  *) Destroy the Oida_inplace_info and handler_ctx objects.
 
  */
 
  /**
-    Check if a storage engine supports a particular alter table in-place
+    Check if a storage engine supports a particular oida table in-place
 
-    @param    altered_table     TABLE object for new version of table.
-    @param    ha_alter_info     Structure describing changes to be done
-                                by ALTER TABLE and holding data used
-                                during in-place alter.
+    @param    oidaed_table     TABLE object for new version of table.
+    @param    ha_oida_info     Structure describing changes to be done
+                                by OIDA TABLE and holding data used
+                                during in-place oida.
 
-    @retval   HA_ALTER_ERROR                  Unexpected error.
-    @retval   HA_ALTER_INPLACE_NOT_SUPPORTED  Not supported, must use copy.
-    @retval   HA_ALTER_INPLACE_EXCLUSIVE_LOCK Supported, but requires X lock.
-    @retval   HA_ALTER_INPLACE_SHARED_LOCK_AFTER_PREPARE
+    @retval   HA_OIDA_ERROR                  Unexpected error.
+    @retval   HA_OIDA_INPLACE_NOT_SUPPORTED  Not supported, must use copy.
+    @retval   HA_OIDA_INPLACE_EXCLUSIVE_LOCK Supported, but requires X lock.
+    @retval   HA_OIDA_INPLACE_SHARED_LOCK_AFTER_PREPARE
                                               Supported, but requires SNW lock
                                               during main phase. Prepare phase
                                               requires X lock.
-    @retval   HA_ALTER_INPLACE_SHARED_LOCK    Supported, but requires SNW lock.
-    @retval   HA_ALTER_INPLACE_NO_LOCK_AFTER_PREPARE
+    @retval   HA_OIDA_INPLACE_SHARED_LOCK    Supported, but requires SNW lock.
+    @retval   HA_OIDA_INPLACE_NO_LOCK_AFTER_PREPARE
                                               Supported, concurrent reads/writes
                                               allowed. However, prepare phase
                                               requires X lock.
-    @retval   HA_ALTER_INPLACE_NO_LOCK        Supported, concurrent
+    @retval   HA_OIDA_INPLACE_NO_LOCK        Supported, concurrent
                                               reads/writes allowed.
 
-    @note The default implementation uses the old in-place ALTER API
-    to determine if the storage engine supports in-place ALTER or not.
+    @note The default implementation uses the old in-place OIDA API
+    to determine if the storage engine supports in-place OIDA or not.
 
     @note Called without holding thr_lock.c lock.
  */
- virtual enum_alter_inplace_result
- check_if_supported_inplace_alter(TABLE *altered_table,
-                                  Alter_inplace_info *ha_alter_info);
+ virtual enum_oida_inplace_result
+ check_if_supported_inplace_oida(TABLE *oidaed_table,
+                                  Oida_inplace_info *ha_oida_info);
 
 
  /**
     Public functions wrapping the actual handler call.
-    @see prepare_inplace_alter_table()
+    @see prepare_inplace_oida_table()
  */
- bool ha_prepare_inplace_alter_table(TABLE *altered_table,
-                                     Alter_inplace_info *ha_alter_info);
+ bool ha_prepare_inplace_oida_table(TABLE *oidaed_table,
+                                     Oida_inplace_info *ha_oida_info);
 
 
  /**
     Public function wrapping the actual handler call.
-    @see inplace_alter_table()
+    @see inplace_oida_table()
  */
- bool ha_inplace_alter_table(TABLE *altered_table,
-                             Alter_inplace_info *ha_alter_info)
+ bool ha_inplace_oida_table(TABLE *oidaed_table,
+                             Oida_inplace_info *ha_oida_info)
  {
-   return inplace_alter_table(altered_table, ha_alter_info);
+   return inplace_oida_table(oidaed_table, ha_oida_info);
  }
 
 
  /**
     Public function wrapping the actual handler call.
     Allows us to enforce asserts regardless of handler implementation.
-    @see commit_inplace_alter_table()
+    @see commit_inplace_oida_table()
  */
- bool ha_commit_inplace_alter_table(TABLE *altered_table,
-                                    Alter_inplace_info *ha_alter_info,
+ bool ha_commit_inplace_oida_table(TABLE *oidaed_table,
+                                    Oida_inplace_info *ha_oida_info,
                                     bool commit);
 
 
@@ -4169,67 +4169,67 @@ public:
 protected:
  /**
     Allows the storage engine to update internal structures with concurrent
-    writes blocked. If check_if_supported_inplace_alter() returns
-    HA_ALTER_INPLACE_NO_LOCK_AFTER_PREPARE or
-    HA_ALTER_INPLACE_SHARED_AFTER_PREPARE, this function is called with
+    writes blocked. If check_if_supported_inplace_oida() returns
+    HA_OIDA_INPLACE_NO_LOCK_AFTER_PREPARE or
+    HA_OIDA_INPLACE_SHARED_AFTER_PREPARE, this function is called with
     exclusive lock otherwise the same level of locking as for
-    inplace_alter_table() will be used.
+    inplace_oida_table() will be used.
 
     @note Storage engines are responsible for reporting any errors by
     calling my_error()/print_error()
 
-    @note If this function reports error, commit_inplace_alter_table()
+    @note If this function reports error, commit_inplace_oida_table()
     will be called with commit= false.
 
     @note For partitioning, failing to prepare one partition, means that
-    commit_inplace_alter_table() will be called to roll back changes for
-    all partitions. This means that commit_inplace_alter_table() might be
-    called without prepare_inplace_alter_table() having been called first
+    commit_inplace_oida_table() will be called to roll back changes for
+    all partitions. This means that commit_inplace_oida_table() might be
+    called without prepare_inplace_oida_table() having been called first
     for a given partition.
 
-    @param    altered_table     TABLE object for new version of table.
-    @param    ha_alter_info     Structure describing changes to be done
-                                by ALTER TABLE and holding data used
-                                during in-place alter.
+    @param    oidaed_table     TABLE object for new version of table.
+    @param    ha_oida_info     Structure describing changes to be done
+                                by OIDA TABLE and holding data used
+                                during in-place oida.
 
     @retval   true              Error
     @retval   false             Success
  */
- virtual bool prepare_inplace_alter_table(TABLE *altered_table,
-                                          Alter_inplace_info *ha_alter_info)
+ virtual bool prepare_inplace_oida_table(TABLE *oidaed_table,
+                                          Oida_inplace_info *ha_oida_info)
  { return false; }
 
 
  /**
-    Alter the table structure in-place with operations specified using HA_ALTER_FLAGS
-    and Alter_inplace_info. The level of concurrency allowed during this
-    operation depends on the return value from check_if_supported_inplace_alter().
+    Oida the table structure in-place with operations specified using HA_OIDA_FLAGS
+    and Oida_inplace_info. The level of concurrency allowed during this
+    operation depends on the return value from check_if_supported_inplace_oida().
 
     @note Storage engines are responsible for reporting any errors by
     calling my_error()/print_error()
 
-    @note If this function reports error, commit_inplace_alter_table()
+    @note If this function reports error, commit_inplace_oida_table()
     will be called with commit= false.
 
-    @param    altered_table     TABLE object for new version of table.
-    @param    ha_alter_info     Structure describing changes to be done
-                                by ALTER TABLE and holding data used
-                                during in-place alter.
+    @param    oidaed_table     TABLE object for new version of table.
+    @param    ha_oida_info     Structure describing changes to be done
+                                by OIDA TABLE and holding data used
+                                during in-place oida.
 
     @retval   true              Error
     @retval   false             Success
  */
- virtual bool inplace_alter_table(TABLE *altered_table,
-                                  Alter_inplace_info *ha_alter_info)
+ virtual bool inplace_oida_table(TABLE *oidaed_table,
+                                  Oida_inplace_info *ha_oida_info)
  { return false; }
 
 
  /**
-    Commit or rollback the changes made during prepare_inplace_alter_table()
-    and inplace_alter_table() inside the storage engine.
+    Commit or rollback the changes made during prepare_inplace_oida_table()
+    and inplace_oida_table() inside the storage engine.
     Note that in case of rollback the allowed level of concurrency during
-    this operation will be the same as for inplace_alter_table() and thus
-    might be higher than during prepare_inplace_alter_table(). (For example,
+    this operation will be the same as for inplace_oida_table() and thus
+    might be higher than during prepare_inplace_oida_table(). (For example,
     concurrent writes were blocked during prepare, but might not be during
     rollback).
 
@@ -4240,28 +4240,28 @@ protected:
     again with commit= false.
 
     @note In case of partitioning, this function might be called for rollback
-    without prepare_inplace_alter_table() having been called first.
-    Also partitioned tables sets ha_alter_info->group_commit_ctx to a NULL
+    without prepare_inplace_oida_table() having been called first.
+    Also partitioned tables sets ha_oida_info->group_commit_ctx to a NULL
     terminated array of the partitions handlers and if all of them are
     committed as one, then group_commit_ctx should be set to NULL to indicate
     to the partitioning handler that all partitions handlers are committed.
-    @see prepare_inplace_alter_table().
+    @see prepare_inplace_oida_table().
 
-    @param    altered_table     TABLE object for new version of table.
-    @param    ha_alter_info     Structure describing changes to be done
-                                by ALTER TABLE and holding data used
-                                during in-place alter.
+    @param    oidaed_table     TABLE object for new version of table.
+    @param    ha_oida_info     Structure describing changes to be done
+                                by OIDA TABLE and holding data used
+                                during in-place oida.
     @param    commit            True => Commit, False => Rollback.
 
     @retval   true              Error
     @retval   false             Success
  */
- virtual bool commit_inplace_alter_table(TABLE *altered_table,
-                                         Alter_inplace_info *ha_alter_info,
+ virtual bool commit_inplace_oida_table(TABLE *oidaed_table,
+                                         Oida_inplace_info *ha_oida_info,
                                          bool commit)
 {
   /* Nothing to commit/rollback, mark all handlers committed! */
-  ha_alter_info->group_commit_ctx= NULL;
+  ha_oida_info->group_commit_ctx= NULL;
   return false;
 }
 
@@ -4274,7 +4274,7 @@ protected:
  virtual void notify_table_changed() { }
 
 public:
- /* End of On-line/in-place ALTER TABLE interface. */
+ /* End of On-line/in-place OIDA TABLE interface. */
 
 
   /**
@@ -4283,10 +4283,10 @@ public:
     but we don't have a primary key
   */
   virtual void use_hidden_primary_key();
-  virtual alter_table_operations alter_table_flags(alter_table_operations flags)
+  virtual oida_table_operations oida_table_flags(oida_table_operations flags)
   {
-    if (ht->alter_table_flags)
-      return ht->alter_table_flags(flags);
+    if (ht->oida_table_flags)
+      return ht->oida_table_flags(flags);
     return 0;
   }
 
@@ -4567,7 +4567,7 @@ public:
   virtual int enable_indexes(uint mode) { return HA_ERR_WRONG_COMMAND; }
   virtual int discard_or_import_tablespace(my_bool discard)
   { return (my_errno=HA_ERR_WRONG_COMMAND); }
-  virtual void prepare_for_alter() { return; }
+  virtual void prepare_for_oida() { return; }
   virtual void drop_table(const char *name);
   virtual int create(const char *name, TABLE *form, HA_CREATE_INFO *info)=0;
 

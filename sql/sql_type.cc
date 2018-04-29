@@ -1204,7 +1204,7 @@ Field *Type_handler_olddecimal::make_conversion_table_field(TABLE *table,
   sql_print_error("In RBR mode, Slave received incompatible DECIMAL field "
                   "(old-style decimal field) from Master while creating "
                   "conversion table. Please consider changing datatype on "
-                  "Master to new style decimal by executing ALTER command for"
+                  "Master to new style decimal by executing OIDA command for"
                   " column Name: %s.%s.%s.",
                   target->table->s->db.str,
                   target->table->s->table_name.str,

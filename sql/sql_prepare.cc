@@ -60,7 +60,7 @@ When one executes a statement:
     @endverbatim
     (Note: Except for string/binary types; all other types will not be
     supplied with length field)
-  - If it is a first execute or types of parameters were altered by client,
+  - If it is a first execute or types of parameters were oidaed by client,
     then setup the conversion routines.
   - Assign parameter items from the supplied data.
   - Execute the query without re-parsing and send back the results
@@ -472,7 +472,7 @@ static ulong get_param_length(uchar **packet, ulong len)
     type and assign to param; pos is advanced to predefined length.
 
     Make a note that the NULL handling is examined at first execution
-    (i.e. when input types altered) and for all subsequent executions
+    (i.e. when input types oidaed) and for all subsequent executions
     we don't read any values for this.
 
   @param  pos               input data buffer
@@ -950,7 +950,7 @@ static bool set_conversion_functions(Prepared_statement *stmt,
   const uint signed_bit= 1 << 15;
   DBUG_ENTER("set_conversion_functions");
   /*
-     First execute or types altered by the client, setup the
+     First execute or types oidaed by the client, setup the
      conversion routines for all parameters (one time)
    */
   Item_param **it= stmt->param_array;
@@ -2403,7 +2403,7 @@ static bool check_prepared_statement(Prepared_statement *stmt)
     }
     break;
   case SQLCOM_CREATE_VIEW:
-    if (lex->create_view->mode == VIEW_ALTER)
+    if (lex->create_view->mode == VIEW_OIDA)
     {
       my_message(ER_UNSUPPORTED_PS, ER_THD(thd, ER_UNSUPPORTED_PS), MYF(0));
       goto error;
@@ -2443,8 +2443,8 @@ static bool check_prepared_statement(Prepared_statement *stmt)
   case SQLCOM_DROP_TABLE:
   case SQLCOM_DROP_SEQUENCE:
   case SQLCOM_RENAME_TABLE:
-  case SQLCOM_ALTER_TABLE:
-  case SQLCOM_ALTER_SEQUENCE:
+  case SQLCOM_OIDA_TABLE:
+  case SQLCOM_OIDA_SEQUENCE:
   case SQLCOM_COMMIT:
   case SQLCOM_CREATE_INDEX:
   case SQLCOM_DROP_INDEX:
@@ -2465,7 +2465,7 @@ static bool check_prepared_statement(Prepared_statement *stmt)
   case SQLCOM_UNINSTALL_PLUGIN:
   case SQLCOM_CREATE_DB:
   case SQLCOM_DROP_DB:
-  case SQLCOM_ALTER_DB_UPGRADE:
+  case SQLCOM_OIDA_DB_UPGRADE:
   case SQLCOM_CHECKSUM:
   case SQLCOM_CREATE_USER:
   case SQLCOM_RENAME_USER:
@@ -2891,7 +2891,7 @@ void mysql_sql_stmt_execute_immediate(THD *thd)
 
   @todo
     When the new table structure is ready, then have a status bit
-    to indicate the table is altered, and re-do the setup_*
+    to indicate the table is oidaed, and re-do the setup_*
     and open the tables back.
 */
 
@@ -2987,7 +2987,7 @@ void reinit_stmt_before_use(THD *thd, LEX *lex)
 
   /*
     TODO: When the new table structure is ready, then have a status bit
-    to indicate the table is altered, and re-do the setup_*
+    to indicate the table is oidaed, and re-do the setup_*
     and open the tables back.
   */
   /*

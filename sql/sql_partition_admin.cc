@@ -19,15 +19,15 @@
 #include "sql_parse.h"                      // check_one_table_access
                                             // check_merge_table_access
                                             // check_one_table_access
-#include "sql_table.h"                      // mysql_alter_table, etc.
+#include "sql_table.h"                      // mysql_oida_table, etc.
 #include "sql_cmd.h"                        // Sql_cmd
-#include "sql_alter.h"                      // Sql_cmd_alter_table
+#include "sql_oida.h"                      // Sql_cmd_oida_table
 #include "sql_partition.h"                  // struct partition_info, etc.
 #include "debug_sync.h"                     // DEBUG_SYNC
 #include "sql_truncate.h"                   // mysql_truncate_table,
                                             // Sql_cmd_truncate_table
 #include "sql_admin.h"                      // Analyze/Check/.._table_statement
-#include "sql_partition_admin.h"            // Alter_table_*_partition
+#include "sql_partition_admin.h"            // Oida_table_*_partition
 #ifdef WITH_PARTITION_STORAGE_ENGINE
 #include "ha_partition.h"                   // ha_partition
 #endif
@@ -46,7 +46,7 @@ bool Sql_cmd_partition_unsupported::execute(THD *)
 
 #else
 
-bool Sql_cmd_alter_table_exchange_partition::execute(THD *thd)
+bool Sql_cmd_oida_table_exchange_partition::execute(THD *thd)
 {
   /* Moved from mysql_execute_command */
   LEX *lex= thd->lex;
@@ -55,25 +55,25 @@ bool Sql_cmd_alter_table_exchange_partition::execute(THD *thd)
   /* first table of first SELECT_LEX */
   TABLE_LIST *first_table= (TABLE_LIST*) select_lex->table_list.first;
   /*
-    Code in mysql_alter_table() may modify its HA_CREATE_INFO argument,
+    Code in mysql_oida_table() may modify its HA_CREATE_INFO argument,
     so we have to use a copy of this structure to make execution
     prepared statement- safe. A shallow copy is enough as no memory
     referenced from this structure will be modified.
     @todo move these into constructor...
   */
   HA_CREATE_INFO create_info(lex->create_info);
-  Alter_info alter_info(lex->alter_info, thd->mem_root);
-  ulong priv_needed= ALTER_ACL | DROP_ACL | INSERT_ACL | CREATE_ACL;
+  Oida_info oida_info(lex->oida_info, thd->mem_root);
+  ulong priv_needed= OIDA_ACL | DROP_ACL | INSERT_ACL | CREATE_ACL;
 
-  DBUG_ENTER("Sql_cmd_alter_table_exchange_partition::execute");
+  DBUG_ENTER("Sql_cmd_oida_table_exchange_partition::execute");
 
-  if (thd->is_fatal_error) /* out of memory creating a copy of alter_info */
+  if (thd->is_fatal_error) /* out of memory creating a copy of oida_info */
     DBUG_RETURN(TRUE);
 
   /* Must be set in the parser */
   DBUG_ASSERT(select_lex->db.str);
   /* also check the table to be exchanged with the partition */
-  DBUG_ASSERT(alter_info.partition_flags & ALTER_PARTITION_EXCHANGE);
+  DBUG_ASSERT(oida_info.partition_flags & OIDA_PARTITION_EXCHANGE);
 
   if (check_access(thd, priv_needed, first_table->db.str,
                    &first_table->grant.privilege,
@@ -93,7 +93,7 @@ bool Sql_cmd_alter_table_exchange_partition::execute(THD *thd)
   WSREP_TO_ISOLATION_BEGIN_WRTCHK(NULL, NULL, first_table);
 
   thd->prepare_logs_for_admin_command();
-  DBUG_RETURN(exchange_partition(thd, first_table, &alter_info));
+  DBUG_RETURN(exchange_partition(thd, first_table, &oida_info));
 #ifdef WITH_WSREP
  error:
   /* handle errors in TO_ISOLATION here */
@@ -183,8 +183,8 @@ static bool compare_table_with_partition(THD *thd, TABLE *table,
                                          uint part_id)
 {
   HA_CREATE_INFO table_create_info, part_create_info;
-  Alter_info part_alter_info;
-  Alter_table_ctx part_alter_ctx; // Not used
+  Oida_info part_oida_info;
+  Oida_table_ctx part_oida_ctx; // Not used
   DBUG_ENTER("compare_table_with_partition");
 
   bool metadata_equal= false;
@@ -197,13 +197,13 @@ static bool compare_table_with_partition(THD *thd, TABLE *table,
   /* mark all columns used, since they are used when preparing the new table */
   part_table->use_all_columns();
   table->use_all_columns();
-  if (mysql_prepare_alter_table(thd, part_table, &part_create_info,
-                                &part_alter_info, &part_alter_ctx))
+  if (mysql_prepare_oida_table(thd, part_table, &part_create_info,
+                                &part_oida_info, &part_oida_ctx))
   {
     my_error(ER_TABLES_DIFFERENT_METADATA, MYF(0));
     DBUG_RETURN(TRUE);
   }
-  /* db_type is not set in prepare_alter_table */
+  /* db_type is not set in prepare_oida_table */
   part_create_info.db_type= part_table->part_info->default_engine_type;
   ((ha_partition*)(part_table->file))->update_part_create_info(&part_create_info, part_id);
   /*
@@ -232,7 +232,7 @@ static bool compare_table_with_partition(THD *thd, TABLE *table,
     ha_myisam compares pointers to verify that DATA/INDEX DIRECTORY is
     the same, so any table using data/index_file_name will fail.
   */
-  if (mysql_compare_tables(table, &part_alter_info, &part_create_info,
+  if (mysql_compare_tables(table, &part_oida_info, &part_create_info,
                            &metadata_equal))
   {
     my_error(ER_TABLES_DIFFERENT_METADATA, MYF(0));
@@ -477,12 +477,12 @@ err_no_action_written:
   @param thd            Thread handle
   @param table_list     Table where the partition exists as first table,
                         Table to swap with the partition as second table
-  @param alter_info     Contains partition name to swap
+  @param oida_info     Contains partition name to swap
 
   @note This is a DDL operation so triggers will not be used.
 */
-bool Sql_cmd_alter_table_exchange_partition::
-  exchange_partition(THD *thd, TABLE_LIST *table_list, Alter_info *alter_info)
+bool Sql_cmd_oida_table_exchange_partition::
+  exchange_partition(THD *thd, TABLE_LIST *table_list, Oida_info *oida_info)
 {
   TABLE *part_table, *swap_table;
   TABLE_LIST *swap_table_list;
@@ -495,17 +495,17 @@ bool Sql_cmd_alter_table_exchange_partition::
   char temp_file_name[FN_REFLEN+1];
   uint swap_part_id;
   uint part_file_name_len;
-  Alter_table_prelocking_strategy alter_prelocking_strategy;
+  Oida_table_prelocking_strategy oida_prelocking_strategy;
   MDL_ticket *swap_table_mdl_ticket= NULL;
   MDL_ticket *part_table_mdl_ticket= NULL;
   uint table_counter;
   bool error= TRUE;
   DBUG_ENTER("mysql_exchange_partition");
-  DBUG_ASSERT(alter_info->partition_flags & ALTER_PARTITION_EXCHANGE);
+  DBUG_ASSERT(oida_info->partition_flags & OIDA_PARTITION_EXCHANGE);
 
   /* Don't allow to exchange with log table */
   swap_table_list= table_list->next_local;
-  if (check_if_log_table(swap_table_list, FALSE, "ALTER PARTITION"))
+  if (check_if_log_table(swap_table_list, FALSE, "OIDA PARTITION"))
     DBUG_RETURN(TRUE);
 
   /*
@@ -526,7 +526,7 @@ bool Sql_cmd_alter_table_exchange_partition::
   */
   table_list->mdl_request.set_type(MDL_SHARED_NO_WRITE);
   if (open_tables(thd, &table_list, &table_counter, 0,
-                  &alter_prelocking_strategy))
+                  &oida_prelocking_strategy))
     DBUG_RETURN(true);
 
   part_table= table_list->table;
@@ -536,7 +536,7 @@ bool Sql_cmd_alter_table_exchange_partition::
     DBUG_RETURN(TRUE);
 
   /* set lock pruning on first table */
-  partition_name= alter_info->partition_names.head();
+  partition_name= oida_info->partition_names.head();
   if (table_list->table->part_info->
         set_named_partition_bitmap(partition_name, strlen(partition_name)))
     DBUG_RETURN(true);
@@ -627,7 +627,7 @@ bool Sql_cmd_alter_table_exchange_partition::
 
   /*
     Reopen tables under LOCK TABLES. Ignore the return value for now. It's
-    better to keep master/slave in consistent state. Alternative would be to
+    better to keep master/slave in consistent state. Oidanative would be to
     try to revert the exchange operation and issue error.
   */
   (void) thd->locked_tables_list.reopen_tables(thd, false);
@@ -662,16 +662,16 @@ err:
   DBUG_RETURN(error);
 }
 
-bool Sql_cmd_alter_table_analyze_partition::execute(THD *thd)
+bool Sql_cmd_oida_table_analyze_partition::execute(THD *thd)
 {
   bool res;
-  DBUG_ENTER("Sql_cmd_alter_table_analyze_partition::execute");
+  DBUG_ENTER("Sql_cmd_oida_table_analyze_partition::execute");
 
   /*
-    Flag that it is an ALTER command which administrates partitions, used
+    Flag that it is an OIDA command which administrates partitions, used
     by ha_partition
   */
-  thd->lex->alter_info.partition_flags|= ALTER_PARTITION_ADMIN;
+  thd->lex->oida_info.partition_flags|= OIDA_PARTITION_ADMIN;
 
   res= Sql_cmd_analyze_table::execute(thd);
     
@@ -679,16 +679,16 @@ bool Sql_cmd_alter_table_analyze_partition::execute(THD *thd)
 }
 
 
-bool Sql_cmd_alter_table_check_partition::execute(THD *thd)
+bool Sql_cmd_oida_table_check_partition::execute(THD *thd)
 {
   bool res;
-  DBUG_ENTER("Sql_cmd_alter_table_check_partition::execute");
+  DBUG_ENTER("Sql_cmd_oida_table_check_partition::execute");
 
   /*
-    Flag that it is an ALTER command which administrates partitions, used
+    Flag that it is an OIDA command which administrates partitions, used
     by ha_partition
   */
-  thd->lex->alter_info.partition_flags|= ALTER_PARTITION_ADMIN;
+  thd->lex->oida_info.partition_flags|= OIDA_PARTITION_ADMIN;
 
   res= Sql_cmd_check_table::execute(thd);
 
@@ -696,16 +696,16 @@ bool Sql_cmd_alter_table_check_partition::execute(THD *thd)
 }
 
 
-bool Sql_cmd_alter_table_optimize_partition::execute(THD *thd)
+bool Sql_cmd_oida_table_optimize_partition::execute(THD *thd)
 {
   bool res;
-  DBUG_ENTER("Alter_table_optimize_partition_statement::execute");
+  DBUG_ENTER("Oida_table_optimize_partition_statement::execute");
 
   /*
-    Flag that it is an ALTER command which administrates partitions, used
+    Flag that it is an OIDA command which administrates partitions, used
     by ha_partition
   */
-  thd->lex->alter_info.partition_flags|= ALTER_PARTITION_ADMIN;
+  thd->lex->oida_info.partition_flags|= OIDA_PARTITION_ADMIN;
 
   res= Sql_cmd_optimize_table::execute(thd);
 
@@ -713,16 +713,16 @@ bool Sql_cmd_alter_table_optimize_partition::execute(THD *thd)
 }
 
 
-bool Sql_cmd_alter_table_repair_partition::execute(THD *thd)
+bool Sql_cmd_oida_table_repair_partition::execute(THD *thd)
 {
   bool res;
-  DBUG_ENTER("Sql_cmd_alter_table_repair_partition::execute");
+  DBUG_ENTER("Sql_cmd_oida_table_repair_partition::execute");
 
   /*
-    Flag that it is an ALTER command which administrates partitions, used
+    Flag that it is an OIDA command which administrates partitions, used
     by ha_partition
   */
-  thd->lex->alter_info.partition_flags|= ALTER_PARTITION_ADMIN;
+  thd->lex->oida_info.partition_flags|= OIDA_PARTITION_ADMIN;
 
   res= Sql_cmd_repair_table::execute(thd);
 
@@ -730,26 +730,26 @@ bool Sql_cmd_alter_table_repair_partition::execute(THD *thd)
 }
 
 
-bool Sql_cmd_alter_table_truncate_partition::execute(THD *thd)
+bool Sql_cmd_oida_table_truncate_partition::execute(THD *thd)
 {
   int error;
   ha_partition *partition;
   ulong timeout= thd->variables.lock_wait_timeout;
   TABLE_LIST *first_table= thd->lex->select_lex.table_list.first;
-  Alter_info *alter_info= &thd->lex->alter_info;
+  Oida_info *oida_info= &thd->lex->oida_info;
   uint table_counter, i;
   List<String> partition_names_list;
   bool binlog_stmt;
-  DBUG_ENTER("Sql_cmd_alter_table_truncate_partition::execute");
+  DBUG_ENTER("Sql_cmd_oida_table_truncate_partition::execute");
 
   /*
-    Flag that it is an ALTER command which administrates partitions, used
+    Flag that it is an OIDA command which administrates partitions, used
     by ha_partition.
   */
-  thd->lex->alter_info.partition_flags|= (ALTER_PARTITION_ADMIN |
-                                          ALTER_PARTITION_TRUNCATE);
+  thd->lex->oida_info.partition_flags|= (OIDA_PARTITION_ADMIN |
+                                          OIDA_PARTITION_TRUNCATE);
 
-  /* Fix the lock types (not the same as ordinary ALTER TABLE). */
+  /* Fix the lock types (not the same as ordinary OIDA TABLE). */
   first_table->lock_type= TL_WRITE;
   first_table->mdl_request.set_type(MDL_EXCLUSIVE);
 
@@ -771,7 +771,7 @@ bool Sql_cmd_alter_table_truncate_partition::execute(THD *thd)
           thd, first_table->db.str, first_table->table_name.str, NULL)
       )
   {
-    WSREP_WARN("ALTER TABLE TRUNCATE PARTITION isolation failure");
+    WSREP_WARN("OIDA TABLE TRUNCATE PARTITION isolation failure");
     DBUG_RETURN(TRUE);
   }
 #endif /* WITH_WSREP */
@@ -791,8 +791,8 @@ bool Sql_cmd_alter_table_truncate_partition::execute(THD *thd)
     Prune all, but named partitions,
     to avoid excessive calls to external_lock().
   */
-  List_iterator<const char> partition_names_it(alter_info->partition_names);
-  uint num_names= alter_info->partition_names.elements;
+  List_iterator<const char> partition_names_it(oida_info->partition_names);
+  uint num_names= oida_info->partition_names.elements;
   for (i= 0; i < num_names; i++)
   {
     const char *partition_name= partition_names_it++;
@@ -823,7 +823,7 @@ bool Sql_cmd_alter_table_truncate_partition::execute(THD *thd)
 
   partition= (ha_partition*) first_table->table->file;
   /* Invoke the handler method responsible for truncating the partition. */
-  if ((error= partition->truncate_partition(alter_info, &binlog_stmt)))
+  if ((error= partition->truncate_partition(oida_info, &binlog_stmt)))
     partition->print_error(error, MYF(0));
 
   /*

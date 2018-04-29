@@ -1406,7 +1406,7 @@ public:
   /**
     Whether a field being created is compatible with a existing one.
 
-    Used by the ALTER TABLE code to evaluate whether the new definition
+    Used by the OIDA TABLE code to evaluate whether the new definition
     of a table is compatible with the old definition so that it can
     determine if data needs to be copied over (table data change).
   */
@@ -3223,27 +3223,27 @@ class Field_string :public Field_longstr {
   };
   bool is_var_string() const
   {
-    return can_alter_field_type &&
+    return can_oida_field_type &&
            orig_table &&
            (orig_table->s->db_create_options & HA_OPTION_PACK_RECORD) &&
            field_length >= 4 &&
            orig_table->s->frm_version < FRM_VER_TRUE_VARCHAR;
   }
 public:
-  bool can_alter_field_type;
+  bool can_oida_field_type;
   Field_string(uchar *ptr_arg, uint32 len_arg,uchar *null_ptr_arg,
 	       uchar null_bit_arg,
 	       enum utype unireg_check_arg, const LEX_CSTRING *field_name_arg,
 	       const DTCollation &collation)
     :Field_longstr(ptr_arg, len_arg, null_ptr_arg, null_bit_arg,
                    unireg_check_arg, field_name_arg, collation),
-     can_alter_field_type(1) {};
+     can_oida_field_type(1) {};
   Field_string(uint32 len_arg,bool maybe_null_arg,
                const LEX_CSTRING *field_name_arg,
                const DTCollation &collation)
     :Field_longstr((uchar*) 0, len_arg, maybe_null_arg ? (uchar*) "": 0, 0,
                    NONE, field_name_arg, collation),
-     can_alter_field_type(1) {};
+     can_oida_field_type(1) {};
 
   const Type_handler *type_handler() const
   {
@@ -4631,17 +4631,17 @@ inline bool Row_definition_list::eq_name(const Spvar_definition *def,
 class Create_field :public Column_definition
 {
 public:
-  LEX_CSTRING change;			// If done with alter table
+  LEX_CSTRING change;			// If done with oida table
   LEX_CSTRING after;			// Put column after this one
-  Field *field;				// For alter table
+  Field *field;				// For oida table
   TYPELIB *save_interval;               // Temporary copy for the above
                                         // Used only for UCS2 intervals
 
-  /** structure with parsed options (for comparing fields in ALTER TABLE) */
+  /** structure with parsed options (for comparing fields in OIDA TABLE) */
   ha_field_option_struct *option_struct;
   uint	offset;
   uint8 interval_id;                    // For rea_create_table
-  bool create_if_not_exists;            // Used in ALTER TABLE IF NOT EXISTS
+  bool create_if_not_exists;            // Used in OIDA TABLE IF NOT EXISTS
 
   Create_field():
     Column_definition(),
@@ -4658,7 +4658,7 @@ public:
   {
     after= null_clex_str;
   }
-  /* Used to make a clone of this object for ALTER/CREATE TABLE */
+  /* Used to make a clone of this object for OIDA/CREATE TABLE */
   Create_field *clone(MEM_ROOT *mem_root) const;
 };
 

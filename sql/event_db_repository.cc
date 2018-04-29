@@ -175,15 +175,15 @@ static Table_check_intact_log_error table_intact;
 
 
 /**
-  Puts some data common to CREATE and ALTER EVENT into a row.
+  Puts some data common to CREATE and OIDA EVENT into a row.
 
-  Used both when an event is created and when it is altered.
+  Used both when an event is created and when it is oidaed.
 
   @param   thd        THD
   @param   table      The row to fill out
   @param   et         Event's data
   @param   sp         Event stored routine
-  @param   is_update  CREATE EVENT or ALTER EVENT
+  @param   is_update  CREATE EVENT or OIDA EVENT
 
   @retval  FALSE success
   @retval  TRUE error
@@ -213,7 +213,7 @@ mysql_event_fill_row(THD *thd,
   {
     /*
       Safety: this can only happen if someone started the server
-      and then altered mysql.event.
+      and then oidaed mysql.event.
     */
     my_error(ER_COL_COUNT_DOESNT_MATCH_CORRUPTED_V2, MYF(0),
              table->s->db.str, table->alias.c_ptr(),
@@ -236,7 +236,7 @@ mysql_event_fill_row(THD *thd,
 
   /*
     Set STATUS value unconditionally in case of CREATE EVENT.
-    For ALTER EVENT set it only if value of this field was changed.
+    For OIDA EVENT set it only if value of this field was changed.
     Since STATUS field is NOT NULL call to set_notnull() is not needed.
   */
   if (!is_update || et->status_changed)
@@ -247,7 +247,7 @@ mysql_event_fill_row(THD *thd,
     rs|= fields[ET_FIELD_CREATED]->set_time();
 
   /*
-    Change the SQL_MODE only if body was present in an ALTER EVENT and of course
+    Change the SQL_MODE only if body was present in an OIDA EVENT and of course
     always during CREATE EVENT.
   */
   if (et->body_changed)
@@ -752,13 +752,13 @@ end:
 
 
 /**
-  Used to execute ALTER EVENT. Pendant to Events::update_event().
+  Used to execute OIDA EVENT. Pendant to Events::update_event().
 
   @param[in,out]  thd         thread handle
   @param[in]      parse_data  parsed event definition
-  @param[in]      new_dbname  not NULL if ALTER EVENT RENAME
+  @param[in]      new_dbname  not NULL if OIDA EVENT RENAME
                               points at a new database name
-  @param[in]      new_name    not NULL if ALTER EVENT RENAME
+  @param[in]      new_name    not NULL if OIDA EVENT RENAME
                               points at a new event name
 
   @pre All semantic checks are performed outside this function,
@@ -826,11 +826,11 @@ Event_db_repository::update_event(THD *thd, Event_parse_data *parse_data,
   store_record(table,record[1]);
 
   /*
-    We check whether ALTER EVENT was given dates that are in the past.
+    We check whether OIDA EVENT was given dates that are in the past.
     However to know how to react, we need the ON COMPLETION type. The
     check is deferred to this point because by now we have the previous
     setting (from the event-table) to fall back on if nothing was specified
-    in the ALTER EVENT-statement.
+    in the OIDA EVENT-statement.
   */
 
   if (parse_data->check_dates(thd,

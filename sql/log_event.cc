@@ -1511,7 +1511,7 @@ void Log_event::init_show_field_list(THD *thd, List<Item>* field_list)
 
    Otherwise the decision is negative.
 
-   @note   A side effect of the method is altering Log_event::checksum_alg
+   @note   A side effect of the method is oidaing Log_event::checksum_alg
            it the latter was undefined at calling.
 
    @return true (positive) or false (negative)
@@ -12140,7 +12140,7 @@ Annotate_rows_log_event::do_shall_skip(rpl_group_info *rgi)
   @todo
   We may want to consider changing the encoding of the information.
   Currently, the code attempts to minimize the number of bytes written to 
-  the tablemap. There are at least two other alternatives; 1) using 
+  the tablemap. There are at least two other oidanatives; 1) using 
   net_store_length() to store the data allowing it to choose the number of
   bytes that are appropriate thereby making the code much easier to 
   maintain (only 1 place to change the encoding), or 2) use a fixed number
@@ -13251,7 +13251,7 @@ Rows_log_event::write_row(rpl_group_info *rgi,
 
     /*
        Now, record[1] should contain the offending row.  That
-       will enable us to update it or, alternatively, delete it (so
+       will enable us to update it or, oidanatively, delete it (so
        that we can insert the new row afterwards).
      */
 
@@ -13360,7 +13360,7 @@ int Rows_log_event::update_sequence()
 
   /*
     Update all fields in table and update the active sequence, like with
-    ALTER SEQUENCE
+    OIDA SEQUENCE
   */
   return table->file->ha_write_row(table->record[0]);
 }

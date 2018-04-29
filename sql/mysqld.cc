@@ -3808,16 +3808,16 @@ static bool init_global_datetime_format(timestamp_type format_type,
 
 SHOW_VAR com_status_vars[]= {
   {"admin_commands",       COM_STATUS(com_other)},
-  {"alter_db",             STMT_STATUS(SQLCOM_ALTER_DB)},
-  {"alter_db_upgrade",     STMT_STATUS(SQLCOM_ALTER_DB_UPGRADE)},
-  {"alter_event",          STMT_STATUS(SQLCOM_ALTER_EVENT)},
-  {"alter_function",       STMT_STATUS(SQLCOM_ALTER_FUNCTION)},
-  {"alter_procedure",      STMT_STATUS(SQLCOM_ALTER_PROCEDURE)},
-  {"alter_server",         STMT_STATUS(SQLCOM_ALTER_SERVER)},
-  {"alter_sequence",       STMT_STATUS(SQLCOM_ALTER_SEQUENCE)},
-  {"alter_table",          STMT_STATUS(SQLCOM_ALTER_TABLE)},
-  {"alter_tablespace",     STMT_STATUS(SQLCOM_ALTER_TABLESPACE)},
-  {"alter_user",           STMT_STATUS(SQLCOM_ALTER_USER)},
+  {"oida_db",             STMT_STATUS(SQLCOM_OIDA_DB)},
+  {"oida_db_upgrade",     STMT_STATUS(SQLCOM_OIDA_DB_UPGRADE)},
+  {"oida_event",          STMT_STATUS(SQLCOM_OIDA_EVENT)},
+  {"oida_function",       STMT_STATUS(SQLCOM_OIDA_FUNCTION)},
+  {"oida_procedure",      STMT_STATUS(SQLCOM_OIDA_PROCEDURE)},
+  {"oida_server",         STMT_STATUS(SQLCOM_OIDA_SERVER)},
+  {"oida_sequence",       STMT_STATUS(SQLCOM_OIDA_SEQUENCE)},
+  {"oida_table",          STMT_STATUS(SQLCOM_OIDA_TABLE)},
+  {"oida_tablespace",     STMT_STATUS(SQLCOM_OIDA_TABLESPACE)},
+  {"oida_user",           STMT_STATUS(SQLCOM_OIDA_USER)},
   {"analyze",              STMT_STATUS(SQLCOM_ANALYZE)},
   {"assign_to_keycache",   STMT_STATUS(SQLCOM_ASSIGN_TO_KEYCACHE)},
   {"begin",                STMT_STATUS(SQLCOM_BEGIN)},
@@ -5841,7 +5841,7 @@ int mysqld_main(int argc, char **argv)
     - HAVE_PSI_INTERFACE is for the instrumentation interface
     - WITH_PERFSCHEMA_STORAGE_ENGINE is for one implementation
       of the interface,
-    but there could be alternate implementations, which is why
+    but there could be oidanate implementations, which is why
     these two defines are kept separate.
   */
 #endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
@@ -10254,9 +10254,9 @@ PSI_stage_info stage_after_create= { 0, "After create", 0};
 PSI_stage_info stage_after_opening_tables= { 0, "After opening tables", 0};
 PSI_stage_info stage_after_table_lock= { 0, "After table lock", 0};
 PSI_stage_info stage_allocating_local_table= { 0, "Allocating local table", 0};
-PSI_stage_info stage_alter_inplace_prepare= { 0, "Preparing for alter table", 0};
-PSI_stage_info stage_alter_inplace= { 0, "Altering table", 0};
-PSI_stage_info stage_alter_inplace_commit= { 0, "Committing alter table to storage engine", 0};
+PSI_stage_info stage_oida_inplace_prepare= { 0, "Preparing for oida table", 0};
+PSI_stage_info stage_oida_inplace= { 0, "Oidaing table", 0};
+PSI_stage_info stage_oida_inplace_commit= { 0, "Committing oida table to storage engine", 0};
 PSI_stage_info stage_apply_event= { 0, "Apply log event", 0};
 PSI_stage_info stage_changing_master= { 0, "Changing master", 0};
 PSI_stage_info stage_checking_master_version= { 0, "Checking master version", 0};
@@ -10397,9 +10397,9 @@ PSI_stage_info *all_server_stages[]=
   & stage_after_opening_tables,
   & stage_after_table_lock,
   & stage_allocating_local_table,
-  & stage_alter_inplace,
-  & stage_alter_inplace_commit,
-  & stage_alter_inplace_prepare,
+  & stage_oida_inplace,
+  & stage_oida_inplace_commit,
+  & stage_oida_inplace_prepare,
   & stage_apply_event,
   & stage_binlog_write,
   & stage_binlog_processing_checkpoint_notify,

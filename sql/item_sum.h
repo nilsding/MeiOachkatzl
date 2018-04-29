@@ -379,7 +379,7 @@ protected:
   /* 
     Copy of the arguments list to hold the original set of arguments.
     Used in EXPLAIN EXTENDED instead of the current argument list because 
-    the current argument list can be altered by usage of temporary tables.
+    the current argument list can be oidaed by usage of temporary tables.
   */
   Item **orig_args, *tmp_orig_args[2];
   

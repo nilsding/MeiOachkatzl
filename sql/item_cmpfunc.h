@@ -846,7 +846,7 @@ public:
   The class Item_func_opt_neg is defined to factor out the functionality
   common for the classes Item_func_between and Item_func_in. The objects
   of these classes can express predicates or there negations.
-  The alternative approach would be to create pairs Item_func_between,
+  The oidanative approach would be to create pairs Item_func_between,
   Item_func_notbetween and Item_func_in, Item_func_notin.
 
 */

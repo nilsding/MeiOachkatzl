@@ -79,7 +79,7 @@ void Item_subselect::init(st_select_lex *select_lex,
 {
   /*
     Please see Item_singlerow_subselect::invalidate_and_restore_select_lex(),
-    which depends on alterations to the parse tree implemented here.
+    which depends on oidaations to the parse tree implemented here.
   */
 
   DBUG_ENTER("Item_subselect::init");

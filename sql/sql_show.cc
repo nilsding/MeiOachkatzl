@@ -83,7 +83,7 @@ enum enum_i_s_events_fields
   ISE_STATUS,
   ISE_ON_COMPLETION,
   ISE_CREATED,
-  ISE_LAST_ALTERED,
+  ISE_LAST_OIDAED,
   ISE_LAST_EXECUTED,
   ISE_EVENT_COMMENT,
   ISE_ORIGINATOR,
@@ -110,7 +110,7 @@ static const LEX_CSTRING trg_event_type_names[]=
 #ifndef NO_EMBEDDED_ACCESS_CHECKS
 static const char *grant_names[]={
   "select","insert","update","delete","create","drop","reload","shutdown",
-  "process","file","grant","references","index","alter"};
+  "process","file","grant","references","index","oida"};
 
 static TYPELIB grant_types = { sizeof(grant_names)/sizeof(char **),
                                "grant_types",
@@ -584,8 +584,8 @@ struct show_privileges_st {
 
 static struct show_privileges_st sys_privileges[]=
 {
-  {"Alter", "Tables",  "To alter the table"},
-  {"Alter routine", "Functions,Procedures",  "To alter or drop stored functions/procedures"},
+  {"Oida", "Tables",  "To oida the table"},
+  {"Oida routine", "Functions,Procedures",  "To oida or drop stored functions/procedures"},
   {"Create", "Databases,Tables,Indexes",  "To create new databases and tables"},
   {"Create routine","Databases","To use CREATE FUNCTION/PROCEDURE"},
   {"Create temporary tables","Databases","To use CREATE TEMPORARY TABLE"},
@@ -595,7 +595,7 @@ static struct show_privileges_st sys_privileges[]=
   {"Delete versioning rows", "Tables", "To delete versioning table historical rows"},
   {"Drop", "Databases,Tables", "To drop databases, tables, and views"},
 #ifdef HAVE_EVENT_SCHEDULER
-  {"Event","Server Admin","To create, alter, drop and execute events"},
+  {"Event","Server Admin","To create, oida, drop and execute events"},
 #endif
   {"Execute", "Functions,Procedures", "To execute stored routines"},
   {"File", "File access on server",   "To read and write files on the server"},
@@ -615,7 +615,7 @@ static struct show_privileges_st sys_privileges[]=
   {"Shutdown","Server Admin", "To shut down the server"},
   {"Super","Server Admin","To use KILL thread, SET GLOBAL, CHANGE MASTER, etc."},
   {"Trigger","Tables", "To use triggers"},
-  {"Create tablespace", "Server Admin", "To create/alter/drop tablespaces"},
+  {"Create tablespace", "Server Admin", "To create/oida/drop tablespaces"},
   {"Update", "Tables",  "To update existing rows"},
   {"Usage","Server Admin","No privileges - allow connect only"},
   {NullS, NullS, NullS}
@@ -4519,7 +4519,7 @@ fill_schema_table_by_open(THD *thd, MEM_ROOT *mem_root,
     Since make_table_list() might change database and table name passed
     to it (if lower_case_table_names) we create copies of orig_db_name and
     orig_table_name here.  These copies are used for make_table_list()
-    while unaltered values are passed to process_table() functions.
+    while unoidaed values are passed to process_table() functions.
   */
   if (!thd->make_lex_string(&db_name,
                             orig_db_name->str, orig_db_name->length) ||
@@ -7644,7 +7644,7 @@ copy_event_to_schema_table(THD *thd, TABLE *sch_table, TABLE *event_table)
 
   number_to_datetime(et.modified, 0, &time, 0, &not_used);
   DBUG_ASSERT(not_used==0);
-  sch_table->field[ISE_LAST_ALTERED]->store_time(&time);
+  sch_table->field[ISE_LAST_OIDAED]->store_time(&time);
 
   if (et.last_executed)
   {
@@ -9094,7 +9094,7 @@ ST_FIELD_INFO events_fields_info[]=
   {"STATUS", 18, MYSQL_TYPE_STRING, 0, 0, "Status", SKIP_OPEN_TABLE},
   {"ON_COMPLETION", 12, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
   {"CREATED", 0, MYSQL_TYPE_DATETIME, 0, 0, 0, SKIP_OPEN_TABLE},
-  {"LAST_ALTERED", 0, MYSQL_TYPE_DATETIME, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"LAST_OIDAED", 0, MYSQL_TYPE_DATETIME, 0, 0, 0, SKIP_OPEN_TABLE},
   {"LAST_EXECUTED", 0, MYSQL_TYPE_DATETIME, 0, 1, 0, SKIP_OPEN_TABLE},
   {"EVENT_COMMENT", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
   {"ORIGINATOR", 10, MYSQL_TYPE_LONGLONG, 0, 0, "Originator", SKIP_OPEN_TABLE},
@@ -9151,7 +9151,7 @@ ST_FIELD_INFO proc_fields_info[]=
   {"SECURITY_TYPE", 7, MYSQL_TYPE_STRING, 0, 0, "Security_type",
    SKIP_OPEN_TABLE},
   {"CREATED", 0, MYSQL_TYPE_DATETIME, 0, 0, "Created", SKIP_OPEN_TABLE},
-  {"LAST_ALTERED", 0, MYSQL_TYPE_DATETIME, 0, 0, "Modified", SKIP_OPEN_TABLE},
+  {"LAST_OIDAED", 0, MYSQL_TYPE_DATETIME, 0, 0, "Modified", SKIP_OPEN_TABLE},
   {"SQL_MODE", 32*256, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
   {"ROUTINE_COMMENT", 65535, MYSQL_TYPE_STRING, 0, 0, "Comment",
    SKIP_OPEN_TABLE},

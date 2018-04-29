@@ -53,7 +53,7 @@ static bool admin_recreate_table(THD *thd, TABLE_LIST *table_list)
   /* Same applies to MDL ticket. */
   table_list->mdl_request.ticket= NULL;
 
-  DEBUG_SYNC(thd, "ha_admin_try_alter");
+  DEBUG_SYNC(thd, "ha_admin_try_oida");
   tmp_disable_binlog(thd); // binlogging is done by caller if wanted
   result_code= (thd->open_temporary_tables(table_list) ||
                 mysql_recreate_table(thd, table_list, false));
@@ -335,11 +335,11 @@ static bool open_only_one_table(THD* thd, TABLE_LIST* table,
                   });
 
   /*
-    CHECK TABLE command is allowed for views as well. Check on alter flags
-    to differentiate from ALTER TABLE...CHECK PARTITION on which view is not
+    CHECK TABLE command is allowed for views as well. Check on oida flags
+    to differentiate from OIDA TABLE...CHECK PARTITION on which view is not
     allowed.
   */
-  if (lex->alter_info.partition_flags & ALTER_PARTITION_ADMIN ||
+  if (lex->oida_info.partition_flags & OIDA_PARTITION_ADMIN ||
       !is_view_operator_func)
   {
     table->required_type= TABLE_TYPE_NORMAL;
@@ -447,7 +447,7 @@ static bool mysql_admin_table(THD* thd, TABLE_LIST* tables,
   LEX *lex= thd->lex;
   int result_code;
   int compl_result_code;
-  bool need_repair_or_alter= 0;
+  bool need_repair_or_oida= 0;
   wait_for_commit* suspended_wfc;
   DBUG_ENTER("mysql_admin_table");
   DBUG_PRINT("enter", ("extra_open_options: %u", extra_open_options));
@@ -557,19 +557,19 @@ static bool mysql_admin_table(THD* thd, TABLE_LIST* tables,
       {
         /*
           Set up which partitions that should be processed
-          if ALTER TABLE t ANALYZE/CHECK/OPTIMIZE/REPAIR PARTITION ..
+          if OIDA TABLE t ANALYZE/CHECK/OPTIMIZE/REPAIR PARTITION ..
           CACHE INDEX/LOAD INDEX for specified partitions
         */
-        Alter_info *alter_info= &lex->alter_info;
+        Oida_info *oida_info= &lex->oida_info;
 
-        if (alter_info->partition_flags & ALTER_PARTITION_ADMIN)
+        if (oida_info->partition_flags & OIDA_PARTITION_ADMIN)
         {
           if (!table->table->part_info)
           {
             my_error(ER_PARTITION_MGMT_ON_NONPARTITIONED, MYF(0));
             goto err2;
           }
-          if (set_part_state(alter_info, table->table->part_info, PART_ADMIN))
+          if (set_part_state(oida_info, table->table->part_info, PART_ADMIN))
           {
             char buff[FN_REFLEN + MYSQL_ERRMSG_SIZE];
             size_t length;
@@ -737,8 +737,8 @@ static bool mysql_admin_table(THD* thd, TABLE_LIST* tables,
       int check_old_types=   file->check_old_types();
       int check_for_upgrade= file->ha_check_for_upgrade(check_opt);
 
-      if (check_old_types == HA_ADMIN_NEEDS_ALTER ||
-          check_for_upgrade == HA_ADMIN_NEEDS_ALTER)
+      if (check_old_types == HA_ADMIN_NEEDS_OIDA ||
+          check_for_upgrade == HA_ADMIN_NEEDS_OIDA)
       {
         /* We use extra_open_options to be able to open crashed tables */
         thd->open_options|= extra_open_options;
@@ -748,8 +748,8 @@ static bool mysql_admin_table(THD* thd, TABLE_LIST* tables,
       }
       if (check_old_types || check_for_upgrade)
       {
-        /* If repair is not implemented for the engine, run ALTER TABLE */
-        need_repair_or_alter= 1;
+        /* If repair is not implemented for the engine, run OIDA TABLE */
+        need_repair_or_oida= 1;
       }
     }
 
@@ -901,11 +901,11 @@ static bool mysql_admin_table(THD* thd, TABLE_LIST* tables,
       }
     }
 
-    if (result_code == HA_ADMIN_NOT_IMPLEMENTED && need_repair_or_alter)
+    if (result_code == HA_ADMIN_NOT_IMPLEMENTED && need_repair_or_oida)
     {
       /*
         repair was not implemented and we need to upgrade the table
-        to a new version so we recreate the table with ALTER TABLE
+        to a new version so we recreate the table with OIDA TABLE
       */
       result_code= admin_recreate_table(thd, table);
     }
@@ -997,12 +997,12 @@ send_result_message:
                       system_charset_info);
       break;
 
-    case HA_ADMIN_TRY_ALTER:
+    case HA_ADMIN_TRY_OIDA:
     {
-      Alter_info *alter_info= &lex->alter_info;
+      Oida_info *oida_info= &lex->oida_info;
 
       protocol->store(STRING_WITH_LEN("note"), system_charset_info);
-      if (alter_info->partition_flags & ALTER_PARTITION_ADMIN)
+      if (oida_info->partition_flags & OIDA_PARTITION_ADMIN)
       {
         protocol->store(STRING_WITH_LEN(
         "Table does not support optimize on partitions. All partitions "
@@ -1017,7 +1017,7 @@ send_result_message:
       if (protocol->write())
         goto err;
       THD_STAGE_INFO(thd, stage_recreating_table);
-      DBUG_PRINT("info", ("HA_ADMIN_TRY_ALTER, trying analyze..."));
+      DBUG_PRINT("info", ("HA_ADMIN_TRY_OIDA, trying analyze..."));
       TABLE_LIST *save_next_local= table->next_local,
                  *save_next_global= table->next_global;
       table->next_local= table->next_global= 0;
@@ -1042,20 +1042,20 @@ send_result_message:
             (table->table= open_ltable(thd, table, lock_type, 0)))
         {
           ulonglong save_flags;
-          /* Store the original value of alter_info->flags */
-          save_flags= alter_info->flags;
+          /* Store the original value of oida_info->flags */
+          save_flags= oida_info->flags;
 
           /*
-           Reset the ALTER_PARTITION_ADMIN bit in alter_info->flags
+           Reset the OIDA_PARTITION_ADMIN bit in oida_info->flags
            to force analyze on all partitions.
           */
-          alter_info->partition_flags &= ~(ALTER_PARTITION_ADMIN);
+          oida_info->partition_flags &= ~(OIDA_PARTITION_ADMIN);
           result_code= table->table->file->ha_analyze(thd, check_opt);
           if (result_code == HA_ADMIN_ALREADY_DONE)
             result_code= HA_ADMIN_OK;
           else if (result_code)  // analyze failed
             table->table->file->print_error(result_code, MYF(0));
-          alter_info->flags= save_flags;
+          oida_info->flags= save_flags;
         }
         else
           result_code= -1; // open failed
@@ -1107,7 +1107,7 @@ send_result_message:
     }
 
     case HA_ADMIN_NEEDS_UPGRADE:
-    case HA_ADMIN_NEEDS_ALTER:
+    case HA_ADMIN_NEEDS_OIDA:
     {
       char buf[MYSQL_ERRMSG_SIZE];
       size_t length;

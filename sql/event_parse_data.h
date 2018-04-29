@@ -47,7 +47,7 @@ public:
   {
     /*
       On CREATE EVENT, DROP is the DEFAULT as per the docs.
-      On ALTER  EVENT, "no change" is the DEFAULT.
+      On OIDA  EVENT, "no change" is the DEFAULT.
     */
     ON_COMPLETION_DEFAULT = 0,
     ON_COMPLETION_DROP,

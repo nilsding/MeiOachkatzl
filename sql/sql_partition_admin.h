@@ -31,237 +31,237 @@ public:
   ~Sql_cmd_partition_unsupported()
   {}
 
-  /* Override SQLCOM_*, since it is an ALTER command */
+  /* Override SQLCOM_*, since it is an OIDA command */
   virtual enum_sql_command sql_command_code() const
   {
-    return SQLCOM_ALTER_TABLE;
+    return SQLCOM_OIDA_TABLE;
   }
 
   bool execute(THD *thd);
 };
 
 
-class Sql_cmd_alter_table_exchange_partition :
+class Sql_cmd_oida_table_exchange_partition :
   public Sql_cmd_partition_unsupported
 {
 public:
-  Sql_cmd_alter_table_exchange_partition()
+  Sql_cmd_oida_table_exchange_partition()
   {}
 
-  ~Sql_cmd_alter_table_exchange_partition()
+  ~Sql_cmd_oida_table_exchange_partition()
   {}
 };
 
 
-class  Sql_cmd_alter_table_analyze_partition :
+class  Sql_cmd_oida_table_analyze_partition :
   public Sql_cmd_partition_unsupported
 {
 public:
-  Sql_cmd_alter_table_analyze_partition()
+  Sql_cmd_oida_table_analyze_partition()
   {}
 
-  ~Sql_cmd_alter_table_analyze_partition()
+  ~Sql_cmd_oida_table_analyze_partition()
   {}
 };
 
 
-class Sql_cmd_alter_table_check_partition :
+class Sql_cmd_oida_table_check_partition :
   public Sql_cmd_partition_unsupported
 {
 public:
-  Sql_cmd_alter_table_check_partition()
+  Sql_cmd_oida_table_check_partition()
   {}
 
-  ~Sql_cmd_alter_table_check_partition()
+  ~Sql_cmd_oida_table_check_partition()
   {}
 };
 
 
-class Sql_cmd_alter_table_optimize_partition :
+class Sql_cmd_oida_table_optimize_partition :
   public Sql_cmd_partition_unsupported
 {
 public:
-  Sql_cmd_alter_table_optimize_partition()
+  Sql_cmd_oida_table_optimize_partition()
   {}
 
-  ~Sql_cmd_alter_table_optimize_partition()
+  ~Sql_cmd_oida_table_optimize_partition()
   {}
 };
 
 
-class Sql_cmd_alter_table_repair_partition :
+class Sql_cmd_oida_table_repair_partition :
   public Sql_cmd_partition_unsupported
 {
 public:
-  Sql_cmd_alter_table_repair_partition()
+  Sql_cmd_oida_table_repair_partition()
   {}
 
-  ~Sql_cmd_alter_table_repair_partition()
+  ~Sql_cmd_oida_table_repair_partition()
   {}
 };
 
 
-class Sql_cmd_alter_table_truncate_partition :
+class Sql_cmd_oida_table_truncate_partition :
   public Sql_cmd_partition_unsupported
 {
 public:
-  Sql_cmd_alter_table_truncate_partition()
+  Sql_cmd_oida_table_truncate_partition()
   {}
 
-  ~Sql_cmd_alter_table_truncate_partition()
+  ~Sql_cmd_oida_table_truncate_partition()
   {}
 };
 
 #else
 
 /**
-  Class that represents the ALTER TABLE t1 ANALYZE PARTITION p statement.
+  Class that represents the OIDA TABLE t1 ANALYZE PARTITION p statement.
 */
-class Sql_cmd_alter_table_exchange_partition : public Sql_cmd_common_alter_table
+class Sql_cmd_oida_table_exchange_partition : public Sql_cmd_common_oida_table
 {
 public:
   /**
-    Constructor, used to represent a ALTER TABLE EXCHANGE PARTITION statement.
+    Constructor, used to represent a OIDA TABLE EXCHANGE PARTITION statement.
   */
-  Sql_cmd_alter_table_exchange_partition()
-    : Sql_cmd_common_alter_table()
+  Sql_cmd_oida_table_exchange_partition()
+    : Sql_cmd_common_oida_table()
   {}
 
-  ~Sql_cmd_alter_table_exchange_partition()
+  ~Sql_cmd_oida_table_exchange_partition()
   {}
 
   bool execute(THD *thd);
 
 private:
-  bool exchange_partition(THD *thd, TABLE_LIST *, Alter_info *);
+  bool exchange_partition(THD *thd, TABLE_LIST *, Oida_info *);
 };
 
 
 /**
-  Class that represents the ALTER TABLE t1 ANALYZE PARTITION p statement.
+  Class that represents the OIDA TABLE t1 ANALYZE PARTITION p statement.
 */
-class Sql_cmd_alter_table_analyze_partition : public Sql_cmd_analyze_table
+class Sql_cmd_oida_table_analyze_partition : public Sql_cmd_analyze_table
 {
 public:
   /**
-    Constructor, used to represent a ALTER TABLE ANALYZE PARTITION statement.
+    Constructor, used to represent a OIDA TABLE ANALYZE PARTITION statement.
   */
-  Sql_cmd_alter_table_analyze_partition()
+  Sql_cmd_oida_table_analyze_partition()
     : Sql_cmd_analyze_table()
   {}
 
-  ~Sql_cmd_alter_table_analyze_partition()
+  ~Sql_cmd_oida_table_analyze_partition()
   {}
 
   bool execute(THD *thd);
 
-  /* Override SQLCOM_ANALYZE, since it is an ALTER command */
+  /* Override SQLCOM_ANALYZE, since it is an OIDA command */
   virtual enum_sql_command sql_command_code() const
   {
-    return SQLCOM_ALTER_TABLE;
+    return SQLCOM_OIDA_TABLE;
   }
 };
 
 
 /**
-  Class that represents the ALTER TABLE t1 CHECK PARTITION p statement.
+  Class that represents the OIDA TABLE t1 CHECK PARTITION p statement.
 */
-class Sql_cmd_alter_table_check_partition : public Sql_cmd_check_table
+class Sql_cmd_oida_table_check_partition : public Sql_cmd_check_table
 {
 public:
   /**
-    Constructor, used to represent a ALTER TABLE CHECK PARTITION statement.
+    Constructor, used to represent a OIDA TABLE CHECK PARTITION statement.
   */
-  Sql_cmd_alter_table_check_partition()
+  Sql_cmd_oida_table_check_partition()
     : Sql_cmd_check_table()
   {}
 
-  ~Sql_cmd_alter_table_check_partition()
+  ~Sql_cmd_oida_table_check_partition()
   {}
 
   bool execute(THD *thd);
 
-  /* Override SQLCOM_CHECK, since it is an ALTER command */
+  /* Override SQLCOM_CHECK, since it is an OIDA command */
   virtual enum_sql_command sql_command_code() const
   {
-    return SQLCOM_ALTER_TABLE;
+    return SQLCOM_OIDA_TABLE;
   }
 };
 
 
 /**
-  Class that represents the ALTER TABLE t1 OPTIMIZE PARTITION p statement.
+  Class that represents the OIDA TABLE t1 OPTIMIZE PARTITION p statement.
 */
-class Sql_cmd_alter_table_optimize_partition : public Sql_cmd_optimize_table
+class Sql_cmd_oida_table_optimize_partition : public Sql_cmd_optimize_table
 {
 public:
   /**
-    Constructor, used to represent a ALTER TABLE OPTIMIZE PARTITION statement.
+    Constructor, used to represent a OIDA TABLE OPTIMIZE PARTITION statement.
   */
-  Sql_cmd_alter_table_optimize_partition()
+  Sql_cmd_oida_table_optimize_partition()
     : Sql_cmd_optimize_table()
   {}
 
-  ~Sql_cmd_alter_table_optimize_partition()
+  ~Sql_cmd_oida_table_optimize_partition()
   {}
 
   bool execute(THD *thd);
 
-  /* Override SQLCOM_OPTIMIZE, since it is an ALTER command */
+  /* Override SQLCOM_OPTIMIZE, since it is an OIDA command */
   virtual enum_sql_command sql_command_code() const
   {
-    return SQLCOM_ALTER_TABLE;
+    return SQLCOM_OIDA_TABLE;
   }
 };
 
 
 /**
-  Class that represents the ALTER TABLE t1 REPAIR PARTITION p statement.
+  Class that represents the OIDA TABLE t1 REPAIR PARTITION p statement.
 */
-class Sql_cmd_alter_table_repair_partition : public Sql_cmd_repair_table
+class Sql_cmd_oida_table_repair_partition : public Sql_cmd_repair_table
 {
 public:
   /**
-    Constructor, used to represent a ALTER TABLE REPAIR PARTITION statement.
+    Constructor, used to represent a OIDA TABLE REPAIR PARTITION statement.
   */
-  Sql_cmd_alter_table_repair_partition()
+  Sql_cmd_oida_table_repair_partition()
     : Sql_cmd_repair_table()
   {}
 
-  ~Sql_cmd_alter_table_repair_partition()
+  ~Sql_cmd_oida_table_repair_partition()
   {}
 
   bool execute(THD *thd);
 
-  /* Override SQLCOM_REPAIR, since it is an ALTER command */
+  /* Override SQLCOM_REPAIR, since it is an OIDA command */
   virtual enum_sql_command sql_command_code() const
   {
-    return SQLCOM_ALTER_TABLE;
+    return SQLCOM_OIDA_TABLE;
   }
 };
 
 
 /**
-  Class that represents the ALTER TABLE t1 TRUNCATE PARTITION p statement.
+  Class that represents the OIDA TABLE t1 TRUNCATE PARTITION p statement.
 */
-class Sql_cmd_alter_table_truncate_partition : public Sql_cmd_truncate_table
+class Sql_cmd_oida_table_truncate_partition : public Sql_cmd_truncate_table
 {
 public:
   /**
-    Constructor, used to represent a ALTER TABLE TRUNCATE PARTITION statement.
+    Constructor, used to represent a OIDA TABLE TRUNCATE PARTITION statement.
   */
-  Sql_cmd_alter_table_truncate_partition()
+  Sql_cmd_oida_table_truncate_partition()
   {}
 
-  virtual ~Sql_cmd_alter_table_truncate_partition()
+  virtual ~Sql_cmd_oida_table_truncate_partition()
   {}
 
   bool execute(THD *thd);
 
-  /* Override SQLCOM_TRUNCATE, since it is an ALTER command */
+  /* Override SQLCOM_TRUNCATE, since it is an OIDA command */
   virtual enum_sql_command sql_command_code() const
   {
-    return SQLCOM_ALTER_TABLE;
+    return SQLCOM_OIDA_TABLE;
   }
 };
 

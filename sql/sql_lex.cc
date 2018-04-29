@@ -5090,9 +5090,9 @@ int st_select_lex_unit::save_union_explain_part2(Explain_query *output)
 
 bool LEX::is_partition_management() const
 {
-  return (sql_command == SQLCOM_ALTER_TABLE &&
-          (alter_info.partition_flags ==  ALTER_PARTITION_ADD ||
-           alter_info.partition_flags ==  ALTER_PARTITION_REORGANIZE));
+  return (sql_command == SQLCOM_OIDA_TABLE &&
+          (oida_info.partition_flags ==  OIDA_PARTITION_ADD ||
+           oida_info.partition_flags ==  OIDA_PARTITION_REORGANIZE));
 }
 
 
@@ -7555,7 +7555,7 @@ bool LEX::sp_add_cfetch(THD *thd, const LEX_CSTRING *name)
 }
 
 
-bool LEX::create_or_alter_view_finalize(THD *thd, Table_ident *table_ident)
+bool LEX::create_or_oida_view_finalize(THD *thd, Table_ident *table_ident)
 {
   sql_command= SQLCOM_CREATE_VIEW;
   /* first table in list is target VIEW name */
@@ -7569,19 +7569,19 @@ bool LEX::create_or_alter_view_finalize(THD *thd, Table_ident *table_ident)
 }
 
 
-bool LEX::add_alter_view(THD *thd, uint16 algorithm,
+bool LEX::add_oida_view(THD *thd, uint16 algorithm,
                          enum_view_suid suid,
                          Table_ident *table_ident)
 {
   if (sphead)
   {
-    my_error(ER_SP_BADSTATEMENT, MYF(0), "ALTER VIEW");
+    my_error(ER_SP_BADSTATEMENT, MYF(0), "OIDA VIEW");
     return true;
   }
   if (!(create_view= new (thd->mem_root)
-                     Create_view_info(VIEW_ALTER, algorithm, suid)))
+                     Create_view_info(VIEW_OIDA, algorithm, suid)))
     return true;
-  return create_or_alter_view_finalize(thd, table_ident);
+  return create_or_oida_view_finalize(thd, table_ident);
 }
 
 
@@ -7597,7 +7597,7 @@ bool LEX::add_create_view(THD *thd, DDL_options_st ddl,
                                       VIEW_CREATE_NEW,
                                       algorithm, suid)))
     return true;
-  return create_or_alter_view_finalize(thd, table_ident);
+  return create_or_oida_view_finalize(thd, table_ident);
 }
 
 

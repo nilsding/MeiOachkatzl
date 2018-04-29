@@ -93,15 +93,15 @@ Event_parse_data::init_name(THD *thd, sp_name *spn)
 
 
 /*
-  This function is called on CREATE EVENT or ALTER EVENT.  When either
+  This function is called on CREATE EVENT or OIDA EVENT.  When either
   ENDS or AT is in the past, we are trying to create an event that
   will never be executed.  If it has ON COMPLETION NOT PRESERVE
   (default), then it would normally be dropped already, so on CREATE
-  EVENT we give a warning, and do not create anyting.  On ALTER EVENT
+  EVENT we give a warning, and do not create anyting.  On OIDA EVENT
   we give a error, and do not change the event.
 
   If the event has ON COMPLETION PRESERVE, then we see if the event is
-  created or altered to the ENABLED (default) state.  If so, then we
+  created or oidaed to the ENABLED (default) state.  If so, then we
   give a warning, and change the state to DISABLED.
 
   Otherwise it is a valid event in ON COMPLETION PRESERVE DISABLE
@@ -128,8 +128,8 @@ Event_parse_data::check_if_in_the_past(THD *thd, my_time_t ltime_utc)
                    ER_EVENT_CANNOT_CREATE_IN_THE_PAST,
                    ER_THD(thd, ER_EVENT_CANNOT_CREATE_IN_THE_PAST));
       break;
-    case SQLCOM_ALTER_EVENT:
-      my_error(ER_EVENT_CANNOT_ALTER_IN_THE_PAST, MYF(0));
+    case SQLCOM_OIDA_EVENT:
+      my_error(ER_EVENT_CANNOT_OIDA_IN_THE_PAST, MYF(0));
       break;
     default:
       DBUG_ASSERT(0);
@@ -149,22 +149,22 @@ Event_parse_data::check_if_in_the_past(THD *thd, my_time_t ltime_utc)
 
 
 /*
-  Check time/dates in ALTER EVENT
+  Check time/dates in OIDA EVENT
 
-  We check whether ALTER EVENT was given dates that are in the past.
+  We check whether OIDA EVENT was given dates that are in the past.
   However to know how to react, we need the ON COMPLETION type. Hence,
   the check is deferred until we have the previous ON COMPLETION type
   from the event-db to fall back on if nothing was specified in the
-  ALTER EVENT-statement.
+  OIDA EVENT-statement.
 
   SYNOPSIS
     Event_parse_data::check_dates()
       thd            Thread
       on_completion  ON COMPLETION value currently in event-db.
-                     Will be overridden by value in ALTER EVENT if given.
+                     Will be overridden by value in OIDA EVENT if given.
 
   RETURN VALUE
-    TRUE            an error occurred, do not ALTER
+    TRUE            an error occurred, do not OIDA
     FALSE           OK
 */
 

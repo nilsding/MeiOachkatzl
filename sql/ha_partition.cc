@@ -89,7 +89,7 @@ static handler *partition_create_handler(handlerton *hton,
                                          TABLE_SHARE *share,
                                          MEM_ROOT *mem_root);
 static uint partition_flags();
-static alter_table_operations alter_table_flags(alter_table_operations flags);
+static oida_table_operations oida_table_flags(oida_table_operations flags);
 
 /*
   If frm_error() is called then we will use this to to find out what file
@@ -129,7 +129,7 @@ static int partition_initialize(void *p)
   partition_hton->db_type= DB_TYPE_PARTITION_DB;
   partition_hton->create= partition_create_handler;
   partition_hton->partition_flags= partition_flags;
-  partition_hton->alter_table_flags= alter_table_flags;
+  partition_hton->oida_table_flags= oida_table_flags;
   partition_hton->flags= HTON_NOT_USER_SELECTABLE |
                          HTON_HIDDEN |
                          HTON_TEMPORARY_NOT_SUPPORTED;
@@ -214,7 +214,7 @@ static uint partition_flags()
   return HA_CAN_PARTITION;
 }
 
-static alter_table_operations alter_table_flags(alter_table_operations flags __attribute__((unused)))
+static oida_table_operations oida_table_flags(oida_table_operations flags __attribute__((unused)))
 {
   return (HA_PARTITION_FUNCTION_SUPPORTED |
           HA_FAST_CHANGE_PARTITION);
@@ -504,7 +504,7 @@ bool ha_partition::initialize_partition(MEM_ROOT *mem_root)
   else if (!table_share || !table_share->normalized_path.str)
   {
     /*
-      Called with dummy table share (delete, rename and alter table).
+      Called with dummy table share (delete, rename and oida table).
       Don't need to set-up anything.
     */
     DBUG_RETURN(0);
@@ -593,7 +593,7 @@ int ha_partition::delete_table(const char *name)
     0                         Success
 
   DESCRIPTION
-    Renames a table from one name to another from alter table call.
+    Renames a table from one name to another from oida table call.
 
     If you do not implement this, the default rename_table() is called from
     handler.cc and it will rename all files with the file extentions returned
@@ -721,7 +721,7 @@ int ha_partition::create(const char *name, TABLE *table_arg,
   name_buffer_ptr= m_name_buffer_ptr;
   file= m_file;
   /*
-    Since ha_partition has HA_FILE_BASED, it must alter underlying table names
+    Since ha_partition has HA_FILE_BASED, it must oida underlying table names
     if they do not have HA_FILE_BASED and lower_case_table_names == 2.
     See Bug#37402, for Mac OS X.
     The appended #P#<partname>[#SP#<subpartname>] will remain in current case.
@@ -781,7 +781,7 @@ create_error:
 
 
 /*
-  Drop partitions as part of ALTER TABLE of partitions
+  Drop partitions as part of OIDA TABLE of partitions
 
   SYNOPSIS
     drop_partitions()
@@ -873,7 +873,7 @@ int ha_partition::drop_partitions(const char *path)
 
 
 /*
-  Rename partitions as part of ALTER TABLE of partitions
+  Rename partitions as part of OIDA TABLE of partitions
 
   SYNOPSIS
     rename_partitions()
@@ -1377,10 +1377,10 @@ int ha_partition::handle_opt_partitions(THD *thd, HA_CHECK_OPT *check_opt,
   {
     partition_element *part_elem= part_it++;
     /*
-      when ALTER TABLE <CMD> PARTITION ...
+      when OIDA TABLE <CMD> PARTITION ...
       it should only do named partitions, otherwise all partitions
     */
-    if (!(thd->lex->alter_info.partition_flags & ALTER_PARTITION_ADMIN) ||
+    if (!(thd->lex->oida_info.partition_flags & OIDA_PARTITION_ADMIN) ||
         part_elem->part_state == PART_ADMIN)
     {
       if (m_is_sub_partitioned)
@@ -1399,7 +1399,7 @@ int ha_partition::handle_opt_partitions(THD *thd, HA_CHECK_OPT *check_opt,
             /* print a line which partition the error belongs to */
             if (error != HA_ADMIN_NOT_IMPLEMENTED &&
                 error != HA_ADMIN_ALREADY_DONE &&
-                error != HA_ADMIN_TRY_ALTER)
+                error != HA_ADMIN_TRY_OIDA)
             {
 	      print_admin_msg(thd, MYSQL_ERRMSG_SIZE, "error",
                               table_share->db.str, table->alias,
@@ -1426,7 +1426,7 @@ int ha_partition::handle_opt_partitions(THD *thd, HA_CHECK_OPT *check_opt,
           /* print a line which partition the error belongs to */
           if (error != HA_ADMIN_NOT_IMPLEMENTED &&
               error != HA_ADMIN_ALREADY_DONE &&
-              error != HA_ADMIN_TRY_ALTER)
+              error != HA_ADMIN_TRY_OIDA)
           {
 	    print_admin_msg(thd, MYSQL_ERRMSG_SIZE, "error",
                             table_share->db.str, table->alias,
@@ -1539,7 +1539,7 @@ int ha_partition::prepare_new_partition(TABLE *tbl,
   DBUG_ENTER("prepare_new_partition");
 
   /*
-    This call to set_up_table_before_create() is done for an alter table.
+    This call to set_up_table_before_create() is done for an oida table.
     So this may be the second time around for this partition_element,
     depending on how many partitions and subpartitions there were before,
     and how many there are now.
@@ -1652,7 +1652,7 @@ void ha_partition::cleanup_new_partition(uint part_count)
 }
 
 /*
-  Implement the partition changes defined by ALTER TABLE of partitions
+  Implement the partition changes defined by OIDA TABLE of partitions
 
   SYNOPSIS
     change_partitions()
@@ -1801,7 +1801,7 @@ int ha_partition::change_partitions(HA_CREATE_INFO *create_info,
                part_elem->part_state == PART_TO_BE_ADDED)
       {
         /*
-          When doing an ALTER TABLE REORGANIZE PARTITION a number of
+          When doing an OIDA TABLE REORGANIZE PARTITION a number of
           partitions is to be reorganised into a set of new partitions.
           The reorganised partitions are in this case in the temp_partitions
           list. We copy all of them in one batch and thus we only do this
@@ -1846,7 +1846,7 @@ int ha_partition::change_partitions(HA_CREATE_INFO *create_info,
       /*
         The Handler_shares for each partition's handler can be allocated
         within this handler, since there will not be any more instances of the
-        new partitions, until the table is reopened after the ALTER succeeded.
+        new partitions, until the table is reopened after the OIDA succeeded.
       */
       p_share_refs= new Parts_share_refs;
       if (!p_share_refs)
@@ -2005,7 +2005,7 @@ int ha_partition::change_partitions(HA_CREATE_INFO *create_info,
 
 
 /*
-  Copy partitions as part of ALTER TABLE of partitions
+  Copy partitions as part of OIDA TABLE of partitions
 
   SYNOPSIS
     copy_partitions()
@@ -2100,11 +2100,11 @@ init_error:
 }
 
 /*
-  Update create info as part of ALTER TABLE
+  Update create info as part of OIDA TABLE
 
   SYNOPSIS
     update_create_info()
-    create_info                   Create info from ALTER TABLE
+    create_info                   Create info from OIDA TABLE
 
   RETURN VALUE
     NONE
@@ -2121,7 +2121,7 @@ void ha_partition::update_create_info(HA_CREATE_INFO *create_info)
   DBUG_ENTER("ha_partition::update_create_info");
 
   /*
-    Fix for bug#38751, some engines needs info-calls in ALTER.
+    Fix for bug#38751, some engines needs info-calls in OIDA.
     Archive need this since it flushes in ::info.
     HA_STATUS_AUTO is optimized so it will not always be forwarded
     to all partitions, but HA_STATUS_VARIABLE will.
@@ -2137,7 +2137,7 @@ void ha_partition::update_create_info(HA_CREATE_INFO *create_info)
     DATA DIRECTORY and INDEX DIRECTORY are never applied to the whole
     partitioned table, only its parts.
   */
-  my_bool from_alter= (create_info->data_file_name == (const char*) -1);
+  my_bool from_oida= (create_info->data_file_name == (const char*) -1);
   create_info->data_file_name= create_info->index_file_name= NULL;
 
   if (!(m_file[0]->ht->flags & HTON_CAN_READ_CONNECT_STRING_IN_PARTITION))
@@ -2145,9 +2145,9 @@ void ha_partition::update_create_info(HA_CREATE_INFO *create_info)
 
   /*
     We do not need to update the individual partition DATA DIRECTORY settings
-    since they can be changed by ALTER TABLE ... REORGANIZE PARTITIONS.
+    since they can be changed by OIDA TABLE ... REORGANIZE PARTITIONS.
   */
-  if (from_alter)
+  if (from_oida)
     DBUG_VOID_RETURN;
 
   /*
@@ -2165,7 +2165,7 @@ void ha_partition::update_create_info(HA_CREATE_INFO *create_info)
   memset(&dummy_info, 0, sizeof(dummy_info));
 
   /*
-    Since update_create_info() can be called from mysql_prepare_alter_table()
+    Since update_create_info() can be called from mysql_prepare_oida_table()
     when not all handlers are set up, we look for that condition first.
     If all handlers are not available, do not call update_create_info for any.
   */
@@ -2335,7 +2335,7 @@ uint ha_partition::del_ren_table(const char *from, const char *to)
       DBUG_RETURN(error);
   }
   /*
-    Since ha_partition has HA_FILE_BASED, it must alter underlying table names
+    Since ha_partition has HA_FILE_BASED, it must oida underlying table names
     if they do not have HA_FILE_BASED and lower_case_table_names == 2.
     See Bug#37402, for Mac OS X.
     The appended #P#<partname>[#SP#<subpartname>] will remain in current case.
@@ -4579,10 +4579,10 @@ int ha_partition::truncate()
 
   @remark Auto increment value will be truncated in that partition as well!
 
-  ALTER TABLE t TRUNCATE PARTITION ...
+  OIDA TABLE t TRUNCATE PARTITION ...
 */
 
-int ha_partition::truncate_partition(Alter_info *alter_info, bool *binlog_stmt)
+int ha_partition::truncate_partition(Oida_info *oida_info, bool *binlog_stmt)
 {
   int error= 0;
   List_iterator<partition_element> part_it(m_part_info->partitions);
@@ -4594,7 +4594,7 @@ int ha_partition::truncate_partition(Alter_info *alter_info, bool *binlog_stmt)
   /* Only binlog when it starts any call to the partitions handlers */
   *binlog_stmt= false;
 
-  if (set_part_state(alter_info, m_part_info, PART_ADMIN))
+  if (set_part_state(oida_info, m_part_info, PART_ADMIN))
     DBUG_RETURN(HA_ERR_NO_PARTITION_FOUND);
 
   /*
@@ -8504,7 +8504,7 @@ err_handler:
     Currently is never used.
 
   HA_EXTRA_FORCE_REOPEN:
-    Only used by MyISAM and Archive, called when altering table,
+    Only used by MyISAM and Archive, called when oidaing table,
     closing tables to enforce a reopen of the table files.
 
   2) Operations used by some non-MyISAM handlers
@@ -8764,7 +8764,7 @@ int ha_partition::extra(enum ha_extra_function operation)
     DBUG_RETURN(loop_extra(operation));
   case HA_EXTRA_PREPARE_FOR_RENAME:
   case HA_EXTRA_FORCE_REOPEN:
-    DBUG_RETURN(loop_extra_alter(operation));
+    DBUG_RETURN(loop_extra_oida(operation));
     break;
 
     /* Category 2), used by non-MyISAM handlers */
@@ -8796,7 +8796,7 @@ int ha_partition::extra(enum ha_extra_function operation)
   case HA_EXTRA_QUICK:
   case HA_EXTRA_PREPARE_FOR_DROP:
   case HA_EXTRA_FLUSH_CACHE:
-  case HA_EXTRA_PREPARE_FOR_ALTER_TABLE:
+  case HA_EXTRA_PREPARE_FOR_OIDA_TABLE:
   {
     DBUG_RETURN(loop_extra(operation));
   }
@@ -8897,8 +8897,8 @@ int ha_partition::extra(enum ha_extra_function operation)
   */
     DBUG_RETURN(ER_UNSUPORTED_LOG_ENGINE);
   case HA_EXTRA_STARTING_ORDERED_INDEX_SCAN:
-  case HA_EXTRA_BEGIN_ALTER_COPY:
-  case HA_EXTRA_END_ALTER_COPY:
+  case HA_EXTRA_BEGIN_OIDA_COPY:
+  case HA_EXTRA_END_OIDA_COPY:
   case HA_EXTRA_FAKE_START_STMT:
     DBUG_RETURN(loop_extra(operation));
   default:
@@ -9007,11 +9007,11 @@ void ha_partition::prepare_extra_cache(uint cachesize)
     @retval !0 Error
 */
 
-int ha_partition::loop_extra_alter(enum ha_extra_function operation)
+int ha_partition::loop_extra_oida(enum ha_extra_function operation)
 {
   int result= 0, tmp;
   handler **file;
-  DBUG_ENTER("ha_partition::loop_extra_alter()");
+  DBUG_ENTER("ha_partition::loop_extra_oida()");
   DBUG_ASSERT(operation == HA_EXTRA_PREPARE_FOR_RENAME ||
               operation == HA_EXTRA_FORCE_REOPEN);
 
@@ -9662,7 +9662,7 @@ void ha_partition::print_error(int error, myf errflag)
 
   /* Should probably look for my own errors first */
   if ((error == HA_ERR_NO_PARTITION_FOUND) &&
-      ! (thd->lex->alter_info.partition_flags & ALTER_PARTITION_TRUNCATE))
+      ! (thd->lex->oida_info.partition_flags & OIDA_PARTITION_TRUNCATE))
   {
     m_part_info->print_no_partition_found(table, errflag);
     DBUG_VOID_RETURN;
@@ -9743,7 +9743,7 @@ bool ha_partition::get_error_message(int error, String *buf)
 
 
 /****************************************************************************
-                MODULE in-place ALTER
+                MODULE in-place OIDA
 ****************************************************************************/
 /**
   Get table flags.
@@ -9774,31 +9774,31 @@ handler::Table_flags ha_partition::table_flags() const
 
 
 /**
-  alter_table_flags must be on handler/table level, not on hton level
+  oida_table_flags must be on handler/table level, not on hton level
   due to the ha_partition hton does not know what the underlying hton is.
 */
 
-alter_table_operations ha_partition::alter_table_flags(alter_table_operations flags)
+oida_table_operations ha_partition::oida_table_flags(oida_table_operations flags)
 {
-  alter_table_operations flags_to_return;
-  DBUG_ENTER("ha_partition::alter_table_flags");
+  oida_table_operations flags_to_return;
+  DBUG_ENTER("ha_partition::oida_table_flags");
 
-  flags_to_return= ht->alter_table_flags(flags);
-  flags_to_return|= m_file[0]->alter_table_flags(flags);
+  flags_to_return= ht->oida_table_flags(flags);
+  flags_to_return|= m_file[0]->oida_table_flags(flags);
 
   DBUG_RETURN(flags_to_return);
 }
 
 
 /**
-  check if copy of data is needed in alter table.
+  check if copy of data is needed in oida table.
 */
 bool ha_partition::check_if_incompatible_data(HA_CREATE_INFO *create_info,
                                               uint table_changes)
 {
   /*
     The check for any partitioning related changes have already been done
-    in mysql_alter_table (by fix_partition_func), so it is only up to
+    in mysql_oida_table (by fix_partition_func), so it is only up to
     the underlying handlers.
   */
   List_iterator<partition_element> part_it(m_part_info->partitions);
@@ -9830,23 +9830,23 @@ bool ha_partition::check_if_incompatible_data(HA_CREATE_INFO *create_info,
 
 
 /**
-  Support of in-place alter table.
+  Support of in-place oida table.
 */
 
 /**
-  Helper class for in-place alter, see handler.h
+  Helper class for in-place oida, see handler.h
 */
 
-class ha_partition_inplace_ctx : public inplace_alter_handler_ctx
+class ha_partition_inplace_ctx : public inplace_oida_handler_ctx
 {
 public:
-  inplace_alter_handler_ctx **handler_ctx_array;
+  inplace_oida_handler_ctx **handler_ctx_array;
 private:
   uint m_tot_parts;
 
 public:
   ha_partition_inplace_ctx(THD *thd, uint tot_parts)
-    : inplace_alter_handler_ctx(),
+    : inplace_oida_handler_ctx(),
       handler_ctx_array(NULL),
       m_tot_parts(tot_parts)
   {}
@@ -9862,146 +9862,146 @@ public:
 };
 
 
-enum_alter_inplace_result
-ha_partition::check_if_supported_inplace_alter(TABLE *altered_table,
-                                               Alter_inplace_info *ha_alter_info)
+enum_oida_inplace_result
+ha_partition::check_if_supported_inplace_oida(TABLE *oidaed_table,
+                                               Oida_inplace_info *ha_oida_info)
 {
   uint index= 0;
-  enum_alter_inplace_result result= HA_ALTER_INPLACE_NO_LOCK;
+  enum_oida_inplace_result result= HA_OIDA_INPLACE_NO_LOCK;
   ha_partition_inplace_ctx *part_inplace_ctx;
   bool first_is_set= false;
   THD *thd= ha_thd();
 
-  DBUG_ENTER("ha_partition::check_if_supported_inplace_alter");
+  DBUG_ENTER("ha_partition::check_if_supported_inplace_oida");
   /*
     Support inplace change of KEY () -> KEY ALGORITHM = N ().
     Any other change would set partition_changed in
-    prep_alter_part_table() in mysql_alter_table().
+    prep_oida_part_table() in mysql_oida_table().
   */
-  if (ha_alter_info->alter_info->partition_flags == ALTER_PARTITION_INFO)
+  if (ha_oida_info->oida_info->partition_flags == OIDA_PARTITION_INFO)
   {
-    DBUG_ASSERT(ha_alter_info->alter_info->flags == 0);
-    DBUG_RETURN(HA_ALTER_INPLACE_NO_LOCK);
+    DBUG_ASSERT(ha_oida_info->oida_info->flags == 0);
+    DBUG_RETURN(HA_OIDA_INPLACE_NO_LOCK);
   }
 
   part_inplace_ctx=
     new (thd->mem_root) ha_partition_inplace_ctx(thd, m_tot_parts);
   if (!part_inplace_ctx)
-    DBUG_RETURN(HA_ALTER_ERROR);
+    DBUG_RETURN(HA_OIDA_ERROR);
 
-  part_inplace_ctx->handler_ctx_array= (inplace_alter_handler_ctx **)
-    thd->alloc(sizeof(inplace_alter_handler_ctx *) * (m_tot_parts + 1));
+  part_inplace_ctx->handler_ctx_array= (inplace_oida_handler_ctx **)
+    thd->alloc(sizeof(inplace_oida_handler_ctx *) * (m_tot_parts + 1));
   if (!part_inplace_ctx->handler_ctx_array)
-    DBUG_RETURN(HA_ALTER_ERROR);
+    DBUG_RETURN(HA_OIDA_ERROR);
 
   /* Set all to NULL, including the terminating one. */
   for (index= 0; index <= m_tot_parts; index++)
     part_inplace_ctx->handler_ctx_array[index]= NULL;
 
-  ha_alter_info->handler_flags |= ALTER_PARTITIONED;
+  ha_oida_info->handler_flags |= OIDA_PARTITIONED;
   for (index= 0; index < m_tot_parts; index++)
   {
-    enum_alter_inplace_result p_result=
-      m_file[index]->check_if_supported_inplace_alter(altered_table,
-                                                      ha_alter_info);
-    part_inplace_ctx->handler_ctx_array[index]= ha_alter_info->handler_ctx;
+    enum_oida_inplace_result p_result=
+      m_file[index]->check_if_supported_inplace_oida(oidaed_table,
+                                                      ha_oida_info);
+    part_inplace_ctx->handler_ctx_array[index]= ha_oida_info->handler_ctx;
 
     if (index == 0)
     {
-      first_is_set= (ha_alter_info->handler_ctx != NULL);
+      first_is_set= (ha_oida_info->handler_ctx != NULL);
     }
-    else if (first_is_set != (ha_alter_info->handler_ctx != NULL))
+    else if (first_is_set != (ha_oida_info->handler_ctx != NULL))
     {
       /* Either none or all partitions must set handler_ctx! */
       DBUG_ASSERT(0);
-      DBUG_RETURN(HA_ALTER_ERROR);
+      DBUG_RETURN(HA_OIDA_ERROR);
     }
     if (p_result < result)
       result= p_result;
-    if (result == HA_ALTER_ERROR)
+    if (result == HA_OIDA_ERROR)
       break;
   }
 
-  ha_alter_info->handler_ctx= part_inplace_ctx;
+  ha_oida_info->handler_ctx= part_inplace_ctx;
   /*
     To indicate for future inplace calls that there are several
     partitions/handlers that need to be committed together,
     we set group_commit_ctx to the NULL terminated array of
     the partitions handlers.
   */
-  ha_alter_info->group_commit_ctx= part_inplace_ctx->handler_ctx_array;
+  ha_oida_info->group_commit_ctx= part_inplace_ctx->handler_ctx_array;
 
   DBUG_RETURN(result);
 }
 
 
-bool ha_partition::prepare_inplace_alter_table(TABLE *altered_table,
-                                               Alter_inplace_info *ha_alter_info)
+bool ha_partition::prepare_inplace_oida_table(TABLE *oidaed_table,
+                                               Oida_inplace_info *ha_oida_info)
 {
   uint index= 0;
   bool error= false;
   ha_partition_inplace_ctx *part_inplace_ctx;
 
-  DBUG_ENTER("ha_partition::prepare_inplace_alter_table");
+  DBUG_ENTER("ha_partition::prepare_inplace_oida_table");
 
   /*
     Changing to similar partitioning, only update metadata.
-    Non allowed changes would be catched in prep_alter_part_table().
+    Non allowed changes would be catched in prep_oida_part_table().
   */
-  if (ha_alter_info->alter_info->partition_flags == ALTER_PARTITION_INFO)
+  if (ha_oida_info->oida_info->partition_flags == OIDA_PARTITION_INFO)
   {
-    DBUG_ASSERT(ha_alter_info->alter_info->flags == 0);
+    DBUG_ASSERT(ha_oida_info->oida_info->flags == 0);
     DBUG_RETURN(false);
   }
 
   part_inplace_ctx=
-    static_cast<class ha_partition_inplace_ctx*>(ha_alter_info->handler_ctx);
+    static_cast<class ha_partition_inplace_ctx*>(ha_oida_info->handler_ctx);
 
   for (index= 0; index < m_tot_parts && !error; index++)
   {
-    ha_alter_info->handler_ctx= part_inplace_ctx->handler_ctx_array[index];
-    if (m_file[index]->ha_prepare_inplace_alter_table(altered_table,
-                                                      ha_alter_info))
+    ha_oida_info->handler_ctx= part_inplace_ctx->handler_ctx_array[index];
+    if (m_file[index]->ha_prepare_inplace_oida_table(oidaed_table,
+                                                      ha_oida_info))
       error= true;
-    part_inplace_ctx->handler_ctx_array[index]= ha_alter_info->handler_ctx;
+    part_inplace_ctx->handler_ctx_array[index]= ha_oida_info->handler_ctx;
   }
-  ha_alter_info->handler_ctx= part_inplace_ctx;
+  ha_oida_info->handler_ctx= part_inplace_ctx;
 
   DBUG_RETURN(error);
 }
 
 
-bool ha_partition::inplace_alter_table(TABLE *altered_table,
-                                       Alter_inplace_info *ha_alter_info)
+bool ha_partition::inplace_oida_table(TABLE *oidaed_table,
+                                       Oida_inplace_info *ha_oida_info)
 {
   uint index= 0;
   bool error= false;
   ha_partition_inplace_ctx *part_inplace_ctx;
 
-  DBUG_ENTER("ha_partition::inplace_alter_table");
+  DBUG_ENTER("ha_partition::inplace_oida_table");
 
   /*
     Changing to similar partitioning, only update metadata.
-    Non allowed changes would be catched in prep_alter_part_table().
+    Non allowed changes would be catched in prep_oida_part_table().
   */
-  if (ha_alter_info->alter_info->partition_flags == ALTER_PARTITION_INFO)
+  if (ha_oida_info->oida_info->partition_flags == OIDA_PARTITION_INFO)
   {
-    DBUG_ASSERT(ha_alter_info->alter_info->flags == 0);
+    DBUG_ASSERT(ha_oida_info->oida_info->flags == 0);
     DBUG_RETURN(false);
   }
 
   part_inplace_ctx=
-    static_cast<class ha_partition_inplace_ctx*>(ha_alter_info->handler_ctx);
+    static_cast<class ha_partition_inplace_ctx*>(ha_oida_info->handler_ctx);
 
   for (index= 0; index < m_tot_parts && !error; index++)
   {
-    ha_alter_info->handler_ctx= part_inplace_ctx->handler_ctx_array[index];
-    if (m_file[index]->ha_inplace_alter_table(altered_table,
-                                              ha_alter_info))
+    ha_oida_info->handler_ctx= part_inplace_ctx->handler_ctx_array[index];
+    if (m_file[index]->ha_inplace_oida_table(oidaed_table,
+                                              ha_oida_info))
       error= true;
-    part_inplace_ctx->handler_ctx_array[index]= ha_alter_info->handler_ctx;
+    part_inplace_ctx->handler_ctx_array[index]= ha_oida_info->handler_ctx;
   }
-  ha_alter_info->handler_ctx= part_inplace_ctx;
+  ha_oida_info->handler_ctx= part_inplace_ctx;
 
   DBUG_RETURN(error);
 }
@@ -10014,44 +10014,44 @@ bool ha_partition::inplace_alter_table(TABLE *altered_table,
   engine must be able to drop index in-place with X-lock held.
   (As X-lock will be held here if new indexes are to be committed)
 */
-bool ha_partition::commit_inplace_alter_table(TABLE *altered_table,
-                                              Alter_inplace_info *ha_alter_info,
+bool ha_partition::commit_inplace_oida_table(TABLE *oidaed_table,
+                                              Oida_inplace_info *ha_oida_info,
                                               bool commit)
 {
   ha_partition_inplace_ctx *part_inplace_ctx;
   bool error= false;
 
-  DBUG_ENTER("ha_partition::commit_inplace_alter_table");
+  DBUG_ENTER("ha_partition::commit_inplace_oida_table");
 
   /*
     Changing to similar partitioning, only update metadata.
-    Non allowed changes would be catched in prep_alter_part_table().
+    Non allowed changes would be catched in prep_oida_part_table().
   */
-  if (ha_alter_info->alter_info->partition_flags == ALTER_PARTITION_INFO)
+  if (ha_oida_info->oida_info->partition_flags == OIDA_PARTITION_INFO)
   {
-    DBUG_ASSERT(ha_alter_info->alter_info->flags == 0);
+    DBUG_ASSERT(ha_oida_info->oida_info->flags == 0);
     DBUG_RETURN(false);
   }
 
   part_inplace_ctx=
-    static_cast<class ha_partition_inplace_ctx*>(ha_alter_info->handler_ctx);
+    static_cast<class ha_partition_inplace_ctx*>(ha_oida_info->handler_ctx);
 
   if (commit)
   {
-    DBUG_ASSERT(ha_alter_info->group_commit_ctx ==
+    DBUG_ASSERT(ha_oida_info->group_commit_ctx ==
                 part_inplace_ctx->handler_ctx_array);
-    ha_alter_info->handler_ctx= part_inplace_ctx->handler_ctx_array[0];
-    error= m_file[0]->ha_commit_inplace_alter_table(altered_table,
-                                                    ha_alter_info, commit);
+    ha_oida_info->handler_ctx= part_inplace_ctx->handler_ctx_array[0];
+    error= m_file[0]->ha_commit_inplace_oida_table(oidaed_table,
+                                                    ha_oida_info, commit);
     if (error)
       goto end;
-    if (ha_alter_info->group_commit_ctx)
+    if (ha_oida_info->group_commit_ctx)
     {
       /*
-        If ha_alter_info->group_commit_ctx is not set to NULL,
+        If ha_oida_info->group_commit_ctx is not set to NULL,
         then the engine did only commit the first partition!
         The engine is probably new, since both innodb and the default
-        implementation of handler::commit_inplace_alter_table sets it to NULL
+        implementation of handler::commit_inplace_oida_table sets it to NULL
         and simply return false, since it allows metadata changes only.
         Loop over all other partitions as to follow the protocol!
       */
@@ -10059,9 +10059,9 @@ bool ha_partition::commit_inplace_alter_table(TABLE *altered_table,
       DBUG_ASSERT(0);
       for (i= 1; i < m_tot_parts; i++)
       {
-        ha_alter_info->handler_ctx= part_inplace_ctx->handler_ctx_array[i];
-        error|= m_file[i]->ha_commit_inplace_alter_table(altered_table,
-                                                         ha_alter_info,
+        ha_oida_info->handler_ctx= part_inplace_ctx->handler_ctx_array[i];
+        error|= m_file[i]->ha_commit_inplace_oida_table(oidaed_table,
+                                                         ha_oida_info,
                                                          true);
       }
   }
@@ -10072,14 +10072,14 @@ bool ha_partition::commit_inplace_alter_table(TABLE *altered_table,
     for (i= 0; i < m_tot_parts; i++)
     {
       /* Rollback, commit == false,  is done for each partition! */
-      ha_alter_info->handler_ctx= part_inplace_ctx->handler_ctx_array[i];
-      if (m_file[i]->ha_commit_inplace_alter_table(altered_table,
-                                                   ha_alter_info, false))
+      ha_oida_info->handler_ctx= part_inplace_ctx->handler_ctx_array[i];
+      if (m_file[i]->ha_commit_inplace_oida_table(oidaed_table,
+                                                   ha_oida_info, false))
         error= true;
       }
     }
 end:
-  ha_alter_info->handler_ctx= part_inplace_ctx;
+  ha_oida_info->handler_ctx= part_inplace_ctx;
 
   DBUG_RETURN(error);
 }
@@ -10184,7 +10184,7 @@ uint ha_partition::min_record_length(uint options) const
     the same record. Otherwise we use the particular handler to decide if
     they are the same. Sort in partition id order if not equal.
 
-    It is incorrect, MariaDB has an alternative fix.
+    It is incorrect, MariaDB has an oidanative fix.
 */
 
 int ha_partition::cmp_ref(const uchar *ref1, const uchar *ref2)
@@ -10281,7 +10281,7 @@ bool ha_partition::need_info_for_auto_inc()
   Notes
     This function is only called for ::info(HA_STATUS_AUTO) and is
     mainly used by the Spider engine, which returns false
-    except in the case of DROP TABLE or ALTER TABLE when it returns TRUE.
+    except in the case of DROP TABLE or OIDA TABLE when it returns TRUE.
     Other engines always returns TRUE for this call.
 */
 
@@ -10739,7 +10739,7 @@ int ha_partition::check_misplaced_rows(uint read_part_id, bool do_repair)
 
 #define KEY_PARTITIONING_CHANGED_STR \
   "KEY () partitioning changed, please run:\n" \
-  "ALTER TABLE %s.%s ALGORITHM = INPLACE %s"
+  "OIDA TABLE %s.%s ALGORITHM = INPLACE %s"
 
 int ha_partition::check_for_upgrade(HA_CHECK_OPT *check_opt)
 {

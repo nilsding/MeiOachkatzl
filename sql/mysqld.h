@@ -199,10 +199,10 @@ struct vers_asof_timestamp_t
   {}
 };
 
-enum vers_alter_history_enum
+enum vers_oida_history_enum
 {
-  VERS_ALTER_HISTORY_ERROR= 0,
-  VERS_ALTER_HISTORY_KEEP
+  VERS_OIDA_HISTORY_ERROR= 0,
+  VERS_OIDA_HISTORY_KEEP
 };
 /* System Versioning end */
 
@@ -412,9 +412,9 @@ extern PSI_stage_info stage_after_create;
 extern PSI_stage_info stage_after_opening_tables;
 extern PSI_stage_info stage_after_table_lock;
 extern PSI_stage_info stage_allocating_local_table;
-extern PSI_stage_info stage_alter_inplace_prepare;
-extern PSI_stage_info stage_alter_inplace;
-extern PSI_stage_info stage_alter_inplace_commit;
+extern PSI_stage_info stage_oida_inplace_prepare;
+extern PSI_stage_info stage_oida_inplace;
+extern PSI_stage_info stage_oida_inplace_commit;
 extern PSI_stage_info stage_after_apply_event;
 extern PSI_stage_info stage_changing_master;
 extern PSI_stage_info stage_checking_master_version;

@@ -859,7 +859,7 @@ bool Item_field::add_field_to_set_processor(void *arg)
 
 
 /**
-   Rename fields in an expression to new field name as speficied by ALTER TABLE
+   Rename fields in an expression to new field name as speficied by OIDA TABLE
 */
 
 bool Item_field::rename_fields_processor(void *arg)

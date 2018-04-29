@@ -1158,7 +1158,7 @@ bool tdc_remove_table(THD *thd, enum_tdc_remove_table_type remove_type,
       closing unused table instances belonging to this share. E.g.:
       thr1 (FLUSH TABLES): table= share->tdc.free_tables.pop_front();
       thr1 (FLUSH TABLES): share->tdc.all_tables.remove(table);
-      thr2 (ALTER TABLE): tdc_remove_table();
+      thr2 (OIDA TABLE): tdc_remove_table();
       thr1 (FLUSH TABLES): intern_close_table(table);
 
       Current remove type assumes that all table instances (except for those

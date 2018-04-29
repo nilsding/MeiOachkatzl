@@ -26,7 +26,7 @@
 #include "thr_lock.h"                  /* thr_lock_type, TL_UNLOCK */
 #include "mem_root_array.h"
 #include "sql_cmd.h"
-#include "sql_alter.h"                // Alter_info
+#include "sql_oida.h"                // Oida_info
 #include "sql_window.h"
 #include "sql_trigger.h"
 #include "sp.h"                       // enum stored_procedure_type
@@ -179,7 +179,7 @@ class sp_instr;
 class sp_pcontext;
 class sp_variable;
 class sp_assignment_lex;
-class st_alter_tablespace;
+class st_oida_tablespace;
 class partition_info;
 class Event_parse_data;
 class set_var_base;
@@ -326,7 +326,7 @@ const LEX_STRING sp_data_access_name[]=
 enum enum_view_create_mode
 {
   VIEW_CREATE_NEW,		// check that there are not such VIEW/table
-  VIEW_ALTER,			// check that VIEW .frm with such name exists
+  VIEW_OIDA,			// check that VIEW .frm with such name exists
   VIEW_CREATE_OR_REPLACE	// check only that there are not such table
 };
 
@@ -2901,7 +2901,7 @@ public:
   /*
     Usually `expr` rule of yacc is quite reused but some commands better
     not support subqueries which comes standard with this rule, like
-    KILL, HA_READ, CREATE/ALTER EVENT etc. Set this to `false` to get
+    KILL, HA_READ, CREATE/OIDA EVENT etc. Set this to `false` to get
     syntax error back.
   */
   bool expr_allows_subselect;
@@ -2960,7 +2960,7 @@ public:
   bool safe_to_cache_query;
   bool subqueries, ignore;
   st_parsing_options parsing_options;
-  Alter_info alter_info;
+  Oida_info oida_info;
   /*
     For CREATE TABLE statement last element of table list which is not
     part of SELECT or LIKE part (i.e. either element for table we are
@@ -3051,7 +3051,7 @@ public:
     Reference to a struct that contains information in various commands
     to add/create/drop/change table spaces.
   */
-  st_alter_tablespace *alter_tablespace_info;
+  st_oida_tablespace *oida_tablespace_info;
   
   bool escape_used;
   bool default_used;    /* using default() function */
@@ -3740,24 +3740,24 @@ public:
   bool add_signal_statement(THD *thd, const class sp_condition_value *value);
   bool add_resignal_statement(THD *thd, const class sp_condition_value *value);
 
-  // Check if "KEY IF NOT EXISTS name" used outside of ALTER context
+  // Check if "KEY IF NOT EXISTS name" used outside of OIDA context
   bool check_add_key(DDL_options_st ddl)
   {
-    if (ddl.if_not_exists() && sql_command != SQLCOM_ALTER_TABLE)
+    if (ddl.if_not_exists() && sql_command != SQLCOM_OIDA_TABLE)
     {
       parse_error();
       return true;
     }
     return false;
   }
-  // Add a key as a part of CREATE TABLE or ALTER TABLE
+  // Add a key as a part of CREATE TABLE or OIDA TABLE
   bool add_key(Key::Keytype key_type, const LEX_CSTRING *key_name,
                ha_key_alg algorithm, DDL_options_st ddl)
   {
     if (check_add_key(ddl) ||
         !(last_key= new Key(key_type, key_name, algorithm, false, ddl)))
       return true;
-    alter_info.key_list.push_back(last_key);
+    oida_info.key_list.push_back(last_key);
     return false;
   }
   // Add a key for a CREATE INDEX statement
@@ -3767,7 +3767,7 @@ public:
     if (check_create_options(ddl) ||
        !(last_key= new Key(key_type, key_name, algorithm, false, ddl)))
       return true;
-    alter_info.key_list.push_back(last_key);
+    oida_info.key_list.push_back(last_key);
     return false;
   }
   bool add_create_index_prepare(Table_ident *table)
@@ -3778,8 +3778,8 @@ public:
                                            TL_READ_NO_INSERT,
                                            MDL_SHARED_UPGRADABLE))
       return true;
-    alter_info.reset();
-    alter_info.flags= ALTER_ADD_INDEX;
+    oida_info.reset();
+    oida_info.flags= OIDA_ADD_INDEX;
     option_list= NULL;
     return false;
   }
@@ -3789,17 +3789,17 @@ public:
   */
   void add_key_to_list(LEX_CSTRING *field_name,
                        enum Key::Keytype type, bool check_exists);
-  // Add a constraint as a part of CREATE TABLE or ALTER TABLE
+  // Add a constraint as a part of CREATE TABLE or OIDA TABLE
   bool add_constraint(LEX_CSTRING *name, Virtual_column_info *constr,
                       bool if_not_exists)
   {
     constr->name= *name;
     constr->flags= if_not_exists ?
-                   Alter_info::CHECK_CONSTRAINT_IF_NOT_EXISTS : 0;
-    alter_info.check_constraint_list.push_back(constr);
+                   Oida_info::CHECK_CONSTRAINT_IF_NOT_EXISTS : 0;
+    oida_info.check_constraint_list.push_back(constr);
     return false;
   }
-  bool add_alter_list(const char *par_name, Virtual_column_info *expr,
+  bool add_oida_list(const char *par_name, Virtual_column_info *expr,
                       bool par_exists);
   void set_command(enum_sql_command command,
                    DDL_options_st options)
@@ -3859,8 +3859,8 @@ public:
   SELECT_LEX *exclude_last_select();
   bool add_unit_in_brackets(SELECT_LEX *nselect);
   void check_automatic_up(enum sub_select_type type);
-  bool create_or_alter_view_finalize(THD *thd, Table_ident *table_ident);
-  bool add_alter_view(THD *thd, uint16 algorithm, enum_view_suid suid,
+  bool create_or_oida_view_finalize(THD *thd, Table_ident *table_ident);
+  bool add_oida_view(THD *thd, uint16 algorithm, enum_view_suid suid,
                       Table_ident *table_ident);
   bool add_create_view(THD *thd, DDL_options_st ddl,
                        uint16 algorithm, enum_view_suid suid,

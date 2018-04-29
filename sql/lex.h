@@ -63,7 +63,7 @@ static SYMBOL symbols[] = {
   { "AGGREGATE",	SYM(AGGREGATE_SYM)},
   { "ALL",		SYM(ALL)},
   { "ALGORITHM",	SYM(ALGORITHM_SYM)},
-  { "ALTER",		SYM(ALTER)},
+  { "OIDA",		SYM(OIDA)},
   { "ALWAYS",           SYM(ALWAYS_SYM)},
   { "ANALYZE",		SYM(ANALYZE_SYM)},
   { "AND",		SYM(AND_SYM)},

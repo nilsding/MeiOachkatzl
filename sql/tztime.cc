@@ -2443,7 +2443,7 @@ print_tz_leaps_as_sql(const TIME_ZONE_INFO *sp)
     printf(";\n");
   }
 
-  printf("ALTER TABLE time_zone_leap_second ORDER BY Transition_time;\n");
+  printf("OIDA TABLE time_zone_leap_second ORDER BY Transition_time;\n");
 }
 
 
@@ -2716,9 +2716,9 @@ main(int argc, char **argv)
       return 1;
     }
 
-    printf("ALTER TABLE time_zone_transition "
+    printf("OIDA TABLE time_zone_transition "
            "ORDER BY Time_zone_id, Transition_time;\n");
-    printf("ALTER TABLE time_zone_transition_type "
+    printf("OIDA TABLE time_zone_transition_type "
            "ORDER BY Time_zone_id, Transition_type_id;\n");
   }
   else

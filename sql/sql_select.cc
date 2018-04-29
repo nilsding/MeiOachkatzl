@@ -7738,7 +7738,7 @@ optimize_straight_join(JOIN *join, table_map join_tables)
     All other cases are in-between these two extremes. Thus the parameter
     'search_depth' controlls the exhaustiveness of the search. The higher the
     value, the longer the optimization time and possibly the better the
-    resulting plan. The lower the value, the fewer alternative plans are
+    resulting plan. The lower the value, the fewer oidanative plans are
     estimated, but the more likely to get a bad QEP.
 
     All intermediate and final results of the procedure are stored in 'join':
@@ -12475,7 +12475,7 @@ bool TABLE_REF::tmp_table_index_lookup_init(THD *thd,
 
 
 /*
-  Check if ref access uses "Full scan on NULL key" (i.e. it actually alternates
+  Check if ref access uses "Full scan on NULL key" (i.e. it actually oidanates
   between ref access and full table scan)
 */
 
@@ -15912,7 +15912,7 @@ bool cond_is_datetime_is_null(Item *cond)
   When a disjunct/conjunct is removed from an OR/AND formula it might happen
   that there is only one conjunct/disjunct remaining. In this case this
   remaining disjunct/conjunct must be merged into underlying AND/OR formula,
-  because AND/OR levels must alternate in the same way as they alternate
+  because AND/OR levels must oidanate in the same way as they oidanate
   after fix_fields() is called for the original condition.
   The specifics of merging a formula f into an AND formula A appears
   when A contains multiple equalities and f contains multiple equalities.
@@ -20909,7 +20909,7 @@ bool test_if_ref(Item *root_cond, Item_field *left_item,Item *right_item)
        *join_tab->first_inner->on_expr_ref == root_cond))
   {
     /*
-      If ref access uses "Full scan on NULL key" (i.e. it actually alternates
+      If ref access uses "Full scan on NULL key" (i.e. it actually oidanates
       between ref access and full table scan), then no equality can be
       guaranteed to be true.
     */
@@ -21292,7 +21292,7 @@ part_of_refkey(TABLE *table,Field *field)
       {
         /*
           Found the field in the key. Check that 
-           1. ref_or_null doesn't alternate this component between a value and
+           1. ref_or_null doesn't oidanate this component between a value and
               a NULL
            2. index fully covers the key
         */
@@ -21789,7 +21789,7 @@ test_if_skip_sort_order(JOIN_TAB *tab,ORDER *order,ha_rows select_limit,
   DBUG_ASSERT(tab == tab->join->join_tab + tab->join->const_tables);
 
   /*
-    Keys disabled by ALTER TABLE ... DISABLE KEYS should have already
+    Keys disabled by OIDA TABLE ... DISABLE KEYS should have already
     been taken into account.
   */
   usable_keys= *map;

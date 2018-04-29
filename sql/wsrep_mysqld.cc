@@ -1295,10 +1295,10 @@ int wsrep_to_buf_helper(
 }
 
 static int
-wsrep_alter_query_string(THD *thd, String *buf)
+wsrep_oida_query_string(THD *thd, String *buf)
 {
-  /* Append the "ALTER" part of the query */
-  if (buf->append(STRING_WITH_LEN("ALTER ")))
+  /* Append the "OIDA" part of the query */
+  if (buf->append(STRING_WITH_LEN("OIDA ")))
     return 1;
   /* Append definer */
   append_definer(thd, buf, &(thd->lex->definer->user), &(thd->lex->definer->host));
@@ -1311,13 +1311,13 @@ wsrep_alter_query_string(THD *thd, String *buf)
   return 0;
 }
 
-static int wsrep_alter_event_query(THD *thd, uchar** buf, size_t* buf_len)
+static int wsrep_oida_event_query(THD *thd, uchar** buf, size_t* buf_len)
 {
   String log_query;
 
-  if (wsrep_alter_query_string(thd, &log_query))
+  if (wsrep_oida_query_string(thd, &log_query))
   {
-    WSREP_WARN("events alter string failed: schema: %s, query: %s",
+    WSREP_WARN("events oida string failed: schema: %s, query: %s",
                thd->get_db(), thd->query());
     return 1;
   }
@@ -1336,7 +1336,7 @@ create_view_query(THD *thd, uchar** buf, size_t* buf_len)
     String buff;
     const LEX_CSTRING command[3]=
       {{ STRING_WITH_LEN("CREATE ") },
-       { STRING_WITH_LEN("ALTER ") },
+       { STRING_WITH_LEN("OIDA ") },
        { STRING_WITH_LEN("CREATE OR REPLACE ") }};
 
     buff.append(&command[thd->lex->create_view->mode]);
@@ -1348,7 +1348,7 @@ create_view_query(THD *thd, uchar** buf, size_t* buf_len)
       /*
         DEFINER-clause is missing; we have to create default definer in
         persistent arena to be PS/SP friendly.
-        If this is an ALTER VIEW then the current user should be set as
+        If this is an OIDA VIEW then the current user should be set as
         the definer.
       */
       definer= create_default_definer(thd, false);
@@ -1520,8 +1520,8 @@ static int wsrep_TOI_begin(THD *thd, const char *db_, const char *table_,
   case SQLCOM_CREATE_EVENT:
     buf_err= wsrep_create_event_query(thd, &buf, &buf_len);
     break;
-  case SQLCOM_ALTER_EVENT:
-    buf_err= wsrep_alter_event_query(thd, &buf, &buf_len);
+  case SQLCOM_OIDA_EVENT:
+    buf_err= wsrep_oida_event_query(thd, &buf, &buf_len);
     break;
   case SQLCOM_CREATE_ROLE:
     if (sp_process_definer(thd))

@@ -4095,12 +4095,12 @@ Field *Item::create_field_for_create_select(TABLE *table)
                                 temporary table flag)
   @param create_table  [in]     Pointer to TABLE_LIST object providing database
                                 and name for table to be created or to be open
-  @param alter_info    [in/out] Initial list of columns and indexes for the
+  @param oida_info    [in/out] Initial list of columns and indexes for the
                                 table to be created
   @param items         [in]     List of items which should be used to produce
                                 rest of fields for the table (corresponding
                                 fields will be added to the end of
-                                alter_info->create_list)
+                                oida_info->create_list)
   @param lock          [out]    Pointer to the MYSQL_LOCK object for table
                                 created will be returned in this parameter.
                                 Since this table is not included in THD::lock
@@ -4148,9 +4148,9 @@ TABLE *select_create::create_table_from_items(THD *thd,
   tmp_table.in_use= thd;
 
   if (!opt_explicit_defaults_for_timestamp)
-    promote_first_timestamp_column(&alter_info->create_list);
+    promote_first_timestamp_column(&oida_info->create_list);
 
-  if (create_info->vers_fix_system_fields(thd, alter_info, *create_table,
+  if (create_info->vers_fix_system_fields(thd, oida_info, *create_table,
                                           true))
     DBUG_RETURN(NULL);
 
@@ -4187,10 +4187,10 @@ TABLE *select_create::create_table_from_items(THD *thd,
 
     if (item->maybe_null)
       cr_field->flags &= ~NOT_NULL_FLAG;
-    alter_info->create_list.push_back(cr_field, thd->mem_root);
+    oida_info->create_list.push_back(cr_field, thd->mem_root);
   }
 
-  if (create_info->vers_check_system_fields(thd, alter_info, *create_table))
+  if (create_info->vers_check_system_fields(thd, oida_info, *create_table))
     DBUG_RETURN(NULL);
 
   DEBUG_SYNC(thd,"create_table_select_before_create");
@@ -4224,7 +4224,7 @@ TABLE *select_create::create_table_from_items(THD *thd,
 
   if (!mysql_create_table_no_lock(thd, &create_table->db,
                                   &create_table->table_name,
-                                  create_info, alter_info, NULL,
+                                  create_info, oida_info, NULL,
                                   select_field_count, create_table))
   {
     DEBUG_SYNC(thd,"create_table_select_before_open");

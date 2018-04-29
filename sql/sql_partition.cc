@@ -63,9 +63,9 @@
 #include "sql_table.h"                  // build_table_filename,
                                         // build_table_shadow_filename,
                                         // table_to_filename
-                                        // mysql_*_alter_copy_data
+                                        // mysql_*_oida_copy_data
 #include "opt_range.h"                  // store_key_image_to_rec
-#include "sql_alter.h"                  // Alter_table_ctx
+#include "sql_oida.h"                  // Oida_table_ctx
 #include "sql_select.h"
 #include "sql_tablespace.h"             // check_tablespace_name
 #include "tztime.h"                     // my_tz_OFFSET0
@@ -796,7 +796,7 @@ int check_signed_flag(partition_info *part_info)
     part_info            Reference to partitioning data structure
     is_sub_part          Is the table subpartitioned as well
     is_create_table_ind  Indicator of whether openfrm was called as part of
-                         CREATE or ALTER TABLE
+                         CREATE or OIDA TABLE
 
   RETURN VALUE
     TRUE                 An error occurred, something was wrong with the
@@ -1899,7 +1899,7 @@ bool check_part_func_fields(Field **ptr, bool ok_with_charsets)
     thd                  The thread object
     table                TABLE object for which partition fields are set-up
     is_create_table_ind  Indicator of whether openfrm was called as part of
-                         CREATE or ALTER TABLE
+                         CREATE or OIDA TABLE
 
   RETURN VALUE
     TRUE                 Error
@@ -2084,8 +2084,8 @@ end:
   The code below is support routines for the reverse parsing of the 
   partitioning syntax. This feature is very useful to generate syntax for
   all default values to avoid all default checking when opening the frm
-  file. It is also used when altering the partitioning by use of various
-  ALTER TABLE commands. Finally it is used for SHOW CREATE TABLES.
+  file. It is also used when oidaing the partitioning by use of various
+  OIDA TABLE commands. Finally it is used for SHOW CREATE TABLES.
 */
 
 static int add_part_field_list(THD *thd, String *str, List<const char> field_list)
@@ -2316,7 +2316,7 @@ error:
   SYNOPSIS
     get_sql_field()
     field_name                   Field name
-    alter_info                   Info from ALTER TABLE/CREATE TABLE
+    oida_info                   Info from OIDA TABLE/CREATE TABLE
 
   RETURN VALUE
     sql_field                    Object filled in by parser about field
@@ -2324,9 +2324,9 @@ error:
 */
 
 static Create_field* get_sql_field(const char *field_name,
-                                   Alter_info *alter_info)
+                                   Oida_info *oida_info)
 {
-  List_iterator<Create_field> it(alter_info->create_list);
+  List_iterator<Create_field> it(oida_info->create_list);
   Create_field *sql_field;
   DBUG_ENTER("get_sql_field");
 
@@ -2346,7 +2346,7 @@ static Create_field* get_sql_field(const char *field_name,
 static int add_column_list_values(String *str, partition_info *part_info,
                                   part_elem_value *list_value,
                                   HA_CREATE_INFO *create_info,
-                                  Alter_info *alter_info)
+                                  Oida_info *oida_info)
 {
   int err= 0;
   uint i;
@@ -2387,7 +2387,7 @@ static int add_column_list_values(String *str, partition_info *part_info,
           Create_field *sql_field;
 
           if (!(sql_field= get_sql_field(field_name,
-                                         alter_info)))
+                                         oida_info)))
           {
             my_error(ER_FIELD_NOT_FOUND_PART_ERROR, MYF(0));
             return 1;
@@ -2439,7 +2439,7 @@ static int add_column_list_values(String *str, partition_info *part_info,
           if (get_cs_converted_part_value_from_string(current_thd,
                                                       item_expr, res,
                                                       &val_conv, field_cs,
-                                                   (bool)(alter_info != NULL)))
+                                                   (bool)(oida_info != NULL)))
             return 1;
           err+= str->append(val_conv);
         }
@@ -2456,7 +2456,7 @@ static int add_column_list_values(String *str, partition_info *part_info,
 static int add_partition_values(String *str, partition_info *part_info,
                                 partition_element *p_elem,
                                 HA_CREATE_INFO *create_info,
-                                Alter_info *alter_info)
+                                Oida_info *oida_info)
 {
   int err= 0;
 
@@ -2469,7 +2469,7 @@ static int add_partition_values(String *str, partition_info *part_info,
       part_elem_value *list_value= list_val_it++;
       err+= str->append('(');
       err+= add_column_list_values(str, part_info, list_value,
-                                   create_info, alter_info);
+                                   create_info, oida_info);
       err+= str->append(')');
     }
     else
@@ -2495,7 +2495,7 @@ static int add_partition_values(String *str, partition_info *part_info,
     if (p_elem->max_value)
     {
       DBUG_ASSERT(part_info->defined_max_value ||
-                  current_thd->lex->sql_command == SQLCOM_ALTER_TABLE);
+                  current_thd->lex->sql_command == SQLCOM_OIDA_TABLE);
       err+= str->append(STRING_WITH_LEN(" DEFAULT"));
       return err;
     }
@@ -2521,7 +2521,7 @@ static int add_partition_values(String *str, partition_info *part_info,
 
       if (part_info->column_list)
         err+= add_column_list_values(str, part_info, list_value,
-                                     create_info, alter_info);
+                                     create_info, oida_info);
       else
       {
         if (!list_value->unsigned_flag)
@@ -2590,7 +2590,7 @@ static int add_key_with_algorithm(String *str, partition_info *part_info)
     buf_length                 A pointer to the returned buffer length
     show_partition_options     Should we display partition options
     create_info                Info generated by parser
-    alter_info                 Info generated by parser
+    oida_info                 Info generated by parser
 
   RETURN VALUES
     NULL error
@@ -2601,7 +2601,7 @@ static int add_key_with_algorithm(String *str, partition_info *part_info)
   defaults have been expanded. By so doing the it is also possible to
   make lots of checks of correctness while at it.
   This could will also be reused for SHOW CREATE TABLES and also for all
-  type ALTER TABLE commands focusing on changing the PARTITION structure
+  type OIDA TABLE commands focusing on changing the PARTITION structure
   in any fashion.
 
   The code is optimised for minimal code size since it is not used in any
@@ -2612,7 +2612,7 @@ char *generate_partition_syntax(THD *thd, partition_info *part_info,
                                 uint *buf_length,
                                 bool show_partition_options,
                                 HA_CREATE_INFO *create_info,
-                                Alter_info *alter_info)
+                                Oida_info *oida_info)
 {
   uint i,j, tot_num_parts, num_subparts;
   partition_element *part_elem;
@@ -2735,7 +2735,7 @@ char *generate_partition_syntax(THD *thd, partition_info *part_info,
         err+= append_identifier(thd, &str, part_elem->partition_name,
                                            strlen(part_elem->partition_name));
         err+= add_partition_values(&str, part_info, part_elem,
-                                   create_info, alter_info);
+                                   create_info, oida_info);
         if (!part_info->is_sub_partitioned() ||
             part_info->use_default_subpartitions)
         {
@@ -4689,7 +4689,7 @@ error:
 /**
   Sets which partitions to be used in the command.
 
-  @param alter_info     Alter_info pointer holding partition names and flags.
+  @param oida_info     Oida_info pointer holding partition names and flags.
   @param tab_part_info  partition_info holding all partitions.
   @param part_state     Which state to set for the named partitions.
 
@@ -4698,7 +4698,7 @@ error:
     @retval true   Failure
 */
 
-bool set_part_state(Alter_info *alter_info, partition_info *tab_part_info,
+bool set_part_state(Oida_info *oida_info, partition_info *tab_part_info,
                     enum partition_state part_state)
 {
   uint part_count= 0;
@@ -4708,9 +4708,9 @@ bool set_part_state(Alter_info *alter_info, partition_info *tab_part_info,
   do
   {
     partition_element *part_elem= part_it++;
-    if ((alter_info->partition_flags & ALTER_PARTITION_ALL) ||
+    if ((oida_info->partition_flags & OIDA_PARTITION_ALL) ||
          (is_name_in_list(part_elem->partition_name,
-          alter_info->partition_names)))
+          oida_info->partition_names)))
     {
       /*
         Mark the partition.
@@ -4726,8 +4726,8 @@ bool set_part_state(Alter_info *alter_info, partition_info *tab_part_info,
       part_elem->part_state= PART_NORMAL;
   } while (++part_count < tab_part_info->num_parts);
 
-  if (num_parts_found != alter_info->partition_names.elements &&
-      !(alter_info->partition_flags & ALTER_PARTITION_ALL))
+  if (num_parts_found != oida_info->partition_names.elements &&
+      !(oida_info->partition_flags & OIDA_PARTITION_ALL))
   {
     /* Not all given partitions found, revert and return failure */
     part_it.rewind();
@@ -4782,15 +4782,15 @@ bool compare_partition_options(HA_CREATE_INFO *table_create_info,
 
 
 /*
-  Prepare for ALTER TABLE of partition structure
+  Prepare for OIDA TABLE of partition structure
 
   @param[in] thd                 Thread object
   @param[in] table               Table object
-  @param[in,out] alter_info      Alter information
+  @param[in,out] oida_info      Oida information
   @param[in,out] create_info     Create info for CREATE TABLE
-  @param[in]  alter_ctx          ALTER TABLE runtime context
+  @param[in]  oida_ctx          OIDA TABLE runtime context
   @param[out] partition_changed  Boolean indicating whether partition changed
-  @param[out] fast_alter_table   Boolean indicating if fast partition alter is
+  @param[out] fast_oida_table   Boolean indicating if fast partition oida is
                                  possible.
 
   @return Operation status
@@ -4798,33 +4798,33 @@ bool compare_partition_options(HA_CREATE_INFO *table_create_info,
     @retval FALSE                Success
 
   @note 
-    This method handles all preparations for ALTER TABLE for partitioned
+    This method handles all preparations for OIDA TABLE for partitioned
     tables.
     We need to handle both partition management command such as Add Partition
-    and others here as well as an ALTER TABLE that completely changes the
+    and others here as well as an OIDA TABLE that completely changes the
     partitioning and yet others that don't change anything at all. We start
     by checking the partition management variants and then check the general
     change patterns.
 */
 
-uint prep_alter_part_table(THD *thd, TABLE *table, Alter_info *alter_info,
+uint prep_oida_part_table(THD *thd, TABLE *table, Oida_info *oida_info,
                            HA_CREATE_INFO *create_info,
-                           Alter_table_ctx *alter_ctx,
+                           Oida_table_ctx *oida_ctx,
                            bool *partition_changed,
-                           bool *fast_alter_table)
+                           bool *fast_oida_table)
 {
-  DBUG_ENTER("prep_alter_part_table");
+  DBUG_ENTER("prep_oida_part_table");
 
   /* Foreign keys on partitioned tables are not supported, waits for WL#148 */
-  if (table->part_info && (alter_info->flags & (ALTER_ADD_FOREIGN_KEY |
-                                                ALTER_DROP_FOREIGN_KEY)))
+  if (table->part_info && (oida_info->flags & (OIDA_ADD_FOREIGN_KEY |
+                                                OIDA_DROP_FOREIGN_KEY)))
   {
     my_error(ER_FOREIGN_KEY_ON_PARTITIONED, MYF(0));
     DBUG_RETURN(TRUE);
   }
   /* Remove partitioning on a not partitioned table is not possible */
-  if (!table->part_info && (alter_info->partition_flags &
-                            ALTER_PARTITION_REMOVE))
+  if (!table->part_info && (oida_info->partition_flags &
+                            OIDA_PARTITION_REMOVE))
   {
     my_error(ER_PARTITION_MGMT_ON_NONPARTITIONED, MYF(0));
     DBUG_RETURN(TRUE);
@@ -4844,7 +4844,7 @@ uint prep_alter_part_table(THD *thd, TABLE *table, Alter_info *alter_info,
      alt_part_info->current_partition->list_val_list.head()->
      col_val_array[0].max_value) &&
     alt_part_info->part_type == LIST_PARTITION &&
-    (alter_info->partition_flags & ALTER_PARTITION_ADD);
+    (oida_info->partition_flags & OIDA_PARTITION_ADD);
   if (only_default_value_added &&
       !thd->lex->part_info->num_columns)
     thd->lex->part_info->num_columns= 1; // to make correct clone
@@ -4859,21 +4859,21 @@ uint prep_alter_part_table(THD *thd, TABLE *table, Alter_info *alter_info,
       !(thd->work_part_info= thd->work_part_info->get_clone(thd)))
     DBUG_RETURN(TRUE);
 
-  /* ALTER_PARTITION_ADMIN is handled in mysql_admin_table */
-  DBUG_ASSERT(!(alter_info->partition_flags & ALTER_PARTITION_ADMIN));
+  /* OIDA_PARTITION_ADMIN is handled in mysql_admin_table */
+  DBUG_ASSERT(!(oida_info->partition_flags & OIDA_PARTITION_ADMIN));
 
   partition_info *saved_part_info= NULL;
 
-  if (alter_info->partition_flags &
-      (ALTER_PARTITION_ADD |
-       ALTER_PARTITION_DROP |
-       ALTER_PARTITION_COALESCE |
-       ALTER_PARTITION_REORGANIZE |
-       ALTER_PARTITION_TABLE_REORG |
-       ALTER_PARTITION_REBUILD))
+  if (oida_info->partition_flags &
+      (OIDA_PARTITION_ADD |
+       OIDA_PARTITION_DROP |
+       OIDA_PARTITION_COALESCE |
+       OIDA_PARTITION_REORGANIZE |
+       OIDA_PARTITION_TABLE_REORG |
+       OIDA_PARTITION_REBUILD))
   {
     /*
-      You can't add column when we are doing alter related to partition
+      You can't add column when we are doing oida related to partition
     */
     DBUG_EXECUTE_IF("test_pseudo_invisible", {
          my_error(ER_INTERNAL_ERROR, MYF(0), "Don't to it with test_pseudo_invisible");
@@ -4901,20 +4901,20 @@ uint prep_alter_part_table(THD *thd, TABLE *table, Alter_info *alter_info,
       Open our intermediate table, we will operate on a temporary instance
       of the original table, to be able to skip copying all partitions.
       Open it as a copy of the original table, and modify its partition_info
-      object to allow fast_alter_partition_table to perform the changes.
+      object to allow fast_oida_partition_table to perform the changes.
     */
     DBUG_ASSERT(thd->mdl_context.is_lock_owner(MDL_key::TABLE,
-                                               alter_ctx->db.str,
-                                               alter_ctx->table_name.str,
+                                               oida_ctx->db.str,
+                                               oida_ctx->table_name.str,
                                                MDL_INTENTION_EXCLUSIVE));
 
     tab_part_info= table->part_info;
 
-    if (alter_info->partition_flags & ALTER_PARTITION_TABLE_REORG)
+    if (oida_info->partition_flags & OIDA_PARTITION_TABLE_REORG)
     {
       uint new_part_no, curr_part_no;
       /*
-        'ALTER TABLE t REORG PARTITION' only allowed with auto partition
+        'OIDA TABLE t REORG PARTITION' only allowed with auto partition
          if default partitioning is used.
       */
 
@@ -4936,10 +4936,10 @@ uint prep_alter_part_table(THD *thd, TABLE *table, Alter_info *alter_info,
           after the change as before. Thus we can reply ok immediately
           without any changes at all.
         */
-        flags= table->file->alter_table_flags(alter_info->flags);
+        flags= table->file->oida_table_flags(oida_info->flags);
         if (flags & (HA_FAST_CHANGE_PARTITION | HA_PARTITION_ONE_PHASE))
         {
-          *fast_alter_table= true;
+          *fast_oida_table= true;
           /* Force table re-open for consistency with the main case. */
           table->m_needs_reopen= true;
         }
@@ -4962,7 +4962,7 @@ uint prep_alter_part_table(THD *thd, TABLE *table, Alter_info *alter_info,
           We will add more partitions, we use the ADD PARTITION without
           setting the flag for no default number of partitions
         */
-        alter_info->partition_flags|= ALTER_PARTITION_ADD;
+        oida_info->partition_flags|= OIDA_PARTITION_ADD;
         thd->work_part_info->num_parts= new_part_no - curr_part_no;
       }
       else
@@ -4971,11 +4971,11 @@ uint prep_alter_part_table(THD *thd, TABLE *table, Alter_info *alter_info,
           We will remove hash partitions, we use the COALESCE PARTITION
           without setting the flag for no default number of partitions
         */
-        alter_info->partition_flags|= ALTER_PARTITION_COALESCE;
-        alter_info->num_parts= curr_part_no - new_part_no;
+        oida_info->partition_flags|= OIDA_PARTITION_COALESCE;
+        oida_info->num_parts= curr_part_no - new_part_no;
       }
     }
-    if (!(flags= table->file->alter_table_flags(alter_info->flags)))
+    if (!(flags= table->file->oida_table_flags(oida_info->flags)))
     {
       my_error(ER_PARTITION_FUNCTION_FAILURE, MYF(0));
       goto err;
@@ -4988,7 +4988,7 @@ uint prep_alter_part_table(THD *thd, TABLE *table, Alter_info *alter_info,
         information to storage engine in this case), so the table
         must be reopened.
       */
-      *fast_alter_table= true;
+      *fast_oida_table= true;
       table->m_needs_reopen= true;
     }
     else
@@ -5003,9 +5003,9 @@ uint prep_alter_part_table(THD *thd, TABLE *table, Alter_info *alter_info,
       if (!(tab_part_info= tab_part_info->get_clone(thd)))
         DBUG_RETURN(TRUE);
     }
-    DBUG_PRINT("info", ("*fast_alter_table flags: 0x%llx", flags));
-    if ((alter_info->partition_flags & ALTER_PARTITION_ADD) ||
-        (alter_info->partition_flags & ALTER_PARTITION_REORGANIZE))
+    DBUG_PRINT("info", ("*fast_oida_table flags: 0x%llx", flags));
+    if ((oida_info->partition_flags & OIDA_PARTITION_ADD) ||
+        (oida_info->partition_flags & OIDA_PARTITION_REORGANIZE))
     {
       if (thd->work_part_info->part_type != tab_part_info->part_type)
       {
@@ -5022,7 +5022,7 @@ uint prep_alter_part_table(THD *thd, TABLE *table, Alter_info *alter_info,
             goto err;
           }
           /*
-            Hash partitions can be altered without parser finds out about
+            Hash partitions can be oidaed without parser finds out about
             that it is HASH partitioned. So no error here.
           */
         }
@@ -5073,9 +5073,9 @@ uint prep_alter_part_table(THD *thd, TABLE *table, Alter_info *alter_info,
         goto err;
       }
     }
-    if (alter_info->partition_flags & ALTER_PARTITION_ADD)
+    if (oida_info->partition_flags & OIDA_PARTITION_ADD)
     {
-      if (*fast_alter_table && thd->locked_tables_mode)
+      if (*fast_oida_table && thd->locked_tables_mode)
       {
         MEM_ROOT *old_root= thd->mem_root;
         thd->mem_root= &thd->locked_tables_list.m_locked_tables_root;
@@ -5206,7 +5206,7 @@ adding and copying partitions, the second after completing the adding
 and copying and finally the third line after also dropping the partitions
 that are reorganised.
 */
-      if (*fast_alter_table && tab_part_info->part_type == HASH_PARTITION)
+      if (*fast_oida_table && tab_part_info->part_type == HASH_PARTITION)
       {
         uint part_no= 0, start_part= 1, start_sec_part= 1;
         uint end_part= 0, end_sec_part= 0;
@@ -5317,7 +5317,7 @@ that are reorganised.
               now_part= el;
             }
           }
-          if (*fast_alter_table && tab_part_info->vers_info->interval.is_set())
+          if (*fast_oida_table && tab_part_info->vers_info->interval.is_set())
           {
             partition_element *hist_part= tab_part_info->vers_info->hist_part;
             if (hist_part->range_value <= thd->systime())
@@ -5329,7 +5329,7 @@ that are reorganised.
         do
         {
           partition_element *part_elem= alt_it++;
-          if (*fast_alter_table)
+          if (*fast_oida_table)
             part_elem->part_state= PART_TO_BE_ADDED;
           if (tab_part_info->partitions.push_back(part_elem, thd->mem_root))
           {
@@ -5354,7 +5354,7 @@ that are reorganised.
         of partitions anymore. We use this code also for Table reorganisations
         and here we don't set any default flags to FALSE.
       */
-      if (!(alter_info->partition_flags & ALTER_PARTITION_TABLE_REORG))
+      if (!(oida_info->partition_flags & OIDA_PARTITION_TABLE_REORG))
       {
         if (!alt_part_info->use_default_partitions)
         {
@@ -5365,7 +5365,7 @@ that are reorganised.
         tab_part_info->is_auto_partitioned= FALSE;
       }
     }
-    else if (alter_info->partition_flags & ALTER_PARTITION_DROP)
+    else if (oida_info->partition_flags & OIDA_PARTITION_DROP)
     {
       /*
         Drop a partition from a range partition and list partitioning is
@@ -5375,7 +5375,7 @@ that are reorganised.
         command to drop the partition failed in the middle.
       */
       uint part_count= 0;
-      uint num_parts_dropped= alter_info->partition_names.elements;
+      uint num_parts_dropped= oida_info->partition_names.elements;
       uint num_parts_found= 0;
       List_iterator<partition_element> part_it(tab_part_info->partitions);
 
@@ -5407,7 +5407,7 @@ that are reorganised.
       {
         partition_element *part_elem= part_it++;
         if (is_name_in_list(part_elem->partition_name,
-                            alter_info->partition_names))
+                            oida_info->partition_names))
         {
           if (tab_part_info->part_type == VERSIONING_PARTITION)
           {
@@ -5446,24 +5446,24 @@ that are reorganised.
       }
       tab_part_info->num_parts-= num_parts_dropped;
     }
-    else if (alter_info->partition_flags & ALTER_PARTITION_REBUILD)
+    else if (oida_info->partition_flags & OIDA_PARTITION_REBUILD)
     {
       set_engine_all_partitions(tab_part_info,
                                 tab_part_info->default_engine_type);
-      if (set_part_state(alter_info, tab_part_info, PART_CHANGED))
+      if (set_part_state(oida_info, tab_part_info, PART_CHANGED))
       {
         my_error(ER_DROP_PARTITION_NON_EXISTENT, MYF(0), "REBUILD");
         goto err;
       }
-      if (!(*fast_alter_table))
+      if (!(*fast_oida_table))
       {
         table->file->print_error(HA_ERR_WRONG_COMMAND, MYF(0));
         goto err;
       }
     }
-    else if (alter_info->partition_flags & ALTER_PARTITION_COALESCE)
+    else if (oida_info->partition_flags & OIDA_PARTITION_COALESCE)
     {
-      uint num_parts_coalesced= alter_info->num_parts;
+      uint num_parts_coalesced= oida_info->num_parts;
       uint num_parts_remain= tab_part_info->num_parts - num_parts_coalesced;
       List_iterator<partition_element> part_it(tab_part_info->partitions);
       if (tab_part_info->part_type != HASH_PARTITION)
@@ -5518,7 +5518,7 @@ state of p1.
         uint part_count= 0, start_part= 1, start_sec_part= 1;
         uint end_part= 0, end_sec_part= 0;
         bool all_parts= TRUE;
-        if (*fast_alter_table &&
+        if (*fast_oida_table &&
             tab_part_info->linear_hash_ind)
         {
           uint upper_2n= tab_part_info->linear_hash_mask + 1;
@@ -5544,14 +5544,14 @@ state of p1.
         do
         {
           partition_element *p_elem= part_it++;
-          if (*fast_alter_table &&
+          if (*fast_oida_table &&
               (all_parts ||
               (part_count >= start_part && part_count <= end_part) ||
               (part_count >= start_sec_part && part_count <= end_sec_part)))
             p_elem->part_state= PART_CHANGED;
           if (++part_count > num_parts_remain)
           {
-            if (*fast_alter_table)
+            if (*fast_oida_table)
               p_elem->part_state= PART_REORGED_DROPPED;
             else
               part_it.remove();
@@ -5559,13 +5559,13 @@ state of p1.
         } while (part_count < tab_part_info->num_parts);
         tab_part_info->num_parts= num_parts_remain;
       }
-      if (!(alter_info->partition_flags & ALTER_PARTITION_TABLE_REORG))
+      if (!(oida_info->partition_flags & OIDA_PARTITION_TABLE_REORG))
       {
         tab_part_info->use_default_num_partitions= FALSE;
         tab_part_info->is_auto_partitioned= FALSE;
       }
     }
-    else if (alter_info->partition_flags & ALTER_PARTITION_REORGANIZE)
+    else if (oida_info->partition_flags & OIDA_PARTITION_REORGANIZE)
     {
       /*
         Reorganise partitions takes a number of partitions that are next
@@ -5578,7 +5578,7 @@ state of p1.
         range as those changed from.
         This command can be used on RANGE and LIST partitions.
       */
-      uint num_parts_reorged= alter_info->partition_names.elements;
+      uint num_parts_reorged= oida_info->partition_names.elements;
       uint num_parts_new= thd->work_part_info->partitions.elements;
       uint check_total_partitions;
 
@@ -5666,7 +5666,7 @@ the generated partition syntax in a correct manner.
           partition_element *part_elem= tab_it++;
           is_last_partition_reorged= FALSE;
           if (is_name_in_list(part_elem->partition_name,
-                              alter_info->partition_names))
+                              oida_info->partition_names))
           {
             is_last_partition_reorged= TRUE;
             drop_count++;
@@ -5677,14 +5677,14 @@ the generated partition syntax in a correct manner.
             }
             else
               tab_max_range= part_elem->range_value;
-            if (*fast_alter_table &&
+            if (*fast_oida_table &&
                 tab_part_info->temp_partitions.push_back(part_elem,
                                                          thd->mem_root))
             {
               mem_alloc_error(1);
               goto err;
             }
-            if (*fast_alter_table)
+            if (*fast_oida_table)
               part_elem->part_state= PART_TO_BE_REORGED;
             if (!found_first)
             {
@@ -5704,7 +5704,7 @@ the generated partition syntax in a correct manner.
                 else
                   alt_max_range= alt_part_elem->range_value;
 
-                if (*fast_alter_table)
+                if (*fast_oida_table)
                   alt_part_elem->part_state= PART_TO_BE_ADDED;
                 if (alt_part_count == 0)
                   tab_it.replace(alt_part_elem);
@@ -5740,8 +5740,8 @@ the generated partition syntax in a correct manner.
     }
     *partition_changed= TRUE;
     thd->work_part_info= tab_part_info;
-    if (alter_info->partition_flags & (ALTER_PARTITION_ADD |
-                                       ALTER_PARTITION_REORGANIZE))
+    if (oida_info->partition_flags & (OIDA_PARTITION_ADD |
+                                       OIDA_PARTITION_REORGANIZE))
     {
       if (tab_part_info->use_default_subpartitions &&
           !alt_part_info->use_default_subpartitions)
@@ -5760,7 +5760,7 @@ the generated partition syntax in a correct manner.
         since this function "fixes" the item trees of the new partitions
         to reorganize into
       */
-      if (alter_info->partition_flags == ALTER_PARTITION_REORGANIZE &&
+      if (oida_info->partition_flags == OIDA_PARTITION_REORGANIZE &&
           tab_part_info->part_type == RANGE_PARTITION &&
           ((is_last_partition_reorged &&
             (tab_part_info->column_list ?
@@ -5793,7 +5793,7 @@ the generated partition syntax in a correct manner.
   {
     /*
      When thd->lex->part_info has a reference to a partition_info the
-     ALTER TABLE contained a definition of a partitioning.
+     OIDA TABLE contained a definition of a partitioning.
 
      Case I:
        If there was a partition before and there is a new one defined.
@@ -5801,7 +5801,7 @@ the generated partition syntax in a correct manner.
        defined in the correct variable so no work is needed to
        accomplish this.
        We do however need to update partition_changed to ensure that not
-       only the frm file is changed in the ALTER TABLE command.
+       only the frm file is changed in the OIDA TABLE command.
 
      Case IIa:
        There was a partitioning before and there is no new one defined.
@@ -5822,8 +5822,8 @@ the generated partition syntax in a correct manner.
        In this case the partition also is changed.
 
      Case III:
-       There was no partitioning before altering the table, there is
-       partitioning defined in the altered table. Use the new partitioning.
+       There was no partitioning before oidaing the table, there is
+       partitioning defined in the oidaed table. Use the new partitioning.
        No work needed since the partitioning info is already in the
        correct variable.
 
@@ -5843,7 +5843,7 @@ the generated partition syntax in a correct manner.
 
     if (tab_part_info)
     {
-      if (alter_info->partition_flags & ALTER_PARTITION_REMOVE)
+      if (oida_info->partition_flags & OIDA_PARTITION_REMOVE)
       {
         DBUG_PRINT("info", ("Remove partitioning"));
         if (!(create_info->used_fields & HA_CREATE_USED_ENGINE))
@@ -5914,10 +5914,10 @@ the generated partition syntax in a correct manner.
           rebuild). This is to handle KEY (numeric_cols) partitioned tables
           created in 5.1. For more info, see bug#14521864.
         */
-        if (alter_info->partition_flags != ALTER_PARTITION_INFO ||
+        if (oida_info->partition_flags != OIDA_PARTITION_INFO ||
             !table->part_info ||
-            alter_info->requested_algorithm !=
-              Alter_info::ALTER_TABLE_ALGORITHM_INPLACE ||
+            oida_info->requested_algorithm !=
+              Oida_info::OIDA_TABLE_ALGORITHM_INPLACE ||
             !table->part_info->has_same_partitioning(part_info))
         {
           DBUG_PRINT("info", ("partition changed"));
@@ -5953,7 +5953,7 @@ the generated partition syntax in a correct manner.
   }
   DBUG_RETURN(FALSE);
 err:
-  *fast_alter_table= false;
+  *fast_oida_table= false;
   if (saved_part_info)
     table->part_info= saved_part_info;
   DBUG_RETURN(TRUE);
@@ -5961,7 +5961,7 @@ err:
 
 
 /*
-  Change partitions, used to implement ALTER TABLE ADD/REORGANIZE/COALESCE
+  Change partitions, used to implement OIDA TABLE ADD/REORGANIZE/COALESCE
   partitions. This method is used to implement both single-phase and multi-
   phase implementations of ADD/REORGANIZE/COALESCE partitions.
 
@@ -5986,7 +5986,7 @@ err:
                                records are added
 */
 
-static bool mysql_change_partitions(ALTER_PARTITION_PARAM_TYPE *lpt)
+static bool mysql_change_partitions(OIDA_PARTITION_PARAM_TYPE *lpt)
 {
   char path[FN_REFLEN+1];
   int error;
@@ -5996,7 +5996,7 @@ static bool mysql_change_partitions(ALTER_PARTITION_PARAM_TYPE *lpt)
 
   build_table_filename(path, sizeof(path) - 1, lpt->db.str, lpt->table_name.str, "", 0);
 
-  if(mysql_trans_prepare_alter_copy_data(thd))
+  if(mysql_trans_prepare_oida_copy_data(thd))
     DBUG_RETURN(TRUE);
 
   /* TODO: test if bulk_insert would increase the performance */
@@ -6008,7 +6008,7 @@ static bool mysql_change_partitions(ALTER_PARTITION_PARAM_TYPE *lpt)
     file->print_error(error, MYF(error != ER_OUTOFMEMORY ? 0 : ME_FATALERROR));
   }
 
-  if (mysql_trans_commit_alter_copy_data(thd))
+  if (mysql_trans_commit_oida_copy_data(thd))
     error= 1;                                /* The error has been reported */
 
   DBUG_RETURN(MY_TEST(error));
@@ -6016,7 +6016,7 @@ static bool mysql_change_partitions(ALTER_PARTITION_PARAM_TYPE *lpt)
 
 
 /*
-  Rename partitions in an ALTER TABLE of partitions
+  Rename partitions in an OIDA TABLE of partitions
 
   SYNOPSIS
     mysql_rename_partitions()
@@ -6034,7 +6034,7 @@ static bool mysql_change_partitions(ALTER_PARTITION_PARAM_TYPE *lpt)
     table_name                 Table name
 */
 
-static bool mysql_rename_partitions(ALTER_PARTITION_PARAM_TYPE *lpt)
+static bool mysql_rename_partitions(OIDA_PARTITION_PARAM_TYPE *lpt)
 {
   char path[FN_REFLEN+1];
   int error;
@@ -6052,7 +6052,7 @@ static bool mysql_rename_partitions(ALTER_PARTITION_PARAM_TYPE *lpt)
 
 
 /*
-  Drop partitions in an ALTER TABLE of partitions
+  Drop partitions in an OIDA TABLE of partitions
 
   SYNOPSIS
     mysql_drop_partitions()
@@ -6071,7 +6071,7 @@ static bool mysql_rename_partitions(ALTER_PARTITION_PARAM_TYPE *lpt)
     table_name                  Table name
 */
 
-static bool mysql_drop_partitions(ALTER_PARTITION_PARAM_TYPE *lpt)
+static bool mysql_drop_partitions(OIDA_PARTITION_PARAM_TYPE *lpt)
 {
   char path[FN_REFLEN+1];
   partition_info *part_info= lpt->table->part_info;
@@ -6163,7 +6163,7 @@ static void release_part_info_log_entries(DDL_LOG_MEMORY_ENTRY *log_entry)
     the partition info object
 */
 
-static bool write_log_replace_delete_frm(ALTER_PARTITION_PARAM_TYPE *lpt,
+static bool write_log_replace_delete_frm(OIDA_PARTITION_PARAM_TYPE *lpt,
                                          uint next_entry,
                                          const char *from_path,
                                          const char *to_path,
@@ -6213,7 +6213,7 @@ static bool write_log_replace_delete_frm(ALTER_PARTITION_PARAM_TYPE *lpt,
     the partition handler.
 */
 
-static bool write_log_changed_partitions(ALTER_PARTITION_PARAM_TYPE *lpt,
+static bool write_log_changed_partitions(OIDA_PARTITION_PARAM_TYPE *lpt,
                                          uint *next_entry, const char *path)
 {
   DDL_LOG_ENTRY ddl_log_entry;
@@ -6310,7 +6310,7 @@ static bool write_log_changed_partitions(ALTER_PARTITION_PARAM_TYPE *lpt,
     FALSE                    Success
 */
 
-static bool write_log_dropped_partitions(ALTER_PARTITION_PARAM_TYPE *lpt,
+static bool write_log_dropped_partitions(OIDA_PARTITION_PARAM_TYPE *lpt,
                                          uint *next_entry,
                                          const char *path,
                                          bool temp_list)
@@ -6429,7 +6429,7 @@ static void set_part_info_exec_log_entry(partition_info *part_info,
     file and its corresponding handler file.
 */
 
-static bool write_log_drop_shadow_frm(ALTER_PARTITION_PARAM_TYPE *lpt)
+static bool write_log_drop_shadow_frm(OIDA_PARTITION_PARAM_TYPE *lpt)
 {
   partition_info *part_info= lpt->part_info;
   DDL_LOG_MEMORY_ENTRY *log_entry;
@@ -6472,7 +6472,7 @@ error:
     file if failure occurs in the middle of the rename process.
 */
 
-static bool write_log_rename_frm(ALTER_PARTITION_PARAM_TYPE *lpt)
+static bool write_log_rename_frm(OIDA_PARTITION_PARAM_TYPE *lpt)
 {
   partition_info *part_info= lpt->part_info;
   DDL_LOG_MEMORY_ENTRY *log_entry;
@@ -6522,7 +6522,7 @@ error:
     install the shadow frm file and remove the old frm file.
 */
 
-static bool write_log_drop_partition(ALTER_PARTITION_PARAM_TYPE *lpt)
+static bool write_log_drop_partition(OIDA_PARTITION_PARAM_TYPE *lpt)
 {
   partition_info *part_info= lpt->part_info;
   DDL_LOG_MEMORY_ENTRY *log_entry;
@@ -6579,7 +6579,7 @@ error:
     don't know the entry position until we have written it.
 */
 
-static bool write_log_add_change_partition(ALTER_PARTITION_PARAM_TYPE *lpt)
+static bool write_log_add_change_partition(OIDA_PARTITION_PARAM_TYPE *lpt)
 {
   partition_info *part_info= lpt->part_info;
   DDL_LOG_MEMORY_ENTRY *log_entry;
@@ -6644,7 +6644,7 @@ error:
     Note that it is written in the ddl log in reverse.
 */
 
-static bool write_log_final_change_partition(ALTER_PARTITION_PARAM_TYPE *lpt)
+static bool write_log_final_change_partition(OIDA_PARTITION_PARAM_TYPE *lpt)
 {
   partition_info *part_info= lpt->part_info;
   DDL_LOG_MEMORY_ENTRY *log_entry;
@@ -6666,8 +6666,8 @@ static bool write_log_final_change_partition(ALTER_PARTITION_PARAM_TYPE *lpt)
   if (write_log_changed_partitions(lpt, &next_entry, (const char*)path))
     goto error;
   if (write_log_dropped_partitions(lpt, &next_entry, (const char*)path,
-                                   lpt->alter_info->partition_flags &
-                                   ALTER_PARTITION_REORGANIZE))
+                                   lpt->oida_info->partition_flags &
+                                   OIDA_PARTITION_REORGANIZE))
     goto error;
   if (write_log_replace_delete_frm(lpt, next_entry, shadow_path, path, TRUE))
     goto error;
@@ -6702,7 +6702,7 @@ error:
     FALSE                    Success
 */
 
-static void write_log_completed(ALTER_PARTITION_PARAM_TYPE *lpt,
+static void write_log_completed(OIDA_PARTITION_PARAM_TYPE *lpt,
                                 bool dont_crash)
 {
   partition_info *part_info= lpt->part_info;
@@ -6755,12 +6755,12 @@ static void release_log_entries(partition_info *part_info)
   Final part of partition changes to handle things when under
   LOCK TABLES.
   SYNPOSIS
-    alter_partition_lock_handling()
+    oida_partition_lock_handling()
     lpt                        Struct carrying parameters
   RETURN VALUES
     NONE
 */
-static void alter_partition_lock_handling(ALTER_PARTITION_PARAM_TYPE *lpt)
+static void oida_partition_lock_handling(OIDA_PARTITION_PARAM_TYPE *lpt)
 {
   THD *thd= lpt->thd;
 
@@ -6786,7 +6786,7 @@ static void alter_partition_lock_handling(ALTER_PARTITION_PARAM_TYPE *lpt)
     }
 
     if (thd->locked_tables_list.reopen_tables(thd, false))
-      sql_print_warning("We failed to reacquire LOCKs in ALTER TABLE");
+      sql_print_warning("We failed to reacquire LOCKs in OIDA TABLE");
 
     if (stmt_da)
       thd->set_stmt_da(stmt_da);
@@ -6802,9 +6802,9 @@ static void alter_partition_lock_handling(ALTER_PARTITION_PARAM_TYPE *lpt)
   @return Always 0.
 */
 
-static int alter_close_table(ALTER_PARTITION_PARAM_TYPE *lpt)
+static int oida_close_table(OIDA_PARTITION_PARAM_TYPE *lpt)
 {
-  DBUG_ENTER("alter_close_table");
+  DBUG_ENTER("oida_close_table");
 
   if (lpt->table->db_stat)
   {
@@ -6817,7 +6817,7 @@ static int alter_close_table(ALTER_PARTITION_PARAM_TYPE *lpt)
 
 
 /**
-  Handle errors for ALTER TABLE for partitioning.
+  Handle errors for OIDA TABLE for partitioning.
 
   @param lpt                Struct carrying parameters
   @param action_completed   The action must be completed, NOT reverted
@@ -6826,7 +6826,7 @@ static int alter_close_table(ALTER_PARTITION_PARAM_TYPE *lpt)
   @param close_table        Table is still open, close it before reverting
 */
 
-void handle_alter_part_error(ALTER_PARTITION_PARAM_TYPE *lpt,
+void handle_oida_part_error(OIDA_PARTITION_PARAM_TYPE *lpt,
                              bool action_completed,
                              bool drop_partition,
                              bool frm_install,
@@ -6835,7 +6835,7 @@ void handle_alter_part_error(ALTER_PARTITION_PARAM_TYPE *lpt,
   partition_info *part_info= lpt->part_info;
   THD *thd= lpt->thd;
   TABLE *table= lpt->table;
-  DBUG_ENTER("handle_alter_part_error");
+  DBUG_ENTER("handle_oida_part_error");
   DBUG_ASSERT(table->m_needs_reopen);
 
   if (close_table)
@@ -6920,7 +6920,7 @@ err_exclusive_lock:
         */
         push_warning_printf(thd, Sql_condition::WARN_LEVEL_WARN, 1,
                             "%s %s %s",
-          "Failed during alter of partitions, table is no longer intact.",
+          "Failed during oida of partitions, table is no longer intact.",
           "The frm file is in an unknown state, and a backup",
           "is required.");
       }
@@ -6992,7 +6992,7 @@ err_exclusive_lock:
     }
 
     if (thd->locked_tables_list.reopen_tables(thd, false))
-      sql_print_warning("We failed to reacquire LOCKs in ALTER TABLE");
+      sql_print_warning("We failed to reacquire LOCKs in OIDA TABLE");
 
     if (stmt_da)
       thd->set_stmt_da(stmt_da);
@@ -7019,12 +7019,12 @@ static void downgrade_mdl_if_lock_tables_mode(THD *thd, MDL_ticket *ticket,
 
 
 /**
-  Actually perform the change requested by ALTER TABLE of partitions
+  Actually perform the change requested by OIDA TABLE of partitions
   previously prepared.
 
   @param thd                           Thread object
   @param table                         Original table object with new part_info
-  @param alter_info                    ALTER TABLE info
+  @param oida_info                    OIDA TABLE info
   @param create_info                   Create info for CREATE TABLE
   @param table_list                    List of the table involved
   @param db                            Database name of new table
@@ -7035,12 +7035,12 @@ static void downgrade_mdl_if_lock_tables_mode(THD *thd, MDL_ticket *ticket,
     @retval FALSE                         Success
 
   @note
-    Perform all ALTER TABLE operations for partitioned tables that can be
+    Perform all OIDA TABLE operations for partitioned tables that can be
     performed fast without a full copy of the original table.
 */
 
-uint fast_alter_partition_table(THD *thd, TABLE *table,
-                                Alter_info *alter_info,
+uint fast_oida_partition_table(THD *thd, TABLE *table,
+                                Oida_info *oida_info,
                                 HA_CREATE_INFO *create_info,
                                 TABLE_LIST *table_list,
                                 const LEX_CSTRING *db,
@@ -7048,20 +7048,20 @@ uint fast_alter_partition_table(THD *thd, TABLE *table,
 {
   /* Set-up struct used to write frm files */
   partition_info *part_info;
-  ALTER_PARTITION_PARAM_TYPE lpt_obj;
-  ALTER_PARTITION_PARAM_TYPE *lpt= &lpt_obj;
+  OIDA_PARTITION_PARAM_TYPE lpt_obj;
+  OIDA_PARTITION_PARAM_TYPE *lpt= &lpt_obj;
   bool action_completed= FALSE;
   bool close_table_on_failure= FALSE;
   bool frm_install= FALSE;
   MDL_ticket *mdl_ticket= table->mdl_ticket;
-  DBUG_ENTER("fast_alter_partition_table");
+  DBUG_ENTER("fast_oida_partition_table");
   DBUG_ASSERT(table->m_needs_reopen);
 
   part_info= table->part_info;
   lpt->thd= thd;
   lpt->table_list= table_list;
   lpt->part_info= part_info;
-  lpt->alter_info= alter_info;
+  lpt->oida_info= oida_info;
   lpt->create_info= create_info;
   lpt->db_options= create_info->table_options_with_row_type();
   lpt->table= table;
@@ -7074,7 +7074,7 @@ uint fast_alter_partition_table(THD *thd, TABLE *table,
   lpt->pack_frm_data= NULL;
   lpt->pack_frm_len= 0;
 
-  if (table->file->alter_table_flags(alter_info->flags) &
+  if (table->file->oida_table_flags(oida_info->flags) &
         HA_PARTITION_ONE_PHASE)
   {
     /*
@@ -7109,7 +7109,7 @@ uint fast_alter_partition_table(THD *thd, TABLE *table,
  
       The first approach here was to downgrade locks. Now a different approach
       is decided upon. The idea is that the handler will have access to the
-      Alter_info when store_lock arrives with TL_WRITE_ALLOW_READ. So if the
+      Oida_info when store_lock arrives with TL_WRITE_ALLOW_READ. So if the
       handler knows that this functionality can be handled with a lower lock
       level it will set the lock level to TL_WRITE_ALLOW_WRITE immediately.
       Thus the need to downgrade the lock disappears.
@@ -7122,7 +7122,7 @@ uint fast_alter_partition_table(THD *thd, TABLE *table,
       goto err;
     }
   }
-  else if (alter_info->partition_flags & ALTER_PARTITION_DROP)
+  else if (oida_info->partition_flags & OIDA_PARTITION_DROP)
   {
     /*
       Now after all checks and setting state on dropped partitions we can
@@ -7159,13 +7159,13 @@ uint fast_alter_partition_table(THD *thd, TABLE *table,
          before any other threads are started, so there are no locking issues).
       4) Close the table that have already been opened but didn't stumble on
          the abort locked previously. This is done as part of the
-         alter_close_table call.
+         oida_close_table call.
       5) Write the bin log
          Unfortunately the writing of the binlog is not synchronised with
          other logging activities. So no matter in which order the binlog
          is written compared to other activities there will always be cases
          where crashes make strange things occur. In this placement it can
-         happen that the ALTER TABLE DROP PARTITION gets performed in the
+         happen that the OIDA TABLE DROP PARTITION gets performed in the
          master but not in the slaves if we have a crash, after writing the
          ddl log but before writing the binlog. A solution to this would
          require writing the statement first in the ddl log and then
@@ -7195,7 +7195,7 @@ uint fast_alter_partition_table(THD *thd, TABLE *table,
         (action_completed= TRUE, FALSE) ||
         ERROR_INJECT_CRASH("crash_drop_partition_4") ||
         ERROR_INJECT_ERROR("fail_drop_partition_4") ||
-        alter_close_table(lpt) ||
+        oida_close_table(lpt) ||
         (close_table_on_failure= FALSE, FALSE) ||
         ERROR_INJECT_CRASH("crash_drop_partition_5") ||
         ERROR_INJECT_ERROR("fail_drop_partition_5") ||
@@ -7215,14 +7215,14 @@ uint fast_alter_partition_table(THD *thd, TABLE *table,
         (write_log_completed(lpt, FALSE), FALSE) ||
         ERROR_INJECT_CRASH("crash_drop_partition_9") ||
         ERROR_INJECT_ERROR("fail_drop_partition_9") ||
-        (alter_partition_lock_handling(lpt), FALSE)) 
+        (oida_partition_lock_handling(lpt), FALSE)) 
     {
-      handle_alter_part_error(lpt, action_completed, TRUE, frm_install,
+      handle_oida_part_error(lpt, action_completed, TRUE, frm_install,
                               close_table_on_failure);
       goto err;
     }
   }
-  else if ((alter_info->partition_flags & ALTER_PARTITION_ADD) &&
+  else if ((oida_info->partition_flags & OIDA_PARTITION_ADD) &&
            (part_info->part_type == RANGE_PARTITION ||
             part_info->part_type == LIST_PARTITION))
   {
@@ -7272,7 +7272,7 @@ uint fast_alter_partition_table(THD *thd, TABLE *table,
         ERROR_INJECT_CRASH("crash_add_partition_5") ||
         ERROR_INJECT_ERROR("fail_add_partition_5") ||
         (close_table_on_failure= FALSE, FALSE) ||
-        alter_close_table(lpt) ||
+        oida_close_table(lpt) ||
         ERROR_INJECT_CRASH("crash_add_partition_6") ||
         ERROR_INJECT_ERROR("fail_add_partition_6") ||
         ((!thd->lex->no_write_to_binlog) &&
@@ -7292,9 +7292,9 @@ uint fast_alter_partition_table(THD *thd, TABLE *table,
         (write_log_completed(lpt, FALSE), FALSE) ||
         ERROR_INJECT_CRASH("crash_add_partition_10") ||
         ERROR_INJECT_ERROR("fail_add_partition_10") ||
-        (alter_partition_lock_handling(lpt), FALSE))
+        (oida_partition_lock_handling(lpt), FALSE))
     {
-      handle_alter_part_error(lpt, action_completed, FALSE, frm_install,
+      handle_oida_part_error(lpt, action_completed, FALSE, frm_install,
                               close_table_on_failure);
       goto err;
     }
@@ -7370,7 +7370,7 @@ uint fast_alter_partition_table(THD *thd, TABLE *table,
         wait_while_table_is_used(thd, table, HA_EXTRA_NOT_USED) ||
         ERROR_INJECT_CRASH("crash_change_partition_5") ||
         ERROR_INJECT_ERROR("fail_change_partition_5") ||
-        alter_close_table(lpt) ||
+        oida_close_table(lpt) ||
         (close_table_on_failure= FALSE, FALSE) ||
         ERROR_INJECT_CRASH("crash_change_partition_6") ||
         ERROR_INJECT_ERROR("fail_change_partition_6") ||
@@ -7397,9 +7397,9 @@ uint fast_alter_partition_table(THD *thd, TABLE *table,
         (write_log_completed(lpt, FALSE), FALSE) ||
         ERROR_INJECT_CRASH("crash_change_partition_12") ||
         ERROR_INJECT_ERROR("fail_change_partition_12") ||
-        (alter_partition_lock_handling(lpt), FALSE))
+        (oida_partition_lock_handling(lpt), FALSE))
     {
-      handle_alter_part_error(lpt, action_completed, FALSE, frm_install,
+      handle_oida_part_error(lpt, action_completed, FALSE, frm_install,
                               close_table_on_failure);
       goto err;
     }

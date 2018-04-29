@@ -2174,7 +2174,7 @@ loop_end:
         The field will be converted to varstring when creating tmp table if
         table to be updated was created by mysql 4.1. Deny this.
       */
-      field->can_alter_field_type= 0;
+      field->can_oida_field_type= 0;
       Item_field *ifield= new (thd->mem_root) Item_field(join->thd, (Field *) field);
       if (!ifield)
          DBUG_RETURN(1);

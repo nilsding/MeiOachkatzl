@@ -204,10 +204,10 @@ int ha_sequence::write_row(uchar *buf)
     /* This calls is from ha_open() as part of create table */
     DBUG_RETURN(file->write_row(buf));
   }
-  if (unlikely(sequence->initialized == SEQUENCE::SEQ_IN_ALTER))
+  if (unlikely(sequence->initialized == SEQUENCE::SEQ_IN_OIDA))
   {
     int error= 0;
-    /* This is called from alter table */
+    /* This is called from oida table */
     tmp_seq.read_fields(table);
     if (tmp_seq.check_and_adjust(0))
       DBUG_RETURN(HA_ERR_SEQUENCE_INVALID_DATA);
@@ -227,7 +227,7 @@ int ha_sequence::write_row(uchar *buf)
       INSERT or LOAD DATA.
 
       - Get an exclusive lock for the table. This is needed to ensure that
-        we excute all full inserts (same as ALTER SEQUENCE) in same order
+        we excute all full inserts (same as OIDA SEQUENCE) in same order
         on master and slaves
       - Check that we are only using one table.
         This is to avoid deadlock problems when upgrading lock to exlusive.
@@ -298,10 +298,10 @@ int ha_sequence::info(uint flag)
 
 int ha_sequence::extra(enum ha_extra_function operation)
 {
-  if (operation == HA_EXTRA_PREPARE_FOR_ALTER_TABLE)
+  if (operation == HA_EXTRA_PREPARE_FOR_OIDA_TABLE)
   {
-    /* In case of ALTER TABLE allow ::write_row() to copy rows */
-    sequence->initialized= SEQUENCE::SEQ_IN_ALTER;
+    /* In case of OIDA TABLE allow ::write_row() to copy rows */
+    sequence->initialized= SEQUENCE::SEQ_IN_OIDA;
   }
   return file->extra(operation);
 }
@@ -419,7 +419,7 @@ static int sequence_initialize(void *p)
   local_sequence_hton->flags= (HTON_NOT_USER_SELECTABLE |
                                HTON_HIDDEN |
                                HTON_TEMPORARY_NOT_SUPPORTED |
-                               HTON_ALTER_NOT_SUPPORTED |
+                               HTON_OIDA_NOT_SUPPORTED |
                                HTON_NO_PARTITION);
   DBUG_RETURN(0);
 }

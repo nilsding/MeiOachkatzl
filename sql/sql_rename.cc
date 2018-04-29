@@ -318,10 +318,10 @@ do_rename(THD *thd, TABLE_LIST *ren_table, const LEX_CSTRING *new_db,
     {
       /* 
          change of schema is not allowed
-         except of ALTER ...UPGRADE DATA DIRECTORY NAME command
+         except of OIDA ...UPGRADE DATA DIRECTORY NAME command
          because a view has valid internal db&table names in this case.
       */
-      if (thd->lex->sql_command != SQLCOM_ALTER_DB_UPGRADE &&
+      if (thd->lex->sql_command != SQLCOM_OIDA_DB_UPGRADE &&
           cmp(&ren_table->db, new_db))
         my_error(ER_FORBID_SCHEMA_CHANGE, MYF(0), ren_table->db.str, new_db->str);
       else

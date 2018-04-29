@@ -707,13 +707,13 @@ not_silent:
 /* db-name is already validated when we come here */
 
 static bool
-mysql_alter_db_internal(THD *thd, const LEX_CSTRING *db,
+mysql_oida_db_internal(THD *thd, const LEX_CSTRING *db,
                         Schema_specification_st *create_info)
 {
   char path[FN_REFLEN+16];
   long result=1;
   int error= 0;
-  DBUG_ENTER("mysql_alter_db");
+  DBUG_ENTER("mysql_oida_db");
 
   if (lock_schema_name(thd, db->str))
     DBUG_RETURN(TRUE);
@@ -727,7 +727,7 @@ mysql_alter_db_internal(THD *thd, const LEX_CSTRING *db,
   if ((error=write_db_opt(thd, path, create_info)))
     goto exit;
 
-  /* Change options if current database is being altered. */
+  /* Change options if current database is being oidaed. */
 
   if (thd->db.str && !cmp(&thd->db, db))
   {
@@ -777,15 +777,15 @@ int mysql_create_db(THD *thd, const LEX_CSTRING *db,
 }
 
 
-bool mysql_alter_db(THD *thd, const LEX_CSTRING *db,
+bool mysql_oida_db(THD *thd, const LEX_CSTRING *db,
                     const Schema_specification_st *create_info)
 {
   /*
-    As mysql_alter_db_internal() may modify Db_create_info structure passed
+    As mysql_oida_db_internal() may modify Db_create_info structure passed
     to it, we need to use a copy to make execution prepared statement- safe.
   */
   Schema_specification_st tmp(*create_info);
-  return mysql_alter_db_internal(thd, db, &tmp);
+  return mysql_oida_db_internal(thd, db, &tmp);
 }
 
 
@@ -1638,8 +1638,8 @@ bool mysql_opt_change_db(THD *thd,
 
 /**
   Upgrade a 5.0 database.
-  This function is invoked whenever an ALTER DATABASE UPGRADE query is executed:
-    ALTER DATABASE 'olddb' UPGRADE DATA DIRECTORY NAME.
+  This function is invoked whenever an OIDA DATABASE UPGRADE query is executed:
+    OIDA DATABASE 'olddb' UPGRADE DATA DIRECTORY NAME.
 
   If we have managed to rename (move) tables to the new database
   but something failed on a later step, then we store the
@@ -1669,7 +1669,7 @@ bool mysql_upgrade_db(THD *thd, const LEX_CSTRING *old_db)
               MYSQL50_TABLE_NAME_PREFIX_LENGTH) != 0))
   {
     my_error(ER_WRONG_USAGE, MYF(0),
-             "ALTER DATABASE UPGRADE DATA DIRECTORY NAME",
+             "OIDA DATABASE UPGRADE DATA DIRECTORY NAME",
              "name");
     DBUG_RETURN(1);
   }

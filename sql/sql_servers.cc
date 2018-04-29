@@ -17,17 +17,17 @@
 /*
   The servers are saved in the system table "servers"
   
-  Currently, when the user performs an ALTER SERVER or a DROP SERVER
+  Currently, when the user performs an OIDA SERVER or a DROP SERVER
   operation, it will cause all open tables which refer to the named
   server connection to be flushed. This may cause some undesirable
   behaviour with regard to currently running transactions. It is 
   expected that the DBA knows what s/he is doing when s/he performs
-  the ALTER SERVER or DROP SERVER operation.
+  the OIDA SERVER or DROP SERVER operation.
   
   TODO:
   It is desirable for us to implement a callback mechanism instead where
   callbacks can be registered for specific server protocols. The callback
-  will be fired when such a server name has been created/altered/dropped
+  will be fired when such a server name has been created/oidaed/dropped
   or when statistics are to be gathered such as how many actual connections.
   Storage engines etc will be able to make use of the callback so that
   currently running transactions etc will not be disrupted.
@@ -72,12 +72,12 @@ static int delete_server_record_in_cache(LEX_SERVER_OPTIONS *server_options);
 /* update functions */
 static void prepare_server_struct_for_update(LEX_SERVER_OPTIONS *server_options,
                                              FOREIGN_SERVER *existing,
-                                             FOREIGN_SERVER *altered);
+                                             FOREIGN_SERVER *oidaed);
 static int update_server(THD *thd, FOREIGN_SERVER *existing, 
-					     FOREIGN_SERVER *altered);
+					     FOREIGN_SERVER *oidaed);
 static int update_server_record(TABLE *table, FOREIGN_SERVER *server);
 static int update_server_record_in_cache(FOREIGN_SERVER *existing,
-                                         FOREIGN_SERVER *altered);
+                                         FOREIGN_SERVER *oidaed);
 /* utility functions */
 static void merge_server_struct(FOREIGN_SERVER *from, FOREIGN_SERVER *to);
 
@@ -708,15 +708,15 @@ end:
     update_server()
       THD *thd
       FOREIGN_SERVER *existing
-      FOREIGN_SERVER *altered
+      FOREIGN_SERVER *oidaed
 
   NOTES
     This function takes as arguments a THD object pointer, and two pointers,
     one pointing to the existing FOREIGN_SERVER struct "existing" (which is
     the current record as it is) and another pointer pointing to the
-    FOREIGN_SERVER struct with the members containing the modified/altered
+    FOREIGN_SERVER struct with the members containing the modified/oidaed
     values that need to be updated in both the mysql.servers table and the 
-    servers_cache. It opens a table, passes the table and the altered
+    servers_cache. It opens a table, passes the table and the oidaed
     FOREIGN_SERVER pointer, which will be used to update the mysql.servers 
     table for the particular server via the call to update_server_record,
     and in the servers_cache via update_server_record_in_cache. 
@@ -729,7 +729,7 @@ end:
 
 */
 
-int update_server(THD *thd, FOREIGN_SERVER *existing, FOREIGN_SERVER *altered)
+int update_server(THD *thd, FOREIGN_SERVER *existing, FOREIGN_SERVER *oidaed)
 {
   int error;
   TABLE *table;
@@ -744,10 +744,10 @@ int update_server(THD *thd, FOREIGN_SERVER *existing, FOREIGN_SERVER *altered)
     goto end;
   }
 
-  if ((error= update_server_record(table, altered)))
+  if ((error= update_server_record(table, oidaed)))
     goto end;
 
-  error= update_server_record_in_cache(existing, altered);
+  error= update_server_record_in_cache(existing, oidaed);
 
   /*
 	Perform a reload so we don't have a 'hole' in our mem_root
@@ -764,12 +764,12 @@ end:
   SYNOPSIS
     update_server_record_in_cache()
       FOREIGN_SERVER *existing
-      FOREIGN_SERVER *altered
+      FOREIGN_SERVER *oidaed
 
   NOTES
     This function takes as an argument the FOREIGN_SERVER structi pointer
     for the existing server and the FOREIGN_SERVER struct populated with only 
-    the members which have been updated. It then "merges" the "altered" struct
+    the members which have been updated. It then "merges" the "oidaed" struct
     members to the existing server, the existing server then represents an
     updated server. Then, the existing record is deleted from the servers_cache
     HASH, then the updated record inserted, in essence replacing the old
@@ -784,16 +784,16 @@ end:
 */
 
 int update_server_record_in_cache(FOREIGN_SERVER *existing,
-                                  FOREIGN_SERVER *altered)
+                                  FOREIGN_SERVER *oidaed)
 {
   int error= 0;
   DBUG_ENTER("update_server_record_in_cache");
 
   /*
-    update the members that haven't been change in the altered server struct
+    update the members that haven't been change in the oidaed server struct
     with the values of the existing server struct
   */
-  merge_server_struct(existing, altered);
+  merge_server_struct(existing, oidaed);
 
   /*
     delete the existing server struct from the server cache
@@ -801,12 +801,12 @@ int update_server_record_in_cache(FOREIGN_SERVER *existing,
   my_hash_delete(&servers_cache, (uchar*)existing);
 
   /*
-    Insert the altered server struct into the server cache
+    Insert the oidaed server struct into the server cache
   */
-  if (my_hash_insert(&servers_cache, (uchar*)altered))
+  if (my_hash_insert(&servers_cache, (uchar*)oidaed))
   {
     DBUG_PRINT("info", ("had a problem inserting server %s at %p",
-                        altered->server_name,altered));
+                        oidaed->server_name,oidaed));
     error= ER_OUT_OF_RESOURCES;
   }
 
@@ -1048,7 +1048,7 @@ end:
 /*
 
   SYNOPSIS
-    alter_server()
+    oida_server()
       THD *thd
       LEX_SERVER_OPTIONS *server_options
 
@@ -1059,11 +1059,11 @@ end:
 
 */
 
-int alter_server(THD *thd, LEX_SERVER_OPTIONS *server_options)
+int oida_server(THD *thd, LEX_SERVER_OPTIONS *server_options)
 {
   int error= ER_FOREIGN_SERVER_DOESNT_EXIST;
-  FOREIGN_SERVER altered, *existing;
-  DBUG_ENTER("alter_server");
+  FOREIGN_SERVER oidaed, *existing;
+  DBUG_ENTER("oida_server");
   DBUG_PRINT("info", ("server_options->server_name %s",
                       server_options->server_name.str));
 
@@ -1074,9 +1074,9 @@ int alter_server(THD *thd, LEX_SERVER_OPTIONS *server_options)
                                      server_options->server_name.length)))
     goto end;
 
-  prepare_server_struct_for_update(server_options, existing, &altered);
+  prepare_server_struct_for_update(server_options, existing, &oidaed);
 
-  error= update_server(thd, existing, &altered);
+  error= update_server(thd, existing, &oidaed);
 
   /* close the servers table before we call closed_cached_connection_tables */
   close_mysql_tables(thd);
@@ -1175,39 +1175,39 @@ prepare_server_struct_for_insert(LEX_SERVER_OPTIONS *server_options)
 static void
 prepare_server_struct_for_update(LEX_SERVER_OPTIONS *server_options,
                                  FOREIGN_SERVER *existing,
-                                 FOREIGN_SERVER *altered)
+                                 FOREIGN_SERVER *oidaed)
 {
   DBUG_ENTER("prepare_server_struct_for_update");
 
-  altered->server_name= existing->server_name;
-  altered->server_name_length= existing->server_name_length;
-  DBUG_PRINT("info", ("existing name %s altered name %s",
-                      existing->server_name, altered->server_name));
+  oidaed->server_name= existing->server_name;
+  oidaed->server_name_length= existing->server_name_length;
+  DBUG_PRINT("info", ("existing name %s oidaed name %s",
+                      existing->server_name, oidaed->server_name));
 
   /*
     The logic here is this: is this value set AND is it different
     than the existing value?
   */
-#define SET_ALTERED(X)                                                       \
+#define SET_OIDAED(X)                                                       \
   do {                                                                       \
-    altered->X=                                                              \
+    oidaed->X=                                                              \
       (server_options->X.str && strcmp(server_options->X.str, existing->X))  \
       ? strmake_root(&mem, server_options->X.str, server_options->X.length)  \
       : 0;                                                                   \
   } while(0)
 
-  SET_ALTERED(host);
-  SET_ALTERED(db);
-  SET_ALTERED(username);
-  SET_ALTERED(password);
-  SET_ALTERED(socket);
-  SET_ALTERED(scheme);
-  SET_ALTERED(owner);
+  SET_OIDAED(host);
+  SET_OIDAED(db);
+  SET_OIDAED(username);
+  SET_OIDAED(password);
+  SET_OIDAED(socket);
+  SET_OIDAED(scheme);
+  SET_OIDAED(owner);
 
   /*
     port is initialised to -1, so if unset, it will be -1
   */
-  altered->port= (server_options->port > -1 &&
+  oidaed->port= (server_options->port > -1 &&
                  server_options->port != existing->port) ?
     server_options->port : -1;
 

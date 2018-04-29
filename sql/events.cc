@@ -48,8 +48,8 @@
    will be ENUM('DISABLED', 'ENABLED', 'SLAVESIDE_DISABLED').
    In this case when CREATE EVENT is replicated it should go into the binary
    as SLAVESIDE_DISABLED if it is ENABLED, when it's created as DISABLEd it
-   should be replicated as disabled. If an event is ALTERed as DISABLED the
-   query should go untouched into the binary log, when ALTERed as enable then
+   should be replicated as disabled. If an event is OIDAed as DISABLED the
+   query should go untouched into the binary log, when OIDAed as enable then
    it should go as SLAVESIDE_DISABLED. This is regarding the SQL interface.
    TT routines however modify mysql.event internally and this does not go the
    log so in this case queries has to be injected into the log...somehow... or
@@ -427,14 +427,14 @@ Events::create_event(THD *thd, Event_parse_data *parse_data)
 
 
 /**
-  Alter an event.
+  Oida an event.
 
   @param[in,out] thd         THD
   @param[in]     parse_data  Event's data from parsing stage
   @param[in]     new_dbname  A new schema name for the event. Set in the case of
-                             ALTER EVENT RENAME, otherwise is NULL.
+                             OIDA EVENT RENAME, otherwise is NULL.
   @param[in]     new_name    A new name for the event. Set in the case of
-                             ALTER EVENT RENAME
+                             OIDA EVENT RENAME
 
   Parameter 'et' contains data about dbname and event name.
   Parameter 'new_name' is the new name of the event, if not null
@@ -542,7 +542,7 @@ Events::update_event(THD *thd, Event_parse_data *parse_data,
       if (event_queue)
         event_queue->update_event(thd, &parse_data->dbname, &parse_data->name,
                                   new_element);
-      /* Binlog the alter event. */
+      /* Binlog the oida event. */
       DBUG_ASSERT(thd->query() && thd->query_length());
       ret= write_bin_log(thd, TRUE, thd->query(), thd->query_length());
     }

@@ -1763,7 +1763,7 @@ static void update_stmt_fields(MYSQL_STMT *stmt)
   if (stmt->field_count != stmt->mysql->field_count)
   {
     /*
-      The tables used in the statement were altered,
+      The tables used in the statement were oidaed,
       and the query now returns a different number of columns.
       There is no way to continue without reallocating the bind
       array:
@@ -2164,7 +2164,7 @@ int cli_stmt_execute(MYSQL_STMT *stmt)
     net->write_pos+= null_count;
     param_end= stmt->params + stmt->param_count;
 
-    /* In case if buffers (type) altered, indicate to server */
+    /* In case if buffers (type) oidaed, indicate to server */
     *(net->write_pos)++= (uchar) stmt->send_types_to_server;
     if (stmt->send_types_to_server)
     {
@@ -2477,7 +2477,7 @@ static void reinit_result_set_metadata(MYSQL_STMT *stmt)
       supplied to mysql_stmt_execute, so updated column type is sent
       now.
       - if data dictionary changed between prepare and execute, for
-      example a table used in the query was altered.
+      example a table used in the query was oidaed.
       Note, that now (4.1.3) we always send metadata in reply to
       COM_STMT_EXECUTE (even if it is not necessary), so either this or
       previous branch always works.

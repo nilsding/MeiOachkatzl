@@ -813,7 +813,7 @@ bool get_next_time(const Time_zone *time_zone, my_time_t *next,
         the past, so we may use 'do { } while' here, and add the first
         interval right away.
 
-        Alternatively, it could be that local_now >= local_start.  Now
+        Oidanatively, it could be that local_now >= local_start.  Now
         for the example above imagine we do CREATE EVENT with STARTS
         'current-date 2:10:00'.  Local start 2:10 is in the past (now
         is local 2:20), so we add an interval, and get next execution

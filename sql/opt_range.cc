@@ -4995,7 +4995,7 @@ TABLE_READ_PLAN *merge_same_index_scans(PARAM *param, SEL_IMERGE *imerge,
   else
   {
     /*
-      This alternative theoretically can be reached when the cost
+      This oidanative theoretically can be reached when the cost
       of the index merge for such a formula as
         (key1 BETWEEN c1_1 AND c1_2) AND key2 > c2 OR
         (key1 BETWEEN c1_3 AND c1_4) AND key3 > c3
@@ -5414,7 +5414,7 @@ bool prepare_search_best_index_intersect(PARAM *param,
   #rt2_0 of the same range for sub-index idx2_0(dept) of the index idx2.
   The current code does not make an estimate either for #rt1_0, or for #rt2_0,
   but it can be adjusted to provide those numbers.
-  Alternatively, MY_MIN(rec_per_key) for (dept) could be used to get an upper 
+  Oidanatively, MY_MIN(rec_per_key) for (dept) could be used to get an upper 
   bound for the value of sel(Rt1&Rt2). Yet this statistics is not provided
   now.  
  

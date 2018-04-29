@@ -1793,7 +1793,7 @@ MDL_context::find_ticket(MDL_request *mdl_request,
   table to work with.
 
   This function may also be used to try to acquire an exclusive
-  lock on a destination table, by ALTER TABLE ... RENAME.
+  lock on a destination table, by OIDA TABLE ... RENAME.
 
   Returns immediately without any side effect if encounters a lock
   conflict. Otherwise takes the lock.
@@ -2292,7 +2292,7 @@ err:
 /**
   Upgrade a shared metadata lock.
 
-  Used in ALTER TABLE.
+  Used in OIDA TABLE.
 
   @param mdl_ticket         Lock to upgrade.
   @param new_type           Lock type to upgrade to.

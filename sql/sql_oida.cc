@@ -16,14 +16,14 @@
 
 #include "mariadb.h"
 #include "sql_parse.h"                       // check_access
-#include "sql_table.h"                       // mysql_alter_table,
+#include "sql_table.h"                       // mysql_oida_table,
                                              // mysql_exchange_partition
-#include "sql_alter.h"
+#include "sql_oida.h"
 #include "wsrep_mysqld.h"
 
-Alter_info::Alter_info(const Alter_info &rhs, MEM_ROOT *mem_root)
+Oida_info::Oida_info(const Oida_info &rhs, MEM_ROOT *mem_root)
   :drop_list(rhs.drop_list, mem_root),
-  alter_list(rhs.alter_list, mem_root),
+  oida_list(rhs.oida_list, mem_root),
   key_list(rhs.key_list, mem_root),
   create_list(rhs.create_list, mem_root),
   check_constraint_list(rhs.check_constraint_list, mem_root),
@@ -37,53 +37,53 @@ Alter_info::Alter_info(const Alter_info &rhs, MEM_ROOT *mem_root)
   /*
     Make deep copies of used objects.
     This is not a fully deep copy - clone() implementations
-    of Alter_drop, Alter_column, Key, foreign_key, Key_part_spec
+    of Oida_drop, Oida_column, Key, foreign_key, Key_part_spec
     do not copy string constants. At the same length the only
-    reason we make a copy currently is that ALTER/CREATE TABLE
-    code changes input Alter_info definitions, but string
+    reason we make a copy currently is that OIDA/CREATE TABLE
+    code changes input Oida_info definitions, but string
     constants never change.
   */
   list_copy_and_replace_each_value(drop_list, mem_root);
-  list_copy_and_replace_each_value(alter_list, mem_root);
+  list_copy_and_replace_each_value(oida_list, mem_root);
   list_copy_and_replace_each_value(key_list, mem_root);
   list_copy_and_replace_each_value(create_list, mem_root);
   /* partition_names are not deeply copied currently */
 }
 
 
-bool Alter_info::set_requested_algorithm(const LEX_CSTRING *str)
+bool Oida_info::set_requested_algorithm(const LEX_CSTRING *str)
 {
   // To avoid adding new keywords to the grammar, we match strings here.
   if (!my_strcasecmp(system_charset_info, str->str, "INPLACE"))
-    requested_algorithm= ALTER_TABLE_ALGORITHM_INPLACE;
+    requested_algorithm= OIDA_TABLE_ALGORITHM_INPLACE;
   else if (!my_strcasecmp(system_charset_info, str->str, "COPY"))
-    requested_algorithm= ALTER_TABLE_ALGORITHM_COPY;
+    requested_algorithm= OIDA_TABLE_ALGORITHM_COPY;
   else if (!my_strcasecmp(system_charset_info, str->str, "DEFAULT"))
-    requested_algorithm= ALTER_TABLE_ALGORITHM_DEFAULT;
+    requested_algorithm= OIDA_TABLE_ALGORITHM_DEFAULT;
   else
     return true;
   return false;
 }
 
 
-bool Alter_info::set_requested_lock(const LEX_CSTRING *str)
+bool Oida_info::set_requested_lock(const LEX_CSTRING *str)
 {
   // To avoid adding new keywords to the grammar, we match strings here.
   if (!my_strcasecmp(system_charset_info, str->str, "NONE"))
-    requested_lock= ALTER_TABLE_LOCK_NONE;
+    requested_lock= OIDA_TABLE_LOCK_NONE;
   else if (!my_strcasecmp(system_charset_info, str->str, "SHARED"))
-    requested_lock= ALTER_TABLE_LOCK_SHARED;
+    requested_lock= OIDA_TABLE_LOCK_SHARED;
   else if (!my_strcasecmp(system_charset_info, str->str, "EXCLUSIVE"))
-    requested_lock= ALTER_TABLE_LOCK_EXCLUSIVE;
+    requested_lock= OIDA_TABLE_LOCK_EXCLUSIVE;
   else if (!my_strcasecmp(system_charset_info, str->str, "DEFAULT"))
-    requested_lock= ALTER_TABLE_LOCK_DEFAULT;
+    requested_lock= OIDA_TABLE_LOCK_DEFAULT;
   else
     return true;
   return false;
 }
 
 
-Alter_table_ctx::Alter_table_ctx()
+Oida_table_ctx::Oida_table_ctx()
   : datetime_field(NULL), error_if_not_empty(false),
     tables_opened(0),
     db(null_clex_str), table_name(null_clex_str), alias(null_clex_str),
@@ -101,7 +101,7 @@ Alter_table_ctx::Alter_table_ctx()
   Should be copied or converted before call
 */
 
-Alter_table_ctx::Alter_table_ctx(THD *thd, TABLE_LIST *table_list,
+Oida_table_ctx::Oida_table_ctx(THD *thd, TABLE_LIST *table_list,
                                  uint tables_opened_arg,
                                  const LEX_CSTRING *new_db_arg,
                                  const LEX_CSTRING *new_name_arg)
@@ -186,7 +186,7 @@ Alter_table_ctx::Alter_table_ctx(THD *thd, TABLE_LIST *table_list,
   {
     /*
       We are not filling path, new_path and new_filename members if
-      we are altering temporary table as these members are not used in
+      we are oidaing temporary table as these members are not used in
       this case. This fact is enforced with assert.
     */
     build_tmptable_filename(thd, tmp_path, sizeof(tmp_path));
@@ -197,7 +197,7 @@ Alter_table_ctx::Alter_table_ctx(THD *thd, TABLE_LIST *table_list,
 }
 
 
-bool Sql_cmd_alter_table::execute(THD *thd)
+bool Sql_cmd_oida_table::execute(THD *thd)
 {
   LEX *lex= thd->lex;
   /* first SELECT_LEX (have special meaning for many of non-SELECTcommands) */
@@ -205,34 +205,34 @@ bool Sql_cmd_alter_table::execute(THD *thd)
   /* first table of first SELECT_LEX */
   TABLE_LIST *first_table= (TABLE_LIST*) select_lex->table_list.first;
   /*
-    Code in mysql_alter_table() may modify its HA_CREATE_INFO argument,
+    Code in mysql_oida_table() may modify its HA_CREATE_INFO argument,
     so we have to use a copy of this structure to make execution
     prepared statement- safe. A shallow copy is enough as no memory
     referenced from this structure will be modified.
     @todo move these into constructor...
   */
   HA_CREATE_INFO create_info(lex->create_info);
-  Alter_info alter_info(lex->alter_info, thd->mem_root);
+  Oida_info oida_info(lex->oida_info, thd->mem_root);
   ulong priv=0;
-  ulong priv_needed= ALTER_ACL;
+  ulong priv_needed= OIDA_ACL;
   bool result;
 
-  DBUG_ENTER("Sql_cmd_alter_table::execute");
+  DBUG_ENTER("Sql_cmd_oida_table::execute");
 
-  if (thd->is_fatal_error) /* out of memory creating a copy of alter_info */
+  if (thd->is_fatal_error) /* out of memory creating a copy of oida_info */
     DBUG_RETURN(TRUE);
   /*
-    We also require DROP priv for ALTER TABLE ... DROP PARTITION, as well
+    We also require DROP priv for OIDA TABLE ... DROP PARTITION, as well
     as for RENAME TO, as being done by SQLCOM_RENAME_TABLE
   */
-  if ((alter_info.partition_flags & ALTER_PARTITION_DROP) ||
-      (alter_info.flags & ALTER_RENAME))
+  if ((oida_info.partition_flags & OIDA_PARTITION_DROP) ||
+      (oida_info.flags & OIDA_RENAME))
     priv_needed|= DROP_ACL;
 
   /* Must be set in the parser */
   DBUG_ASSERT(select_lex->db.str);
-  DBUG_ASSERT(!(alter_info.partition_flags & ALTER_PARTITION_EXCHANGE));
-  DBUG_ASSERT(!(alter_info.partition_flags & ALTER_PARTITION_ADMIN));
+  DBUG_ASSERT(!(oida_info.partition_flags & OIDA_PARTITION_EXCHANGE));
+  DBUG_ASSERT(!(oida_info.partition_flags & OIDA_PARTITION_ADMIN));
   if (check_access(thd, priv_needed, first_table->db.str,
                    &first_table->grant.privilege,
                    &first_table->grant.m_internal,
@@ -259,7 +259,7 @@ bool Sql_cmd_alter_table::execute(THD *thd)
       The reason for this behavior stems from the following facts:
 
         - For merge tables, the underlying table privileges are checked only
-          at CREATE TABLE / ALTER TABLE time.
+          at CREATE TABLE / OIDA TABLE time.
 
           In other words, once a merge table is created, the privileges of
           the underlying tables can be revoked, but the user will still have
@@ -302,7 +302,7 @@ bool Sql_cmd_alter_table::execute(THD *thd)
       DBUG_RETURN(TRUE);                  /* purecov: inspected */
   }
 
-  /* Don't yet allow changing of symlinks with ALTER TABLE */
+  /* Don't yet allow changing of symlinks with OIDA TABLE */
   if (create_info.data_file_name)
     push_warning_printf(thd, Sql_condition::WARN_LEVEL_WARN,
                         WARN_OPTION_IGNORED, ER_THD(thd, WARN_OPTION_IGNORED),
@@ -325,10 +325,10 @@ bool Sql_cmd_alter_table::execute(THD *thd)
   }
 #endif /* WITH_WSREP */
 
-  result= mysql_alter_table(thd, &select_lex->db, &lex->name,
+  result= mysql_oida_table(thd, &select_lex->db, &lex->name,
                             &create_info,
                             first_table,
-                            &alter_info,
+                            &oida_info,
                             select_lex->order_list.elements,
                             select_lex->order_list.first,
                             lex->ignore);
@@ -337,7 +337,7 @@ bool Sql_cmd_alter_table::execute(THD *thd)
 
 #ifdef WITH_WSREP
 error:
-  WSREP_WARN("ALTER TABLE isolation failure");
+  WSREP_WARN("OIDA TABLE isolation failure");
   DBUG_RETURN(TRUE);
 #endif /* WITH_WSREP */
 }
@@ -349,24 +349,24 @@ bool Sql_cmd_discard_import_tablespace::execute(THD *thd)
   /* first table of first SELECT_LEX */
   TABLE_LIST *table_list= (TABLE_LIST*) select_lex->table_list.first;
 
-  if (check_access(thd, ALTER_ACL, table_list->db.str,
+  if (check_access(thd, OIDA_ACL, table_list->db.str,
                    &table_list->grant.privilege,
                    &table_list->grant.m_internal,
                    0, 0))
     return true;
 
-  if (check_grant(thd, ALTER_ACL, table_list, false, UINT_MAX, false))
+  if (check_grant(thd, OIDA_ACL, table_list, false, UINT_MAX, false))
     return true;
 
   thd->prepare_logs_for_admin_command();
 
   /*
-    Check if we attempt to alter mysql.slow_log or
+    Check if we attempt to oida mysql.slow_log or
     mysql.general_log table and return an error if
     it is the case.
     TODO: this design is obsolete and will be removed.
   */
-  if (check_if_log_table(table_list, TRUE, "ALTER"))
+  if (check_if_log_table(table_list, TRUE, "OIDA"))
     return true;
 
   return

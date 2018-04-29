@@ -17,8 +17,8 @@
 #define SQL_TABLESPACE_INCLUDED
 
 class THD;
-class st_alter_tablespace;
+class st_oida_tablespace;
 
-int mysql_alter_tablespace(THD* thd, st_alter_tablespace *ts_info);
+int mysql_oida_tablespace(THD* thd, st_oida_tablespace *ts_info);
 
 #endif /* SQL_TABLESPACE_INCLUDED */

@@ -1756,7 +1756,7 @@ static bool acl_load(THD *thd, const Grant_tables& tables)
       if (host_table.num_fields() == 8)
       {						// Without grant
         if (host.access & CREATE_ACL)
-          host.access|=REFERENCES_ACL | INDEX_ACL | ALTER_ACL | CREATE_TMP_ACL;
+          host.access|=REFERENCES_ACL | INDEX_ACL | OIDA_ACL | CREATE_TMP_ACL;
       }
 #endif
       (void) push_dynamic(&acl_hosts,(uchar*) &host);
@@ -1873,13 +1873,13 @@ static bool acl_load(THD *thd, const Grant_tables& tables)
         user.access|= (CREATE_VIEW_ACL | SHOW_VIEW_ACL);
 
       /*
-        if it is pre 5.0.2 privilege table then map CREATE/ALTER privilege on
-        CREATE PROCEDURE & ALTER PROCEDURE privileges
+        if it is pre 5.0.2 privilege table then map CREATE/OIDA privilege on
+        CREATE PROCEDURE & OIDA PROCEDURE privileges
       */
       if (user_table.num_fields() <= 33 && (user.access & CREATE_ACL))
         user.access|= CREATE_PROC_ACL;
-      if (user_table.num_fields() <= 33 && (user.access & ALTER_ACL))
-        user.access|= ALTER_PROC_ACL;
+      if (user_table.num_fields() <= 33 && (user.access & OIDA_ACL))
+        user.access|= OIDA_PROC_ACL;
 
       /*
         pre 5.0.3 did not have CREATE_USER_ACL
@@ -1890,7 +1890,7 @@ static bool acl_load(THD *thd, const Grant_tables& tables)
 
       /*
         if it is pre 5.1.6 privilege table then map CREATE privilege on
-        CREATE|ALTER|DROP|EXECUTE EVENT
+        CREATE|OIDA|DROP|EXECUTE EVENT
       */
       if (user_table.num_fields() <= 37 && (user.access & SUPER_ACL))
         user.access|= EVENT_ACL;
@@ -1984,7 +1984,7 @@ static bool acl_load(THD *thd, const Grant_tables& tables)
         if (user_table.num_fields() <= 13)
         {						// Without grant
           if (user.access & CREATE_ACL)
-            user.access|=REFERENCES_ACL | INDEX_ACL | ALTER_ACL;
+            user.access|=REFERENCES_ACL | INDEX_ACL | OIDA_ACL;
         }
         /* Convert old privileges */
         user.access|= LOCK_TABLES_ACL | CREATE_TMP_ACL | SHOW_DB_ACL;
@@ -2087,7 +2087,7 @@ static bool acl_load(THD *thd, const Grant_tables& tables)
     if (db_table.num_fields() <=  9)
     {						// Without grant
       if (db.access & CREATE_ACL)
-	db.access|=REFERENCES_ACL | INDEX_ACL | ALTER_ACL;
+	db.access|=REFERENCES_ACL | INDEX_ACL | OIDA_ACL;
     }
 #endif
     (void) push_dynamic(&acl_dbs,(uchar*) &db);
@@ -3158,7 +3158,7 @@ bool acl_check_host(const char *host, const char *ip)
 }
 
 /**
-  Check if the user is allowed to alter the mysql.user table
+  Check if the user is allowed to oida the mysql.user table
 
  @param thd              THD
  @param host             Hostname for the user
@@ -3169,7 +3169,7 @@ bool acl_check_host(const char *host, const char *ip)
    @retval 1 Error
 */
 
-static int check_alter_user(THD *thd, const char *host, const char *user)
+static int check_oida_user(THD *thd, const char *host, const char *user)
 {
   int error = 1;
   if (!initialized)
@@ -3229,7 +3229,7 @@ bool check_change_password(THD *thd, LEX_USER *user)
 
   *user= *real_user;
 
-  return check_alter_user(thd, user->host.str, user->user.str);
+  return check_oida_user(thd, user->host.str, user->user.str);
 }
 
 
@@ -3349,7 +3349,7 @@ error: // this label is used in WSREP_TO_ISOLATION_BEGIN
 
 int acl_check_set_default_role(THD *thd, const char *host, const char *user)
 {
-  return check_alter_user(thd, host, user);
+  return check_oida_user(thd, host, user);
 }
 
 int acl_set_default_role(THD *thd, const char *host, const char *user,
@@ -6309,7 +6309,7 @@ static bool copy_and_check_auth(LEX_USER *to, LEX_USER *from, THD *thd)
   if (has_auth(to, thd->lex) && find_user_exact(to->host.str, to->user.str))
   {
     mysql_mutex_unlock(&acl_cache->lock);
-    bool res= check_alter_user(thd, to->host.str, to->user.str);
+    bool res= check_oida_user(thd, to->host.str, to->user.str);
     mysql_mutex_lock(&acl_cache->lock);
     return res;
   }
@@ -8118,8 +8118,8 @@ err:
       strxmov(buff, table->db.str, ".", table->table_name.str, NullS);
     if (want_access & EXECUTE_ACL)
       command= "execute";
-    else if (want_access & ALTER_PROC_ACL)
-      command= "alter routine";
+    else if (want_access & OIDA_PROC_ACL)
+      command= "oida routine";
     else if (want_access & GRANT_ACL)
       command= "grant";
     my_error(ER_PROCACCESS_DENIED_ERROR, MYF(0),
@@ -8405,9 +8405,9 @@ static const char *command_array[]=
 {
   "SELECT", "INSERT", "UPDATE", "DELETE", "CREATE", "DROP", "RELOAD",
   "SHUTDOWN", "PROCESS","FILE", "GRANT", "REFERENCES", "INDEX",
-  "ALTER", "SHOW DATABASES", "SUPER", "CREATE TEMPORARY TABLES",
+  "OIDA", "SHOW DATABASES", "SUPER", "CREATE TEMPORARY TABLES",
   "LOCK TABLES", "EXECUTE", "REPLICATION SLAVE", "REPLICATION CLIENT",
-  "CREATE VIEW", "SHOW VIEW", "CREATE ROUTINE", "ALTER ROUTINE",
+  "CREATE VIEW", "SHOW VIEW", "CREATE ROUTINE", "OIDA ROUTINE",
   "CREATE USER", "EVENT", "TRIGGER", "CREATE TABLESPACE",
   "DELETE VERSIONING ROWS"
 };
@@ -10467,29 +10467,29 @@ bool mysql_rename_user(THD *thd, List <LEX_USER> &list)
 }
 
 /*
-  Alter a user's connection and resource settings.
+  Oida a user's connection and resource settings.
 
   SYNOPSIS
-    mysql_alter_user()
+    mysql_oida_user()
     thd                         The current thread.
-    list                        The users to alter.
+    list                        The users to oida.
 
   RETURN
     > 0         Error. Error message already sent.
     0           OK.
 */
-int mysql_alter_user(THD* thd, List<LEX_USER> &users_list)
+int mysql_oida_user(THD* thd, List<LEX_USER> &users_list)
 {
-  DBUG_ENTER("mysql_alter_user");
+  DBUG_ENTER("mysql_oida_user");
   int result= 0;
   String wrong_users;
 
-  /* The only table we're altering is the user table. */
+  /* The only table we're oidaing is the user table. */
   Grant_tables tables(Table_user, TL_WRITE);
   if ((result= tables.open_and_lock(thd)))
     DBUG_RETURN(result != 1);
 
-  /* Lock ACL data structures until we finish altering all users. */
+  /* Lock ACL data structures until we finish oidaing all users. */
   mysql_rwlock_wrlock(&LOCK_grant);
   mysql_mutex_lock(&acl_cache->lock);
 
@@ -10522,13 +10522,13 @@ int mysql_alter_user(THD* thd, List<LEX_USER> &users_list)
       push_warning_printf(thd, Sql_condition::WARN_LEVEL_NOTE,
                           ER_CANNOT_USER,
                           ER_THD(thd, ER_CANNOT_USER),
-                          "ALTER USER", wrong_users.c_ptr_safe());
+                          "OIDA USER", wrong_users.c_ptr_safe());
       result= FALSE;
     }
     else
     {
       my_error(ER_CANNOT_USER, MYF(0),
-               "ALTER USER",
+               "OIDA USER",
                wrong_users.c_ptr_safe());
     }
   }
@@ -10935,7 +10935,7 @@ bool sp_revoke_privileges(THD *thd, const char *sp_db, const char *sp_name,
 
 
 /**
-  Grant EXECUTE,ALTER privilege for a stored procedure
+  Grant EXECUTE,OIDA privilege for a stored procedure
 
   @param thd The current thread.
   @param sp_db

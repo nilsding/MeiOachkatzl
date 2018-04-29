@@ -20,8 +20,8 @@
 #include <my_sys.h>                             // pthread_mutex_t
 #include "m_string.h"                           // LEX_CUSTRING
 
-class Alter_info;
-class Alter_table_ctx;
+class Oida_info;
+class Oida_table_ctx;
 class Column_definition;
 class Create_field;
 struct TABLE_LIST;
@@ -34,7 +34,7 @@ struct HA_CREATE_INFO;
 struct Table_specification_st;
 typedef struct st_key KEY;
 typedef struct st_key_cache KEY_CACHE;
-typedef struct st_lock_param_type ALTER_PARTITION_PARAM_TYPE;
+typedef struct st_lock_param_type OIDA_PARTITION_PARAM_TYPE;
 typedef struct st_order ORDER;
 
 enum ddl_log_entry_code
@@ -149,11 +149,11 @@ bool check_mysql50_prefix(const char *name);
 uint build_table_filename(char *buff, size_t bufflen, const char *db,
                           const char *table, const char *ext, uint flags);
 uint build_table_shadow_filename(char *buff, size_t bufflen,
-                                 ALTER_PARTITION_PARAM_TYPE *lpt);
+                                 OIDA_PARTITION_PARAM_TYPE *lpt);
 uint build_tmptable_filename(THD* thd, char *buff, size_t bufflen);
 bool mysql_create_table(THD *thd, TABLE_LIST *create_table,
                         Table_specification_st *create_info,
-                        Alter_info *alter_info);
+                        Oida_info *oida_info);
 
 /*
   mysql_create_table_no_lock can be called in one of the following
@@ -169,12 +169,12 @@ bool mysql_create_table(THD *thd, TABLE_LIST *create_table,
 
        CREATE TABLE t1 (a int(5) NOT NUL) SELECT b+10 as a FROM t2;
 
-    the list in alter_info->create_list will have two fields `a`.
+    the list in oida_info->create_list will have two fields `a`.
 
-  - ALTER TABLE, that creates a temporary table #sql-xxx, which will be later
+  - OIDA TABLE, that creates a temporary table #sql-xxx, which will be later
     renamed to replace the original table.
 
-  - ALTER TABLE as above, but which only modifies the frm file, it only
+  - OIDA TABLE as above, but which only modifies the frm file, it only
     creates an frm file for the #sql-xxx, the table in the engine is not
     created.
 
@@ -187,21 +187,21 @@ bool mysql_create_table(THD *thd, TABLE_LIST *create_table,
 */
 #define C_CREATE_SELECT(X)        ((X) > 0 ? (X) : 0)
 #define C_ORDINARY_CREATE         0
-#define C_ALTER_TABLE            -1
-#define C_ALTER_TABLE_FRM_ONLY   -2
+#define C_OIDA_TABLE            -1
+#define C_OIDA_TABLE_FRM_ONLY   -2
 #define C_ASSISTED_DISCOVERY     -3
 
 int mysql_create_table_no_lock(THD *thd, const LEX_CSTRING *db,
                                const LEX_CSTRING *table_name,
                                Table_specification_st *create_info,
-                               Alter_info *alter_info, bool *is_trans,
+                               Oida_info *oida_info, bool *is_trans,
                                int create_table_mode, TABLE_LIST *table);
 
 handler *mysql_create_frm_image(THD *thd,
                                 const LEX_CSTRING *db,
                                 const LEX_CSTRING *table_name,
                                 HA_CREATE_INFO *create_info,
-                                Alter_info *alter_info,
+                                Oida_info *oida_info,
                                 int create_table_mode,
                                 KEY **key_info,
                                 uint *key_count,
@@ -211,19 +211,19 @@ int mysql_discard_or_import_tablespace(THD *thd,
                                        TABLE_LIST *table_list,
                                        bool discard);
 
-bool mysql_prepare_alter_table(THD *thd, TABLE *table,
+bool mysql_prepare_oida_table(THD *thd, TABLE *table,
                                HA_CREATE_INFO *create_info,
-                               Alter_info *alter_info,
-                               Alter_table_ctx *alter_ctx);
-bool mysql_trans_prepare_alter_copy_data(THD *thd);
-bool mysql_trans_commit_alter_copy_data(THD *thd);
-bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *new_name,
+                               Oida_info *oida_info,
+                               Oida_table_ctx *oida_ctx);
+bool mysql_trans_prepare_oida_copy_data(THD *thd);
+bool mysql_trans_commit_oida_copy_data(THD *thd);
+bool mysql_oida_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *new_name,
                        HA_CREATE_INFO *create_info,
                        TABLE_LIST *table_list,
-                       Alter_info *alter_info,
+                       Oida_info *oida_info,
                        uint order_num, ORDER *order, bool ignore);
 bool mysql_compare_tables(TABLE *table,
-                          Alter_info *alter_info,
+                          Oida_info *oida_info,
                           HA_CREATE_INFO *create_info,
                           bool *metadata_equal);
 bool mysql_recreate_table(THD *thd, TABLE_LIST *table_list, bool table_copy);
@@ -254,7 +254,7 @@ void close_cached_table(THD *thd, TABLE *table);
 void sp_prepare_create_field(THD *thd, Column_definition *sql_field);
 CHARSET_INFO* get_sql_field_charset(Column_definition *sql_field,
                                     HA_CREATE_INFO *create_info);
-bool mysql_write_frm(ALTER_PARTITION_PARAM_TYPE *lpt, uint flags);
+bool mysql_write_frm(OIDA_PARTITION_PARAM_TYPE *lpt, uint flags);
 int write_bin_log(THD *thd, bool clear_error,
                   char const *query, ulong query_length,
                   bool is_trans= FALSE);

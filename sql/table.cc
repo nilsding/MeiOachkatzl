@@ -1983,13 +1983,13 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
                                                    decimals,
                                                    f_is_dec(pack_flag) == 0);
       sql_print_error("Found incompatible DECIMAL field '%s' in %s; "
-                      "Please do \"ALTER TABLE '%s' FORCE\" to fix it!",
+                      "Please do \"OIDA TABLE '%s' FORCE\" to fix it!",
                       share->fieldnames.type_names[i], share->table_name.str,
                       share->table_name.str);
       push_warning_printf(thd, Sql_condition::WARN_LEVEL_WARN,
                           ER_CRASHED_ON_USAGE,
                           "Found incompatible DECIMAL field '%s' in %s; "
-                          "Please do \"ALTER TABLE '%s' FORCE\" to fix it!",
+                          "Please do \"OIDA TABLE '%s' FORCE\" to fix it!",
                           share->fieldnames.type_names[i],
                           share->table_name.str,
                           share->table_name.str);
@@ -2396,7 +2396,7 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
               Fix a fatal error in decimal key handling that causes crashes
               on Innodb. We fix it by reducing the key length so that
               InnoDB never gets a too big key when searching.
-              This allows the end user to do an ALTER TABLE to fix the
+              This allows the end user to do an OIDA TABLE to fix the
               error.
             */
             keyinfo->key_length-= (key_part->length - field->key_length());
@@ -2404,13 +2404,13 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
                                               field->key_length());
             key_part->length= (uint16)field->key_length();
             sql_print_error("Found wrong key definition in %s; "
-                            "Please do \"ALTER TABLE '%s' FORCE \" to fix it!",
+                            "Please do \"OIDA TABLE '%s' FORCE \" to fix it!",
                             share->table_name.str,
                             share->table_name.str);
             push_warning_printf(thd, Sql_condition::WARN_LEVEL_WARN,
                                 ER_CRASHED_ON_USAGE,
                                 "Found wrong key definition in %s; "
-                                "Please do \"ALTER TABLE '%s' FORCE\" to fix "
+                                "Please do \"OIDA TABLE '%s' FORCE\" to fix "
                                 "it!",
                                 share->table_name.str,
                                 share->table_name.str);
@@ -2773,9 +2773,9 @@ int TABLE_SHARE::init_from_sql_statement_string(THD *thd, bool write,
   if (tabledef_version.str)
     thd->lex->create_info.tabledef_version= tabledef_version;
 
-  promote_first_timestamp_column(&thd->lex->alter_info.create_list);
+  promote_first_timestamp_column(&thd->lex->oida_info.create_list);
   file= mysql_create_frm_image(thd, &db, &table_name,
-                               &thd->lex->create_info, &thd->lex->alter_info,
+                               &thd->lex->create_info, &thd->lex->oida_info,
                                C_ORDINARY_CREATE, &unused1, &unused2, &frm);
   error|= file == 0;
   delete file;
@@ -3133,7 +3133,7 @@ enum open_frm_error open_table_from_share(THD *thd, TABLE_SHARE *share,
   outparam->write_row_record= NULL;
 
   if (share->incompatible_version &&
-      !(ha_open_flags & (HA_OPEN_FOR_ALTER | HA_OPEN_FOR_REPAIR)))
+      !(ha_open_flags & (HA_OPEN_FOR_OIDA | HA_OPEN_FOR_REPAIR)))
   {
     /* one needs to run mysql_upgrade on the table */
     error= OPEN_FRM_NEEDS_REBUILD;
@@ -3380,7 +3380,7 @@ partititon_err:
       if (is_create_table)
       {
         /*
-          During CREATE/ALTER TABLE it is ok to receive errors here.
+          During CREATE/OIDA TABLE it is ok to receive errors here.
           It is not ok if it happens during the opening of an frm
           file as part of a normal query.
         */

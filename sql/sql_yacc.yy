@@ -47,10 +47,10 @@
 #include "sp_rcontext.h"
 #include "sp.h"
 #include "sql_show.h"
-#include "sql_alter.h"                         // Sql_cmd_alter_table*
+#include "sql_oida.h"                         // Sql_cmd_oida_table*
 #include "sql_truncate.h"                      // Sql_cmd_truncate_table
 #include "sql_admin.h"                         // Sql_cmd_analyze/Check..._table
-#include "sql_partition_admin.h"               // Sql_cmd_alter_table_*_part.
+#include "sql_partition_admin.h"               // Sql_cmd_oida_table_*_part.
 #include "sql_handler.h"                       // Sql_cmd_handler_*
 #include "sql_signal.h"
 #include "sql_get_diagnostics.h"               // Sql_cmd_get_diagnostics
@@ -467,7 +467,7 @@ Item* handle_sql2003_note184_exception(THD *thd, Item* left, bool equal,
       st_select_lex *subselect;
 
       /*
-        Implement the mandated change, by altering the semantic tree:
+        Implement the mandated change, by oidaing the semantic tree:
           left IN Item_singlerow_subselect(subselect)
         is modified to
           left IN (subselect)
@@ -705,18 +705,18 @@ void LEX::add_key_to_list(LEX_CSTRING *field_name,
                          DDL_options::OPT_NONE));
   key->columns.push_back(new (mem_root) Key_part_spec(field_name, 0),
                          mem_root);
-  alter_info.key_list.push_back(key, mem_root);
+  oida_info.key_list.push_back(key, mem_root);
 }
 
-bool LEX::add_alter_list(const char *name, Virtual_column_info *expr,
+bool LEX::add_oida_list(const char *name, Virtual_column_info *expr,
                          bool exists)
 {
   MEM_ROOT *mem_root= thd->mem_root;
-  Alter_column *ac= new (mem_root) Alter_column(name, expr, exists);
+  Oida_column *ac= new (mem_root) Oida_column(name, expr, exists);
   if (ac == NULL)
     return true;
-  alter_info.alter_list.push_back(ac, mem_root);
-  alter_info.flags|= ALTER_CHANGE_COLUMN_DEFAULT;
+  oida_info.oida_list.push_back(ac, mem_root);
+  oida_info.flags|= OIDA_CHANGE_COLUMN_DEFAULT;
   return false;
 }
 
@@ -927,7 +927,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, size_t *yystacksize);
 %token  ACCESSIBLE_SYM
 %token  ADD                           /* SQL-2003-R */
 %token  ALL                           /* SQL-2003-R */
-%token  ALTER                         /* SQL-2003-R */
+%token  OIDA                         /* SQL-2003-R */
 %token  ANALYZE_SYM
 %token  AND_AND_SYM                   /* OPERATOR */
 %token  AND_SYM                       /* SQL-2003-R */
@@ -1757,7 +1757,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, size_t *yystacksize);
         select_derived_init transaction_access_mode_types
         opt_natural_language_mode opt_query_expansion
         opt_ev_status opt_ev_on_completion ev_on_completion opt_ev_comment
-        ev_alter_on_schedule_completion opt_ev_rename_to opt_ev_sql_stmt
+        ev_oida_on_schedule_completion opt_ev_rename_to opt_ev_sql_stmt
         optional_flush_tables_arguments
         opt_time_precision kill_type kill_option int_num
         opt_default_time_precision
@@ -1936,7 +1936,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, size_t *yystacksize);
         analyze_stmt_command
         query verb_clause create change select do drop insert replace insert2
         insert_values update delete truncate rename compound_statement
-        show describe load alter optimize keycache preload flush
+        show describe load oida optimize keycache preload flush
         reset purge begin commit rollback savepoint release
         slave master_def master_defs master_file_def slave_until_opts
         repair analyze opt_with_admin opt_with_admin_option
@@ -2151,7 +2151,7 @@ verb_clause:
 
 /* Verb clauses, except begin and compound_statement */
 statement:
-          alter
+          oida
         | analyze
         | analyze_stmt_command
         | binlog_base64_event
@@ -2556,7 +2556,7 @@ create:
                                                    TL_OPTION_UPDATING,
                                                    TL_WRITE, MDL_EXCLUSIVE))
               MYSQL_YYABORT;
-            lex->alter_info.reset();
+            lex->oida_info.reset();
             /*
               For CREATE TABLE we should not open the table even if it exists.
               If the table exists, we should either not create it or replace it
@@ -2599,7 +2599,7 @@ create:
                  Instruct open_tables() to just take an MDL lock if the
                  table does not exist.
                */
-             lex->alter_info.reset();
+             lex->oida_info.reset();
              lex->query_tables->open_strategy= TABLE_LIST::OPEN_STUB;
              lex->name= null_clex_str;
              lex->create_last_non_select_table= lex->last_table();
@@ -2620,7 +2620,7 @@ create:
             }
 
             /* No fields specified, generate them */
-            if (prepare_sequence_fields(thd, &lex->alter_info.create_list))
+            if (prepare_sequence_fields(thd, &lex->oida_info.create_list))
                MYSQL_YYABORT;
 
             /* CREATE SEQUENCE always creates a sequence */
@@ -2748,11 +2748,11 @@ create:
           }
         | CREATE LOGFILE_SYM GROUP_SYM logfile_group_info 
           {
-            Lex->alter_tablespace_info->ts_cmd_type= CREATE_LOGFILE_GROUP;
+            Lex->oida_tablespace_info->ts_cmd_type= CREATE_LOGFILE_GROUP;
           }
         | CREATE TABLESPACE tablespace_info
           {
-            Lex->alter_tablespace_info->ts_cmd_type= CREATE_TABLESPACE;
+            Lex->oida_tablespace_info->ts_cmd_type= CREATE_TABLESPACE;
           }
         | create_or_replace { Lex->set_command(SQLCOM_CREATE_SERVER, $1); }
           server_def
@@ -2887,7 +2887,7 @@ sequence_def:
           }
         | RESTART_SYM
           {
-            if (Lex->sql_command != SQLCOM_ALTER_SEQUENCE)
+            if (Lex->sql_command != SQLCOM_OIDA_SEQUENCE)
             {
               thd->parse_error(ER_SYNTAX_ERROR, "RESTART");
               YYABORT;
@@ -2899,7 +2899,7 @@ sequence_def:
           }
         | RESTART_SYM opt_with longlong_num
           {
-            if (Lex->sql_command != SQLCOM_ALTER_SEQUENCE)
+            if (Lex->sql_command != SQLCOM_OIDA_SEQUENCE)
             {
               thd->parse_error(ER_SYNTAX_ERROR, "RESTART");
               YYABORT;
@@ -3089,18 +3089,18 @@ ev_sql_stmt:
             /*
               This stops the following :
               - CREATE EVENT ... DO CREATE EVENT ...;
-              - ALTER  EVENT ... DO CREATE EVENT ...;
-              - CREATE EVENT ... DO ALTER EVENT DO ....;
+              - OIDA  EVENT ... DO CREATE EVENT ...;
+              - CREATE EVENT ... DO OIDA EVENT DO ....;
               - CREATE PROCEDURE ... BEGIN CREATE EVENT ... END|
               This allows:
               - CREATE EVENT ... DO DROP EVENT yyy;
-              - CREATE EVENT ... DO ALTER EVENT yyy;
-                (the nested ALTER EVENT can have anything but DO clause)
-              - ALTER  EVENT ... DO ALTER EVENT yyy;
-                (the nested ALTER EVENT can have anything but DO clause)
-              - ALTER  EVENT ... DO DROP EVENT yyy;
-              - CREATE PROCEDURE ... BEGIN ALTER EVENT ... END|
-                (the nested ALTER EVENT can have anything but DO clause)
+              - CREATE EVENT ... DO OIDA EVENT yyy;
+                (the nested OIDA EVENT can have anything but DO clause)
+              - OIDA  EVENT ... DO OIDA EVENT yyy;
+                (the nested OIDA EVENT can have anything but DO clause)
+              - OIDA  EVENT ... DO DROP EVENT yyy;
+              - CREATE PROCEDURE ... BEGIN OIDA EVENT ... END|
+                (the nested OIDA EVENT can have anything but DO clause)
               - CREATE PROCEDURE ... BEGIN DROP EVENT ... END|
             */
             if (lex->sphead)
@@ -3162,7 +3162,7 @@ sp_c_chistics:
         | sp_c_chistics sp_c_chistic {}
         ;
 
-/* Characteristics for both create and alter */
+/* Characteristics for both create and oida */
 sp_chistic:
           COMMENT_SYM TEXT_STRING_sys
           { Lex->sp_chistics.comment= $2; }
@@ -4692,12 +4692,12 @@ trg_event:
   This part of the parser contains common code for all TABLESPACE
   commands.
   CREATE TABLESPACE name ...
-  ALTER TABLESPACE name CHANGE DATAFILE ...
-  ALTER TABLESPACE name ADD DATAFILE ...
-  ALTER TABLESPACE name access_mode
+  OIDA TABLESPACE name CHANGE DATAFILE ...
+  OIDA TABLESPACE name ADD DATAFILE ...
+  OIDA TABLESPACE name access_mode
   CREATE LOGFILE GROUP_SYM name ...
-  ALTER LOGFILE GROUP_SYM name ADD UNDOFILE ..
-  ALTER LOGFILE GROUP_SYM name ADD REDOFILE ..
+  OIDA LOGFILE GROUP_SYM name ADD UNDOFILE ..
+  OIDA LOGFILE GROUP_SYM name ADD REDOFILE ..
   DROP TABLESPACE name
   DROP LOGFILE GROUP_SYM name
 */
@@ -4724,22 +4724,22 @@ opt_logfile_group_name:
         | USE_SYM LOGFILE_SYM GROUP_SYM ident
           {
             LEX *lex= Lex;
-            lex->alter_tablespace_info->logfile_group_name= $4.str;
+            lex->oida_tablespace_info->logfile_group_name= $4.str;
           }
         ;
 
-alter_tablespace_info:
+oida_tablespace_info:
           tablespace_name
           ADD ts_datafile
-          alter_tablespace_option_list
+          oida_tablespace_option_list
           { 
-            Lex->alter_tablespace_info->ts_alter_tablespace_type= ALTER_TABLESPACE_ADD_FILE; 
+            Lex->oida_tablespace_info->ts_oida_tablespace_type= OIDA_TABLESPACE_ADD_FILE; 
           }
         | tablespace_name
           DROP ts_datafile
-          alter_tablespace_option_list
+          oida_tablespace_option_list
           { 
-            Lex->alter_tablespace_info->ts_alter_tablespace_type= ALTER_TABLESPACE_DROP_FILE; 
+            Lex->oida_tablespace_info->ts_oida_tablespace_type= OIDA_TABLESPACE_DROP_FILE; 
           }
         ;
 
@@ -4749,10 +4749,10 @@ logfile_group_info:
           logfile_group_option_list
         ;
 
-alter_logfile_group_info:
+oida_logfile_group_info:
           logfile_group_name
           add_log_file
-          alter_logfile_group_option_list
+          oida_logfile_group_option_list
         ;
 
 add_log_file:
@@ -4798,17 +4798,17 @@ tablespace_option:
         | opt_ts_comment
         ;
 
-alter_tablespace_option_list:
-        alter_tablespace_options
+oida_tablespace_option_list:
+        oida_tablespace_options
         ;
 
-alter_tablespace_options:
-          alter_tablespace_option
-        | alter_tablespace_options alter_tablespace_option
-        | alter_tablespace_options ',' alter_tablespace_option
+oida_tablespace_options:
+          oida_tablespace_option
+        | oida_tablespace_options oida_tablespace_option
+        | oida_tablespace_options ',' oida_tablespace_option
         ;
 
-alter_tablespace_option:
+oida_tablespace_option:
           opt_ts_initial_size
         | opt_ts_autoextend_size
         | opt_ts_max_size
@@ -4836,17 +4836,17 @@ logfile_group_option:
         | opt_ts_comment
         ;
 
-alter_logfile_group_option_list:
-          alter_logfile_group_options
+oida_logfile_group_option_list:
+          oida_logfile_group_options
         ;
 
-alter_logfile_group_options:
-          alter_logfile_group_option
-        | alter_logfile_group_options alter_logfile_group_option
-        | alter_logfile_group_options ',' alter_logfile_group_option
+oida_logfile_group_options:
+          oida_logfile_group_option
+        | oida_logfile_group_options oida_logfile_group_option
+        | oida_logfile_group_options ',' oida_logfile_group_option
         ;
 
-alter_logfile_group_option:
+oida_logfile_group_option:
           opt_ts_initial_size
         | opt_ts_engine
         | ts_wait
@@ -4857,7 +4857,7 @@ ts_datafile:
           DATAFILE_SYM TEXT_STRING_sys
           {
             LEX *lex= Lex;
-            lex->alter_tablespace_info->data_file_name= $2.str;
+            lex->oida_tablespace_info->data_file_name= $2.str;
           }
         ;
 
@@ -4865,7 +4865,7 @@ lg_undofile:
           UNDOFILE_SYM TEXT_STRING_sys
           {
             LEX *lex= Lex;
-            lex->alter_tablespace_info->undo_file_name= $2.str;
+            lex->oida_tablespace_info->undo_file_name= $2.str;
           }
         ;
 
@@ -4873,7 +4873,7 @@ lg_redofile:
           REDOFILE_SYM TEXT_STRING_sys
           {
             LEX *lex= Lex;
-            lex->alter_tablespace_info->redo_file_name= $2.str;
+            lex->oida_tablespace_info->redo_file_name= $2.str;
           }
         ;
 
@@ -4881,12 +4881,12 @@ tablespace_name:
           ident
           {
             LEX *lex= Lex;
-            lex->alter_tablespace_info= (new (thd->mem_root)
-                                         st_alter_tablespace());
-            if (lex->alter_tablespace_info == NULL)
+            lex->oida_tablespace_info= (new (thd->mem_root)
+                                         st_oida_tablespace());
+            if (lex->oida_tablespace_info == NULL)
               MYSQL_YYABORT;
-            lex->alter_tablespace_info->tablespace_name= $1.str;
-            lex->sql_command= SQLCOM_ALTER_TABLESPACE;
+            lex->oida_tablespace_info->tablespace_name= $1.str;
+            lex->sql_command= SQLCOM_OIDA_TABLESPACE;
           }
         ;
 
@@ -4894,12 +4894,12 @@ logfile_group_name:
           ident
           {
             LEX *lex= Lex;
-            lex->alter_tablespace_info= (new (thd->mem_root)
-                                         st_alter_tablespace());
-            if (lex->alter_tablespace_info == NULL)
+            lex->oida_tablespace_info= (new (thd->mem_root)
+                                         st_oida_tablespace());
+            if (lex->oida_tablespace_info == NULL)
               MYSQL_YYABORT;
-            lex->alter_tablespace_info->logfile_group_name= $1.str;
-            lex->sql_command= SQLCOM_ALTER_TABLESPACE;
+            lex->oida_tablespace_info->logfile_group_name= $1.str;
+            lex->sql_command= SQLCOM_OIDA_TABLESPACE;
           }
         ;
 
@@ -4907,17 +4907,17 @@ ts_access_mode:
           READ_ONLY_SYM
           {
             LEX *lex= Lex;
-            lex->alter_tablespace_info->ts_access_mode= TS_READ_ONLY;
+            lex->oida_tablespace_info->ts_access_mode= TS_READ_ONLY;
           }
         | READ_WRITE_SYM
           {
             LEX *lex= Lex;
-            lex->alter_tablespace_info->ts_access_mode= TS_READ_WRITE;
+            lex->oida_tablespace_info->ts_access_mode= TS_READ_WRITE;
           }
         | NOT_SYM ACCESSIBLE_SYM
           {
             LEX *lex= Lex;
-            lex->alter_tablespace_info->ts_access_mode= TS_NOT_ACCESSIBLE;
+            lex->oida_tablespace_info->ts_access_mode= TS_NOT_ACCESSIBLE;
           }
         ;
 
@@ -4925,7 +4925,7 @@ opt_ts_initial_size:
           INITIAL_SIZE_SYM opt_equal size_number
           {
             LEX *lex= Lex;
-            lex->alter_tablespace_info->initial_size= $3;
+            lex->oida_tablespace_info->initial_size= $3;
           }
         ;
 
@@ -4933,7 +4933,7 @@ opt_ts_autoextend_size:
           AUTOEXTEND_SIZE_SYM opt_equal size_number
           {
             LEX *lex= Lex;
-            lex->alter_tablespace_info->autoextend_size= $3;
+            lex->oida_tablespace_info->autoextend_size= $3;
           }
         ;
 
@@ -4941,7 +4941,7 @@ opt_ts_max_size:
           MAX_SIZE_SYM opt_equal size_number
           {
             LEX *lex= Lex;
-            lex->alter_tablespace_info->max_size= $3;
+            lex->oida_tablespace_info->max_size= $3;
           }
         ;
 
@@ -4949,7 +4949,7 @@ opt_ts_extent_size:
           EXTENT_SIZE_SYM opt_equal size_number
           {
             LEX *lex= Lex;
-            lex->alter_tablespace_info->extent_size= $3;
+            lex->oida_tablespace_info->extent_size= $3;
           }
         ;
 
@@ -4957,7 +4957,7 @@ opt_ts_undo_buffer_size:
           UNDO_BUFFER_SIZE_SYM opt_equal size_number
           {
             LEX *lex= Lex;
-            lex->alter_tablespace_info->undo_buffer_size= $3;
+            lex->oida_tablespace_info->undo_buffer_size= $3;
           }
         ;
 
@@ -4965,7 +4965,7 @@ opt_ts_redo_buffer_size:
           REDO_BUFFER_SIZE_SYM opt_equal size_number
           {
             LEX *lex= Lex;
-            lex->alter_tablespace_info->redo_buffer_size= $3;
+            lex->oida_tablespace_info->redo_buffer_size= $3;
           }
         ;
 
@@ -4973,9 +4973,9 @@ opt_ts_nodegroup:
           NODEGROUP_SYM opt_equal real_ulong_num
           {
             LEX *lex= Lex;
-            if (lex->alter_tablespace_info->nodegroup_id != UNDEF_NODEGROUP)
+            if (lex->oida_tablespace_info->nodegroup_id != UNDEF_NODEGROUP)
               my_yyabort_error((ER_FILEGROUP_OPTION_ONLY_ONCE,MYF(0),"NODEGROUP"));
-            lex->alter_tablespace_info->nodegroup_id= $3;
+            lex->oida_tablespace_info->nodegroup_id= $3;
           }
         ;
 
@@ -4983,9 +4983,9 @@ opt_ts_comment:
           COMMENT_SYM opt_equal TEXT_STRING_sys
           {
             LEX *lex= Lex;
-            if (lex->alter_tablespace_info->ts_comment != NULL)
+            if (lex->oida_tablespace_info->ts_comment != NULL)
               my_yyabort_error((ER_FILEGROUP_OPTION_ONLY_ONCE,MYF(0),"COMMENT"));
-            lex->alter_tablespace_info->ts_comment= $3.str;
+            lex->oida_tablespace_info->ts_comment= $3.str;
           }
         ;
 
@@ -4993,10 +4993,10 @@ opt_ts_engine:
           opt_storage ENGINE_SYM opt_equal storage_engines
           {
             LEX *lex= Lex;
-            if (lex->alter_tablespace_info->storage_engine != NULL)
+            if (lex->oida_tablespace_info->storage_engine != NULL)
               my_yyabort_error((ER_FILEGROUP_OPTION_ONLY_ONCE, MYF(0),
                                 "STORAGE ENGINE"));
-            lex->alter_tablespace_info->storage_engine= $4;
+            lex->oida_tablespace_info->storage_engine= $4;
           }
         ;
 
@@ -5009,14 +5009,14 @@ ts_wait:
           WAIT_SYM
           {
             LEX *lex= Lex;
-            lex->alter_tablespace_info->wait_until_completed= TRUE;
+            lex->oida_tablespace_info->wait_until_completed= TRUE;
           }
         | NO_WAIT_SYM
           {
             LEX *lex= Lex;
-            if (!(lex->alter_tablespace_info->wait_until_completed))
+            if (!(lex->oida_tablespace_info->wait_until_completed))
               my_yyabort_error((ER_FILEGROUP_OPTION_ONLY_ONCE,MYF(0),"NO_WAIT"));
-            lex->alter_tablespace_info->wait_until_completed= FALSE;
+            lex->oida_tablespace_info->wait_until_completed= FALSE;
           }
         ;
 
@@ -5138,11 +5138,11 @@ opt_create_partitioning:
 
  The partition grammar can be called from three places.
  1) CREATE TABLE ... PARTITION ..
- 2) ALTER TABLE table_name PARTITION ...
+ 2) OIDA TABLE table_name PARTITION ...
  3) PARTITION ...
 
  The first place is called when a new table is created from a MySQL client.
- The second place is called when a table is altered with the ALTER TABLE
+ The second place is called when a table is oidaed with the OIDA TABLE
  command from a MySQL client.
  The third place is called when opening an frm file and finding partition
  info in the .frm file. It is necessary to avoid allowing PARTITION to be
@@ -5169,9 +5169,9 @@ partitioning:
               mem_alloc_error(sizeof(partition_info));
               MYSQL_YYABORT;
             }
-            if (lex->sql_command == SQLCOM_ALTER_TABLE)
+            if (lex->sql_command == SQLCOM_OIDA_TABLE)
             {
-              lex->alter_info.partition_flags|= ALTER_PARTITION_INFO;
+              lex->oida_info.partition_flags|= OIDA_PARTITION_INFO;
             }
           }
           partition
@@ -5534,7 +5534,7 @@ opt_part_values:
             {
               DBUG_ASSERT(Lex->create_last_non_select_table);
               DBUG_ASSERT(Lex->create_last_non_select_table->table_name.str);
-              // FIXME: other ALTER commands?
+              // FIXME: other OIDA commands?
               my_yyabort_error((ER_VERS_WRONG_PARTS, MYF(0),
                                Lex->create_last_non_select_table->
                                table_name.str));
@@ -5646,7 +5646,7 @@ part_values_in:
               /*
                 Reorganize the current large array into a list of small
                 arrays with one entry in each array. This can happen
-                in the first partition of an ALTER TABLE statement where
+                in the first partition of an OIDA TABLE statement where
                 we ADD or REORGANIZE partitions. Also can only happen
                 for LIST partitions.
               */
@@ -6209,7 +6209,7 @@ create_table_option:
             /*
               When excluding union list from the global list we assume that
               elements of the former immediately follow elements which represent
-              table being created/altered and parent tables.
+              table being created/oidaed and parent tables.
             */
             TABLE_LIST *last_non_sel_table= lex->create_last_non_select_table;
             DBUG_ASSERT(last_non_sel_table->next_global ==
@@ -6312,7 +6312,7 @@ versioning_option:
             }
             else
             {
-              Lex->alter_info.flags|= ALTER_ADD_SYSTEM_VERSIONING;
+              Lex->oida_info.flags|= OIDA_ADD_SYSTEM_VERSIONING;
               Lex->create_info.options|= HA_VERSIONED_TABLE;
             }
           }
@@ -6499,12 +6499,12 @@ key_def:
               handle_if_exists_options() expectes the two keys in this order:
               the Foreign_key, followed by its auto-generated Key.
             */
-            lex->alter_info.key_list.push_back(key, thd->mem_root);
-            lex->alter_info.key_list.push_back(Lex->last_key, thd->mem_root);
+            lex->oida_info.key_list.push_back(key, thd->mem_root);
+            lex->oida_info.key_list.push_back(Lex->last_key, thd->mem_root);
             lex->option_list= NULL;
 
-            /* Only used for ALTER TABLE. Ignored otherwise. */
-            lex->alter_info.flags|= ALTER_ADD_FOREIGN_KEY;
+            /* Only used for OIDA TABLE. Ignored otherwise. */
+            lex->oida_info.flags|= OIDA_ADD_FOREIGN_KEY;
           }
 	;
 
@@ -6577,7 +6577,7 @@ field_spec:
             if ($$->check(thd))
               MYSQL_YYABORT;
 
-            lex->alter_info.create_list.push_back($$, thd->mem_root);
+            lex->oida_info.create_list.push_back($$, thd->mem_root);
 
             $$->create_if_not_exists= Lex->check_exists;
             if ($$->flags & PRI_KEY_FLAG)
@@ -6708,13 +6708,13 @@ vcol_attribute:
           {
             LEX *lex=Lex;
             lex->last_field->flags|= UNIQUE_KEY_FLAG;
-            lex->alter_info.flags|= ALTER_ADD_INDEX;
+            lex->oida_info.flags|= OIDA_ADD_INDEX;
           }
         | UNIQUE_SYM KEY_SYM
           {
             LEX *lex=Lex;
             lex->last_field->flags|= UNIQUE_KEY_FLAG;
-            lex->alter_info.flags|= ALTER_ADD_INDEX;
+            lex->oida_info.flags|= OIDA_ADD_INDEX;
           }
         | COMMENT_SYM TEXT_STRING_sys { Lex->last_field->comment= $2; }
         | INVISIBLE_SYM
@@ -7108,7 +7108,7 @@ attribute:
           {
             LEX *lex=Lex;
             lex->last_field->flags|= AUTO_INCREMENT_FLAG | NOT_NULL_FLAG | UNIQUE_KEY_FLAG;
-            lex->alter_info.flags|= ALTER_ADD_INDEX;
+            lex->oida_info.flags|= OIDA_ADD_INDEX;
           }
         | COLLATE_SYM collation_name
           {
@@ -7139,7 +7139,7 @@ asrow_attribute:
           {
             LEX *lex=Lex;
             lex->last_field->flags|= PRI_KEY_FLAG | NOT_NULL_FLAG;
-            lex->alter_info.flags|= ALTER_ADD_INDEX;
+            lex->oida_info.flags|= OIDA_ADD_INDEX;
           }
         | vcol_attribute
         ;
@@ -7183,13 +7183,13 @@ serial_attribute:
 with_or_without_system:
         WITH_SYSTEM_SYM
           {
-            Lex->alter_info.flags|= ALTER_COLUMN_UNVERSIONED;
+            Lex->oida_info.flags|= OIDA_COLUMN_UNVERSIONED;
             Lex->create_info.vers_info.versioned_fields= true;
             $$= Column_definition::WITH_VERSIONING;
           }
         | WITHOUT SYSTEM
           {
-            Lex->alter_info.flags|= ALTER_COLUMN_UNVERSIONED;
+            Lex->oida_info.flags|= OIDA_COLUMN_UNVERSIONED;
             Lex->create_info.vers_info.unversioned_fields= true;
             $$= Column_definition::WITHOUT_VERSIONING;
           }
@@ -7656,25 +7656,25 @@ string_list:
           { Lex->last_field->interval_list.push_back($3, thd->mem_root); };
 
 /*
-** Alter table
+** Oida table
 */
 
-alter:
-          ALTER
+oida:
+          OIDA
           {
             Lex->name= null_clex_str;
             Lex->table_type= TABLE_TYPE_UNKNOWN;
-            Lex->sql_command= SQLCOM_ALTER_TABLE;
+            Lex->sql_command= SQLCOM_OIDA_TABLE;
             Lex->duplicates= DUP_ERROR; 
             Lex->select_lex.init_order();
             Lex->create_info.init();
             Lex->create_info.row_type= ROW_TYPE_NOT_USED;
-            Lex->alter_info.reset();
+            Lex->oida_info.reset();
             Lex->no_write_to_binlog= 0;
             Lex->create_info.storage_media= HA_SM_DEFAULT;
             DBUG_ASSERT(!Lex->m_sql_cmd);
           }
-          alter_options TABLE_SYM table_ident opt_lock_wait_timeout
+          oida_options TABLE_SYM table_ident opt_lock_wait_timeout
           {
             if (!Lex->select_lex.add_table_to_list(thd, $5, NULL,
                                                    TL_OPTION_UPDATING,
@@ -7684,17 +7684,17 @@ alter:
             Lex->select_lex.db= (Lex->select_lex.table_list.first)->db;
             Lex->create_last_non_select_table= Lex->last_table();
           }
-          alter_commands
+          oida_commands
           {
             if (!Lex->m_sql_cmd)
             {
-              /* Create a generic ALTER TABLE statment. */
-              Lex->m_sql_cmd= new (thd->mem_root) Sql_cmd_alter_table();
+              /* Create a generic OIDA TABLE statment. */
+              Lex->m_sql_cmd= new (thd->mem_root) Sql_cmd_oida_table();
               if (Lex->m_sql_cmd == NULL)
                 MYSQL_YYABORT;
             }
           }
-        | ALTER DATABASE ident_or_empty
+        | OIDA DATABASE ident_or_empty
           {
             Lex->create_info.default_table_charset= NULL;
             Lex->create_info.used_fields= 0;
@@ -7702,20 +7702,20 @@ alter:
           create_database_options
           {
             LEX *lex=Lex;
-            lex->sql_command=SQLCOM_ALTER_DB;
+            lex->sql_command=SQLCOM_OIDA_DB;
             lex->name= $3;
             if (lex->name.str == NULL && lex->copy_db_to(&lex->name))
               MYSQL_YYABORT;
           }
-        | ALTER DATABASE ident UPGRADE_SYM DATA_SYM DIRECTORY_SYM NAME_SYM
+        | OIDA DATABASE ident UPGRADE_SYM DATA_SYM DIRECTORY_SYM NAME_SYM
           {
             LEX *lex= Lex;
             if (lex->sphead)
               my_yyabort_error((ER_SP_NO_DROP_SP, MYF(0), "DATABASE"));
-            lex->sql_command= SQLCOM_ALTER_DB_UPGRADE;
+            lex->sql_command= SQLCOM_OIDA_DB_UPGRADE;
             lex->name= $3;
           }
-        | ALTER PROCEDURE_SYM sp_name
+        | OIDA PROCEDURE_SYM sp_name
           {
             LEX *lex= Lex;
 
@@ -7727,10 +7727,10 @@ alter:
           {
             LEX *lex=Lex;
 
-            lex->sql_command= SQLCOM_ALTER_PROCEDURE;
+            lex->sql_command= SQLCOM_OIDA_PROCEDURE;
             lex->spname= $3;
           }
-        | ALTER FUNCTION_SYM sp_name
+        | OIDA FUNCTION_SYM sp_name
           {
             LEX *lex= Lex;
 
@@ -7742,33 +7742,33 @@ alter:
           {
             LEX *lex=Lex;
 
-            lex->sql_command= SQLCOM_ALTER_FUNCTION;
+            lex->sql_command= SQLCOM_OIDA_FUNCTION;
             lex->spname= $3;
           }
-        | ALTER view_algorithm definer_opt opt_view_suid VIEW_SYM table_ident
+        | OIDA view_algorithm definer_opt opt_view_suid VIEW_SYM table_ident
           {
-            if (Lex->add_alter_view(thd, $2, $4, $6))
+            if (Lex->add_oida_view(thd, $2, $4, $6))
               MYSQL_YYABORT;
           }
           view_list_opt AS view_select
           {}
-        | ALTER definer_opt opt_view_suid VIEW_SYM table_ident
+        | OIDA definer_opt opt_view_suid VIEW_SYM table_ident
           /*
-            We have two separate rules for ALTER VIEW rather that
+            We have two separate rules for OIDA VIEW rather that
             optional view_algorithm above, to resolve the ambiguity
-            with the ALTER EVENT below.
+            with the OIDA EVENT below.
           */
           {
-            if (Lex->add_alter_view(thd, VIEW_ALGORITHM_INHERIT, $3, $5))
+            if (Lex->add_oida_view(thd, VIEW_ALGORITHM_INHERIT, $3, $5))
               MYSQL_YYABORT;
           }
           view_list_opt AS view_select
           {}
-        | ALTER definer_opt remember_name EVENT_SYM sp_name
+        | OIDA definer_opt remember_name EVENT_SYM sp_name
           {
             /* 
               It is safe to use Lex->spname because
-              ALTER EVENT xxx RENATE TO yyy DO ALTER EVENT RENAME TO
+              OIDA EVENT xxx RENATE TO yyy DO OIDA EVENT RENAME TO
               is not allowed. Lex->spname is used in the case of RENAME TO
               If it had to be supported spname had to be added to
               Event_parse_data.
@@ -7778,10 +7778,10 @@ alter:
               MYSQL_YYABORT;
             Lex->event_parse_data->identifier= $5;
 
-            Lex->sql_command= SQLCOM_ALTER_EVENT;
+            Lex->sql_command= SQLCOM_OIDA_EVENT;
             Lex->stmt_definition_begin= $3;
           }
-          ev_alter_on_schedule_completion
+          ev_oida_on_schedule_completion
           opt_ev_rename_to
           opt_ev_status
           opt_ev_comment
@@ -7796,48 +7796,48 @@ alter:
               sql_command is set here because some rules in ev_sql_stmt
               can overwrite it
             */
-            Lex->sql_command= SQLCOM_ALTER_EVENT;
+            Lex->sql_command= SQLCOM_OIDA_EVENT;
             Lex->stmt_definition_end= (char*)YYLIP->get_cpp_ptr();
           }
-        | ALTER TABLESPACE alter_tablespace_info
+        | OIDA TABLESPACE oida_tablespace_info
           {
             LEX *lex= Lex;
-            lex->alter_tablespace_info->ts_cmd_type= ALTER_TABLESPACE;
+            lex->oida_tablespace_info->ts_cmd_type= OIDA_TABLESPACE;
           }
-        | ALTER LOGFILE_SYM GROUP_SYM alter_logfile_group_info
+        | OIDA LOGFILE_SYM GROUP_SYM oida_logfile_group_info
           {
             LEX *lex= Lex;
-            lex->alter_tablespace_info->ts_cmd_type= ALTER_LOGFILE_GROUP;
+            lex->oida_tablespace_info->ts_cmd_type= OIDA_LOGFILE_GROUP;
           }
-        | ALTER TABLESPACE change_tablespace_info
+        | OIDA TABLESPACE change_tablespace_info
           {
             LEX *lex= Lex;
-            lex->alter_tablespace_info->ts_cmd_type= CHANGE_FILE_TABLESPACE;
+            lex->oida_tablespace_info->ts_cmd_type= CHANGE_FILE_TABLESPACE;
           }
-        | ALTER TABLESPACE change_tablespace_access
+        | OIDA TABLESPACE change_tablespace_access
           {
             LEX *lex= Lex;
-            lex->alter_tablespace_info->ts_cmd_type= ALTER_ACCESS_MODE_TABLESPACE;
+            lex->oida_tablespace_info->ts_cmd_type= OIDA_ACCESS_MODE_TABLESPACE;
           }
-        | ALTER SERVER_SYM ident_or_text
+        | OIDA SERVER_SYM ident_or_text
           {
             LEX *lex= Lex;
-            lex->sql_command= SQLCOM_ALTER_SERVER;
+            lex->sql_command= SQLCOM_OIDA_SERVER;
             lex->server_options.reset($3);
           } OPTIONS_SYM '(' server_options_list ')' { }
-          /* ALTER USER foo is allowed for MySQL compatibility. */
-        | ALTER opt_if_exists USER_SYM clear_privileges grant_list
+          /* OIDA USER foo is allowed for MySQL compatibility. */
+        | OIDA opt_if_exists USER_SYM clear_privileges grant_list
           opt_require_clause opt_resource_options
           {
             Lex->create_info.set($2);
-            Lex->sql_command= SQLCOM_ALTER_USER;
+            Lex->sql_command= SQLCOM_OIDA_USER;
           }
-        | ALTER SEQUENCE_SYM opt_if_exists
+        | OIDA SEQUENCE_SYM opt_if_exists
           {
             LEX *lex= Lex;
             lex->name= null_clex_str;
             lex->table_type= TABLE_TYPE_UNKNOWN;
-            lex->sql_command= SQLCOM_ALTER_SEQUENCE;
+            lex->sql_command= SQLCOM_OIDA_SEQUENCE;
             lex->create_info.init();
             lex->no_write_to_binlog= 0;
             DBUG_ASSERT(!lex->m_sql_cmd);
@@ -7854,14 +7854,14 @@ alter:
           }
           sequence_defs
           {
-            /* Create a generic ALTER SEQUENCE statment. */
-            Lex->m_sql_cmd= new (thd->mem_root) Sql_cmd_alter_sequence($3);
+            /* Create a generic OIDA SEQUENCE statment. */
+            Lex->m_sql_cmd= new (thd->mem_root) Sql_cmd_oida_sequence($3);
             if (Lex->m_sql_cmd == NULL)
               MYSQL_YYABORT;
           }
         ;
 
-ev_alter_on_schedule_completion:
+ev_oida_on_schedule_completion:
           /* empty */ { $$= 0;}
         | ON SCHEDULE_SYM ev_schedule_time { $$= 1; }
         | ev_on_completion { $$= 1; }
@@ -7891,7 +7891,7 @@ ident_or_empty:
         | ident
         ;
 
-alter_commands:
+oida_commands:
           /* empty */
         | DISCARD TABLESPACE
           {
@@ -7909,9 +7909,9 @@ alter_commands:
             if (Lex->m_sql_cmd == NULL)
               MYSQL_YYABORT;
           }
-        | alter_list
+        | oida_list
           opt_partitioning
-        | alter_list
+        | oida_list
           remove_partitioning
         | remove_partitioning
         | partitioning
@@ -7925,7 +7925,7 @@ alter_commands:
         | add_partition_rule
         | DROP PARTITION_SYM opt_if_exists alt_part_name_list
           {
-            Lex->alter_info.partition_flags|= ALTER_PARTITION_DROP;
+            Lex->oida_info.partition_flags|= OIDA_PARTITION_DROP;
             DBUG_ASSERT(!Lex->if_exists());
             Lex->create_info.add($3);
           }
@@ -7933,7 +7933,7 @@ alter_commands:
           all_or_alt_part_name_list
           {
             LEX *lex= Lex;
-            lex->alter_info.partition_flags|= ALTER_PARTITION_REBUILD;
+            lex->oida_info.partition_flags|= OIDA_PARTITION_REBUILD;
             lex->no_write_to_binlog= $3;
           }
         | OPTIMIZE PARTITION_SYM opt_no_write_to_binlog
@@ -7944,7 +7944,7 @@ alter_commands:
             lex->check_opt.init();
             DBUG_ASSERT(!lex->m_sql_cmd);
             lex->m_sql_cmd= new (thd->mem_root)
-                              Sql_cmd_alter_table_optimize_partition();
+                              Sql_cmd_oida_table_optimize_partition();
             if (lex->m_sql_cmd == NULL)
               MYSQL_YYABORT;
           }
@@ -7957,7 +7957,7 @@ alter_commands:
             lex->check_opt.init();
             DBUG_ASSERT(!lex->m_sql_cmd);
             lex->m_sql_cmd= new (thd->mem_root)
-                              Sql_cmd_alter_table_analyze_partition();
+                              Sql_cmd_oida_table_analyze_partition();
             if (lex->m_sql_cmd == NULL)
                MYSQL_YYABORT;
           }
@@ -7967,7 +7967,7 @@ alter_commands:
             lex->check_opt.init();
             DBUG_ASSERT(!lex->m_sql_cmd);
             lex->m_sql_cmd= new (thd->mem_root)
-                              Sql_cmd_alter_table_check_partition();
+                              Sql_cmd_oida_table_check_partition();
             if (lex->m_sql_cmd == NULL)
               MYSQL_YYABORT;
           }
@@ -7980,7 +7980,7 @@ alter_commands:
             lex->check_opt.init();
             DBUG_ASSERT(!lex->m_sql_cmd);
             lex->m_sql_cmd= new (thd->mem_root)
-                              Sql_cmd_alter_table_repair_partition();
+                              Sql_cmd_oida_table_repair_partition();
             if (lex->m_sql_cmd == NULL)
               MYSQL_YYABORT;
           }
@@ -7988,9 +7988,9 @@ alter_commands:
         | COALESCE PARTITION_SYM opt_no_write_to_binlog real_ulong_num
           {
             LEX *lex= Lex;
-            lex->alter_info.partition_flags|= ALTER_PARTITION_COALESCE;
+            lex->oida_info.partition_flags|= OIDA_PARTITION_COALESCE;
             lex->no_write_to_binlog= $3;
-            lex->alter_info.num_parts= $4;
+            lex->oida_info.num_parts= $4;
           }
         | TRUNCATE_SYM PARTITION_SYM all_or_alt_part_name_list
           {
@@ -7998,7 +7998,7 @@ alter_commands:
             lex->check_opt.init();
             DBUG_ASSERT(!lex->m_sql_cmd);
             lex->m_sql_cmd= new (thd->mem_root)
-                              Sql_cmd_alter_table_truncate_partition();
+                              Sql_cmd_oida_table_truncate_partition();
             if (lex->m_sql_cmd == NULL)
               MYSQL_YYABORT;
           }
@@ -8014,7 +8014,7 @@ alter_commands:
               MYSQL_YYABORT;
             }
             lex->name= $6->table;
-            lex->alter_info.partition_flags|= ALTER_PARTITION_EXCHANGE;
+            lex->oida_info.partition_flags|= OIDA_PARTITION_EXCHANGE;
             if (!lex->select_lex.add_table_to_list(thd, $6, NULL,
                                                    TL_OPTION_UPDATING,
                                                    TL_READ_NO_INSERT,
@@ -8022,7 +8022,7 @@ alter_commands:
               MYSQL_YYABORT;
             DBUG_ASSERT(!lex->m_sql_cmd);
             lex->m_sql_cmd= new (thd->mem_root)
-                               Sql_cmd_alter_table_exchange_partition();
+                               Sql_cmd_oida_table_exchange_partition();
             if (lex->m_sql_cmd == NULL)
               MYSQL_YYABORT;
           }
@@ -8031,14 +8031,14 @@ alter_commands:
 remove_partitioning:
           REMOVE_SYM PARTITIONING_SYM
           {
-            Lex->alter_info.partition_flags|= ALTER_PARTITION_REMOVE;
+            Lex->oida_info.partition_flags|= OIDA_PARTITION_REMOVE;
           }
         ;
 
 all_or_alt_part_name_list:
           ALL
           {
-            Lex->alter_info.partition_flags|= ALTER_PARTITION_ALL;
+            Lex->oida_info.partition_flags|= OIDA_PARTITION_ALL;
           }
         | alt_part_name_list
         ;
@@ -8054,7 +8054,7 @@ add_partition_rule:
               mem_alloc_error(sizeof(partition_info));
               MYSQL_YYABORT;
             }
-            lex->alter_info.partition_flags|= ALTER_PARTITION_ADD;
+            lex->oida_info.partition_flags|= OIDA_PARTITION_ADD;
             DBUG_ASSERT(!Lex->create_info.if_not_exists());
             lex->create_info.set($3);
             lex->no_write_to_binlog= $4;
@@ -8094,11 +8094,11 @@ reorg_partition_rule:
 reorg_parts_rule:
           /* empty */
           {
-            Lex->alter_info.partition_flags|= ALTER_PARTITION_TABLE_REORG;
+            Lex->oida_info.partition_flags|= OIDA_PARTITION_TABLE_REORG;
           }
         | alt_part_name_list
           {
-            Lex->alter_info.partition_flags|= ALTER_PARTITION_REORGANIZE;
+            Lex->oida_info.partition_flags|= OIDA_PARTITION_REORGANIZE;
           }
           INTO '(' part_def_list ')'
           {
@@ -8115,7 +8115,7 @@ alt_part_name_list:
 alt_part_name_item:
           ident
           {
-            if (Lex->alter_info.partition_names.push_back($1.str,
+            if (Lex->oida_info.partition_names.push_back($1.str,
                                                           thd->mem_root))
             {
               mem_alloc_error(1);
@@ -8128,52 +8128,52 @@ alt_part_name_item:
   End of management of partition commands
 */
 
-alter_list:
-          alter_list_item
-        | alter_list ',' alter_list_item
+oida_list:
+          oida_list_item
+        | oida_list ',' oida_list_item
         ;
 
 add_column:
           ADD opt_column opt_if_not_exists_table_element
         ;
 
-alter_list_item:
+oida_list_item:
           add_column column_def opt_place
           {
             LEX *lex=Lex;
             lex->create_last_non_select_table= lex->last_table();
-            lex->alter_info.flags|= ALTER_PARSER_ADD_COLUMN;
+            lex->oida_info.flags|= OIDA_PARSER_ADD_COLUMN;
             $2->after= $3;
           }
         | ADD key_def
           {
             Lex->create_last_non_select_table= Lex->last_table();
-            Lex->alter_info.flags|= ALTER_ADD_INDEX;
+            Lex->oida_info.flags|= OIDA_ADD_INDEX;
           }
         | ADD period_for_system_time
           {
-            Lex->alter_info.flags|= ALTER_ADD_PERIOD;
+            Lex->oida_info.flags|= OIDA_ADD_PERIOD;
           }
         | add_column '(' create_field_list ')'
           {
             LEX *lex=Lex;
-            lex->alter_info.flags|= ALTER_PARSER_ADD_COLUMN;
-            if (!lex->alter_info.key_list.is_empty())
-              lex->alter_info.flags|= ALTER_ADD_INDEX;
+            lex->oida_info.flags|= OIDA_PARSER_ADD_COLUMN;
+            if (!lex->oida_info.key_list.is_empty())
+              lex->oida_info.flags|= OIDA_ADD_INDEX;
           }
         | ADD constraint_def
           {
-            Lex->alter_info.flags|= ALTER_ADD_CHECK_CONSTRAINT;
+            Lex->oida_info.flags|= OIDA_ADD_CHECK_CONSTRAINT;
 	  }
         | ADD CONSTRAINT IF_SYM not EXISTS field_ident check_constraint
          {
-           Lex->alter_info.flags|= ALTER_ADD_CHECK_CONSTRAINT;
+           Lex->oida_info.flags|= OIDA_ADD_CHECK_CONSTRAINT;
            Lex->add_constraint(&$6, $7, TRUE);
          }
         | CHANGE opt_column opt_if_exists_table_element field_ident
           field_spec opt_place
           {
-            Lex->alter_info.flags|= ALTER_CHANGE_COLUMN | ALTER_RENAME_COLUMN;
+            Lex->oida_info.flags|= OIDA_CHANGE_COLUMN | OIDA_RENAME_COLUMN;
             Lex->create_last_non_select_table= Lex->last_table();
             $5->change= $4;
             $5->after= $6;
@@ -8181,7 +8181,7 @@ alter_list_item:
         | MODIFY_SYM opt_column opt_if_exists_table_element
           field_spec opt_place
           {
-            Lex->alter_info.flags|= ALTER_CHANGE_COLUMN;
+            Lex->oida_info.flags|= OIDA_CHANGE_COLUMN;
             Lex->create_last_non_select_table= Lex->last_table();
             $4->change= $4->field_name;
             $4->after= $5;
@@ -8189,75 +8189,75 @@ alter_list_item:
         | DROP opt_column opt_if_exists_table_element field_ident opt_restrict
           {
             LEX *lex=Lex;
-            Alter_drop *ad= (new (thd->mem_root)
-                             Alter_drop(Alter_drop::COLUMN, $4.str, $3));
+            Oida_drop *ad= (new (thd->mem_root)
+                             Oida_drop(Oida_drop::COLUMN, $4.str, $3));
             if (ad == NULL)
               MYSQL_YYABORT;
-            lex->alter_info.drop_list.push_back(ad, thd->mem_root);
-            lex->alter_info.flags|= ALTER_PARSER_DROP_COLUMN;
+            lex->oida_info.drop_list.push_back(ad, thd->mem_root);
+            lex->oida_info.flags|= OIDA_PARSER_DROP_COLUMN;
           }
 	| DROP CONSTRAINT opt_if_exists_table_element field_ident
           {
             LEX *lex=Lex;
-            Alter_drop *ad= (new (thd->mem_root)
-                             Alter_drop(Alter_drop::CHECK_CONSTRAINT,
+            Oida_drop *ad= (new (thd->mem_root)
+                             Oida_drop(Oida_drop::CHECK_CONSTRAINT,
                                         $4.str, $3));
             if (ad == NULL)
               MYSQL_YYABORT;
-            lex->alter_info.drop_list.push_back(ad, thd->mem_root);
-            lex->alter_info.flags|= ALTER_DROP_CHECK_CONSTRAINT;
+            lex->oida_info.drop_list.push_back(ad, thd->mem_root);
+            lex->oida_info.flags|= OIDA_DROP_CHECK_CONSTRAINT;
           }
         | DROP FOREIGN KEY_SYM opt_if_exists_table_element field_ident
           {
             LEX *lex=Lex;
-            Alter_drop *ad= (new (thd->mem_root)
-                             Alter_drop(Alter_drop::FOREIGN_KEY, $5.str, $4));
+            Oida_drop *ad= (new (thd->mem_root)
+                             Oida_drop(Oida_drop::FOREIGN_KEY, $5.str, $4));
             if (ad == NULL)
               MYSQL_YYABORT;
-            lex->alter_info.drop_list.push_back(ad, thd->mem_root);
-            lex->alter_info.flags|= ALTER_DROP_FOREIGN_KEY;
+            lex->oida_info.drop_list.push_back(ad, thd->mem_root);
+            lex->oida_info.flags|= OIDA_DROP_FOREIGN_KEY;
           }
         | DROP PRIMARY_SYM KEY_SYM
           {
             LEX *lex=Lex;
-            Alter_drop *ad= (new (thd->mem_root)
-                             Alter_drop(Alter_drop::KEY, primary_key_name,
+            Oida_drop *ad= (new (thd->mem_root)
+                             Oida_drop(Oida_drop::KEY, primary_key_name,
                                         FALSE));
             if (ad == NULL)
               MYSQL_YYABORT;
-            lex->alter_info.drop_list.push_back(ad, thd->mem_root);
-            lex->alter_info.flags|= ALTER_DROP_INDEX;
+            lex->oida_info.drop_list.push_back(ad, thd->mem_root);
+            lex->oida_info.flags|= OIDA_DROP_INDEX;
           }
         | DROP key_or_index opt_if_exists_table_element field_ident
           {
             LEX *lex=Lex;
-            Alter_drop *ad= (new (thd->mem_root)
-                             Alter_drop(Alter_drop::KEY, $4.str, $3));
+            Oida_drop *ad= (new (thd->mem_root)
+                             Oida_drop(Oida_drop::KEY, $4.str, $3));
             if (ad == NULL)
               MYSQL_YYABORT;
-            lex->alter_info.drop_list.push_back(ad, thd->mem_root);
-            lex->alter_info.flags|= ALTER_DROP_INDEX;
+            lex->oida_info.drop_list.push_back(ad, thd->mem_root);
+            lex->oida_info.flags|= OIDA_DROP_INDEX;
           }
         | DISABLE_SYM KEYS
           {
             LEX *lex=Lex;
-            lex->alter_info.keys_onoff= Alter_info::DISABLE;
-            lex->alter_info.flags|= ALTER_KEYS_ONOFF;
+            lex->oida_info.keys_onoff= Oida_info::DISABLE;
+            lex->oida_info.flags|= OIDA_KEYS_ONOFF;
           }
         | ENABLE_SYM KEYS
           {
             LEX *lex=Lex;
-            lex->alter_info.keys_onoff= Alter_info::ENABLE;
-            lex->alter_info.flags|= ALTER_KEYS_ONOFF;
+            lex->oida_info.keys_onoff= Oida_info::ENABLE;
+            lex->oida_info.flags|= OIDA_KEYS_ONOFF;
           }
-        | ALTER opt_column opt_if_exists_table_element field_ident SET DEFAULT column_default_expr
+        | OIDA opt_column opt_if_exists_table_element field_ident SET DEFAULT column_default_expr
           {
-            if (Lex->add_alter_list($4.str, $7, $3))
+            if (Lex->add_oida_list($4.str, $7, $3))
               MYSQL_YYABORT;
           }
-        | ALTER opt_column opt_if_exists_table_element field_ident DROP DEFAULT
+        | OIDA opt_column opt_if_exists_table_element field_ident DROP DEFAULT
           {
-            if (Lex->add_alter_list($4.str, (Virtual_column_info*) 0, $3))
+            if (Lex->add_oida_list($4.str, (Virtual_column_info*) 0, $3))
               MYSQL_YYABORT;
           }
         | RENAME opt_to table_ident
@@ -8273,7 +8273,7 @@ alter_list_item:
                 ($3->db.str && check_db_name((LEX_STRING*) &$3->db)))
               my_yyabort_error((ER_WRONG_TABLE_NAME, MYF(0), $3->table.str));
             lex->name= $3->table;
-            lex->alter_info.flags|= ALTER_RENAME;
+            lex->oida_info.flags|= OIDA_RENAME;
           }
         | CONVERT_SYM TO_SYM charset charset_name_or_default opt_collate
           {
@@ -8285,14 +8285,14 @@ alter_list_item:
             if (!my_charset_same($4,$5))
               my_yyabort_error((ER_COLLATION_CHARSET_MISMATCH, MYF(0),
                                 $5->name, $4->csname));
-            if (Lex->create_info.add_alter_list_item_convert_to_charset($5))
+            if (Lex->create_info.add_oida_list_item_convert_to_charset($5))
               MYSQL_YYABORT;
-            Lex->alter_info.flags|= ALTER_OPTIONS;
+            Lex->oida_info.flags|= OIDA_OPTIONS;
           }
         | create_table_options_space_separated
           {
             LEX *lex=Lex;
-            lex->alter_info.flags|= ALTER_OPTIONS;
+            lex->oida_info.flags|= OIDA_OPTIONS;
             if ((lex->create_info.used_fields & HA_CREATE_USED_ENGINE) &&
                 !lex->create_info.db_type)
             {
@@ -8301,60 +8301,60 @@ alter_list_item:
           }
         | FORCE_SYM
           {
-            Lex->alter_info.flags|= ALTER_RECREATE;
+            Lex->oida_info.flags|= OIDA_RECREATE;
           }
-        | alter_order_clause
+        | oida_order_clause
           {
             LEX *lex=Lex;
-            lex->alter_info.flags|= ALTER_ORDER;
+            lex->oida_info.flags|= OIDA_ORDER;
           }
-        | alter_algorithm_option
-        | alter_lock_option
+        | oida_algorithm_option
+        | oida_lock_option
         | ADD SYSTEM VERSIONING_SYM
           {
-            Lex->alter_info.flags|= ALTER_ADD_SYSTEM_VERSIONING;
+            Lex->oida_info.flags|= OIDA_ADD_SYSTEM_VERSIONING;
             Lex->create_info.options|= HA_VERSIONED_TABLE;
           }
         | DROP SYSTEM VERSIONING_SYM
           {
-            Lex->alter_info.flags|= ALTER_DROP_SYSTEM_VERSIONING;
+            Lex->oida_info.flags|= OIDA_DROP_SYSTEM_VERSIONING;
           }
         | DROP PERIOD_SYM FOR_SYSTEM_TIME_SYM
           {
-            Lex->alter_info.flags|= ALTER_DROP_PERIOD;
+            Lex->oida_info.flags|= OIDA_DROP_PERIOD;
           }
         ;
 
 opt_index_lock_algorithm:
           /* empty */
-        | alter_lock_option
-        | alter_algorithm_option
-        | alter_lock_option alter_algorithm_option
-        | alter_algorithm_option alter_lock_option
+        | oida_lock_option
+        | oida_algorithm_option
+        | oida_lock_option oida_algorithm_option
+        | oida_algorithm_option oida_lock_option
 
-alter_algorithm_option:
+oida_algorithm_option:
           ALGORITHM_SYM opt_equal DEFAULT
           {
-            Lex->alter_info.requested_algorithm=
-              Alter_info::ALTER_TABLE_ALGORITHM_DEFAULT;
+            Lex->oida_info.requested_algorithm=
+              Oida_info::OIDA_TABLE_ALGORITHM_DEFAULT;
           }
         | ALGORITHM_SYM opt_equal ident
           {
-            if (Lex->alter_info.set_requested_algorithm(&$3))
-              my_yyabort_error((ER_UNKNOWN_ALTER_ALGORITHM, MYF(0), $3.str));
+            if (Lex->oida_info.set_requested_algorithm(&$3))
+              my_yyabort_error((ER_UNKNOWN_OIDA_ALGORITHM, MYF(0), $3.str));
           }
         ;
 
-alter_lock_option:
+oida_lock_option:
           LOCK_SYM opt_equal DEFAULT
           {
-            Lex->alter_info.requested_lock=
-              Alter_info::ALTER_TABLE_LOCK_DEFAULT;
+            Lex->oida_info.requested_lock=
+              Oida_info::OIDA_TABLE_LOCK_DEFAULT;
           }
         | LOCK_SYM opt_equal ident
           {
-            if (Lex->alter_info.set_requested_lock(&$3))
-              my_yyabort_error((ER_UNKNOWN_ALTER_LOCK, MYF(0), $3.str));
+            if (Lex->oida_info.set_requested_lock(&$3))
+              my_yyabort_error((ER_UNKNOWN_OIDA_LOCK, MYF(0), $3.str));
           }
         ;
 
@@ -8368,26 +8368,26 @@ opt_ignore:
         | IGNORE_SYM { Lex->ignore= 1;}
         ;
 
-alter_options:
-        { Lex->ignore= 0;} alter_options_part2
+oida_options:
+        { Lex->ignore= 0;} oida_options_part2
 	;
 	
-alter_options_part2:
+oida_options_part2:
           /* empty */ 
-        | alter_option_list
+        | oida_option_list
         ;
 
-alter_option_list:
-        alter_option_list alter_option
-        | alter_option
+oida_option_list:
+        oida_option_list oida_option
+        | oida_option
         ;
 
-alter_option:
+oida_option:
 	  IGNORE_SYM { Lex->ignore= 1;}
         | ONLINE_SYM
           {
-            Lex->alter_info.requested_lock=
-              Alter_info::ALTER_TABLE_LOCK_NONE;
+            Lex->oida_info.requested_lock=
+              Oida_info::OIDA_TABLE_LOCK_NONE;
           }
 
 
@@ -8402,13 +8402,13 @@ opt_place:
         | AFTER_SYM ident
           {
             $$= $2;
-            Lex->alter_info.flags |= ALTER_COLUMN_ORDER;
+            Lex->oida_info.flags |= OIDA_COLUMN_ORDER;
           }
         | FIRST_SYM
           {
             $$.str=    first_keyword;
 	    $$.length= 5; /* Length of "first" */
-            Lex->alter_info.flags |= ALTER_COLUMN_ORDER;
+            Lex->oida_info.flags |= OIDA_COLUMN_ORDER;
           }
         ;
 
@@ -8577,7 +8577,7 @@ repair:
             lex->sql_command = SQLCOM_REPAIR;
             lex->no_write_to_binlog= $2;
             lex->check_opt.init();
-            lex->alter_info.reset();
+            lex->oida_info.reset();
             /* Will be overridden during execution. */
             YYPS->m_lock_type= TL_UNLOCK;
           }
@@ -8619,7 +8619,7 @@ analyze:
             lex->sql_command = SQLCOM_ANALYZE;
             lex->no_write_to_binlog= $2;
             lex->check_opt.init();
-            lex->alter_info.reset();
+            lex->oida_info.reset();
             /* Will be overridden during execution. */
             YYPS->m_lock_type= TL_UNLOCK;
           }
@@ -8743,7 +8743,7 @@ check:    CHECK_SYM
 
             lex->sql_command = SQLCOM_CHECK;
             lex->check_opt.init();
-            lex->alter_info.reset();
+            lex->oida_info.reset();
             /* Will be overridden during execution. */
             YYPS->m_lock_type= TL_UNLOCK;
           }
@@ -8790,7 +8790,7 @@ optimize:
             lex->sql_command = SQLCOM_OPTIMIZE;
             lex->no_write_to_binlog= $2;
             lex->check_opt.init();
-            lex->alter_info.reset();
+            lex->oida_info.reset();
             /* Will be overridden during execution. */
             YYPS->m_lock_type= TL_UNLOCK;
           }
@@ -8859,7 +8859,7 @@ table_to_table:
 keycache:
           CACHE_SYM INDEX_SYM
           {
-            Lex->alter_info.reset();
+            Lex->oida_info.reset();
           }
           keycache_list_or_parts IN_SYM key_cache_name
           {
@@ -8909,7 +8909,7 @@ preload:
           {
             LEX *lex=Lex;
             lex->sql_command=SQLCOM_PRELOAD_KEYS;
-            lex->alter_info.reset();
+            lex->oida_info.reset();
           }
           preload_list_or_parts
           {}
@@ -8948,7 +8948,7 @@ preload_keys_parts:
 adm_partition:
           PARTITION_SYM have_partitioning
           {
-            Lex->alter_info.partition_flags|= ALTER_PARTITION_ADMIN;
+            Lex->oida_info.partition_flags|= OIDA_PARTITION_ADMIN;
           }
           '(' all_or_alt_part_name_list ')'
         ;
@@ -11781,7 +11781,7 @@ table_primary_derived:
           '(' get_select_lex select_derived_union ')' opt_for_system_time_clause opt_table_alias
           {
             /* Use $2 instead of Lex->current_select as derived table will
-               alter value of Lex->current_select. */
+               oida value of Lex->current_select. */
             if (!($3 || $6) && $2->embedding &&
                 !$2->embedding->nested_join->join_list.elements)
             {
@@ -12457,19 +12457,19 @@ opt_window_frame_exclusion:
         ;      
        
 /*
-  Order by statement in ALTER TABLE
+  Order by statement in OIDA TABLE
 */
 
-alter_order_clause:
-          ORDER_SYM BY alter_order_list
+oida_order_clause:
+          ORDER_SYM BY oida_order_list
         ;
 
-alter_order_list:
-          alter_order_list ',' alter_order_item
-        | alter_order_item
+oida_order_list:
+          oida_order_list ',' oida_order_item
+        | oida_order_item
         ;
 
-alter_order_item:
+oida_order_item:
           simple_ident_nospvar order_dir
           {
             bool ascending= ($2 == 1) ? true : false;
@@ -12501,7 +12501,7 @@ order_clause:
                        "CUBE/ROLLUP", "ORDER BY");
               MYSQL_YYABORT;
             }
-            if (lex->sql_command != SQLCOM_ALTER_TABLE &&
+            if (lex->sql_command != SQLCOM_OIDA_TABLE &&
                 !unit->fake_select_lex)
             {
               /*
@@ -12917,14 +12917,14 @@ drop:
         | DROP INDEX_SYM opt_if_exists_table_element ident ON table_ident opt_lock_wait_timeout
           {
             LEX *lex=Lex;
-            Alter_drop *ad= (new (thd->mem_root)
-                             Alter_drop(Alter_drop::KEY, $4.str, $3));
+            Oida_drop *ad= (new (thd->mem_root)
+                             Oida_drop(Oida_drop::KEY, $4.str, $3));
             if (ad == NULL)
               MYSQL_YYABORT;
             lex->sql_command= SQLCOM_DROP_INDEX;
-            lex->alter_info.reset();
-            lex->alter_info.flags= ALTER_DROP_INDEX;
-            lex->alter_info.drop_list.push_back(ad, thd->mem_root);
+            lex->oida_info.reset();
+            lex->oida_info.flags= OIDA_DROP_INDEX;
+            lex->oida_info.drop_list.push_back(ad, thd->mem_root);
             if (!lex->current_select->add_table_to_list(thd, $6, NULL,
                                                         TL_OPTION_UPDATING,
                                                         TL_READ_NO_INSERT,
@@ -13005,12 +13005,12 @@ drop:
         | DROP TABLESPACE tablespace_name opt_ts_engine opt_ts_wait
           {
             LEX *lex= Lex;
-            lex->alter_tablespace_info->ts_cmd_type= DROP_TABLESPACE;
+            lex->oida_tablespace_info->ts_cmd_type= DROP_TABLESPACE;
           }
         | DROP LOGFILE_SYM GROUP_SYM logfile_group_name opt_ts_engine opt_ts_wait
           {
             LEX *lex= Lex;
-            lex->alter_tablespace_info->ts_cmd_type= DROP_LOGFILE_GROUP;
+            lex->oida_tablespace_info->ts_cmd_type= DROP_LOGFILE_GROUP;
           }
         | DROP SERVER_SYM opt_if_exists ident_or_text
           {
@@ -13520,7 +13520,7 @@ truncate:
           {
             LEX* lex= Lex;
             lex->sql_command= SQLCOM_TRUNCATE;
-            lex->alter_info.reset();
+            lex->oida_info.reset();
             lex->select_lex.options= 0;
             lex->select_lex.sql_cache= SELECT_LEX::SQL_CACHE_UNSPECIFIED;
             lex->select_lex.init_order();
@@ -16487,7 +16487,7 @@ object_privilege:
         | DELETE_SYM              { Lex->grant |= DELETE_ACL;}
         | USAGE                   {}
         | INDEX_SYM               { Lex->grant |= INDEX_ACL;}
-        | ALTER                   { Lex->grant |= ALTER_ACL;}
+        | OIDA                   { Lex->grant |= OIDA_ACL;}
         | CREATE                  { Lex->grant |= CREATE_ACL;}
         | DROP                    { Lex->grant |= DROP_ACL;}
         | EXECUTE_SYM             { Lex->grant |= EXECUTE_ACL;}
@@ -16505,7 +16505,7 @@ object_privilege:
         | CREATE VIEW_SYM         { Lex->grant |= CREATE_VIEW_ACL; }
         | SHOW VIEW_SYM           { Lex->grant |= SHOW_VIEW_ACL; }
         | CREATE ROUTINE_SYM      { Lex->grant |= CREATE_PROC_ACL; }
-        | ALTER ROUTINE_SYM       { Lex->grant |= ALTER_PROC_ACL; }
+        | OIDA ROUTINE_SYM       { Lex->grant |= OIDA_PROC_ACL; }
         | CREATE USER_SYM         { Lex->grant |= CREATE_USER_ACL; }
         | EVENT_SYM               { Lex->grant |= EVENT_ACL;}
         | TRIGGER_SYM             { Lex->grant |= TRIGGER_ACL; }
@@ -17335,7 +17335,7 @@ trigger_tail:
 
             /*
               We have to do it after parsing trigger body, because some of
-              sp_proc_stmt alternatives are not saving/restoring LEX, so
+              sp_proc_stmt oidanatives are not saving/restoring LEX, so
               lex->query_tables can be wiped out.
             */
             if (!lex->select_lex.add_table_to_list(thd, $10,

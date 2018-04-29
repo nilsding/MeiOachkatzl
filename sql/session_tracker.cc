@@ -264,7 +264,7 @@ public:
   Attributes that contribute to session state change include:
      - Successful change to System variables
      - User defined variables assignments
-     - temporary tables created, altered or deleted
+     - temporary tables created, oidaed or deleted
      - prepared statements added or removed
      - change in current database
      - change of current role

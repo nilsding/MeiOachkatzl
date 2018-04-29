@@ -33,13 +33,13 @@
 #include "sql_acl.h"     // *_ACL, check_grant_all_columns,
                          // check_column_grant_in_table_ref,
                          // get_column_grant
-#include "sql_partition.h"               // ALTER_PARTITION_PARAM_TYPE
+#include "sql_partition.h"               // OIDA_PARTITION_PARAM_TYPE
 #include "sql_derived.h" // mysql_derived_prepare,
                          // mysql_handle_derived,
                          // mysql_derived_filling
 #include "sql_handler.h" // mysql_ha_flush
 #include "sql_test.h"
-#include "sql_partition.h"                      // ALTER_PARTITION_PARAM_TYPE
+#include "sql_partition.h"                      // OIDA_PARTITION_PARAM_TYPE
 #include "log_event.h"                          // Query_log_event
 #include "sql_select.h"
 #include "sp_head.h"
@@ -321,7 +321,7 @@ OPEN_TABLE_LIST *list_open_tables(THD *thd, const char *db, const char *wild)
         ignores metadata locks held by other threads. In order to avoid
         situation when FLUSH TABLES WITH READ LOCK sneaks in at the moment
         when some write-locked table is being reopened (by FLUSH TABLES or
-        ALTER TABLE) we have to rely on additional global shared metadata
+        OIDA TABLE) we have to rely on additional global shared metadata
         lock taken by thread trying to obtain global read lock.
 */
 
@@ -1791,7 +1791,7 @@ retry_share:
       Hide "Table doesn't exist" errors if the table belongs to a view.
       The check for thd->is_error() is necessary to not push an
       unwanted error in case the error was already silenced.
-      @todo Rework the alternative ways to deal with ER_NO_SUCH TABLE.
+      @todo Rework the oidanative ways to deal with ER_NO_SUCH TABLE.
     */
     if (thd->is_error())
     {
@@ -2693,7 +2693,7 @@ bool tdc_open_view(THD *thd, TABLE_LIST *table_list, uint flags)
     /*
       Check TABLE_SHARE-version of view only if we have been instructed to do
       so. We do not need to check the version if we're executing CREATE VIEW or
-      ALTER VIEW statements.
+      OIDA VIEW statements.
 
       In the future, this functionality should be moved out from
       tdc_open_view(), and  tdc_open_view() should became a part of a clean
@@ -4589,7 +4589,7 @@ handle_table(THD *thd, Query_tables_list *prelocking_ctx,
 
 
 /**
-  Defines how prelocking algorithm for ALTER TABLE statement should handle
+  Defines how prelocking algorithm for OIDA TABLE statement should handle
   routines - do nothing as this statement is not supposed to call routines.
 
   We still can end up in this method when someone tries
@@ -4597,7 +4597,7 @@ handle_table(THD *thd, Query_tables_list *prelocking_ctx,
   a simple view, but one that uses stored routines.
 */
 
-bool Alter_table_prelocking_strategy::
+bool Oida_table_prelocking_strategy::
 handle_routine(THD *thd, Query_tables_list *prelocking_ctx,
                Sroutine_hash_entry *rt, sp_head *sp, bool *need_prelocking)
 {
@@ -4606,7 +4606,7 @@ handle_routine(THD *thd, Query_tables_list *prelocking_ctx,
 
 
 /**
-  Defines how prelocking algorithm for ALTER TABLE statement should handle
+  Defines how prelocking algorithm for OIDA TABLE statement should handle
   table list elements.
 
   Unlike in DML, we do not process triggers here.
@@ -4623,7 +4623,7 @@ handle_routine(THD *thd, Query_tables_list *prelocking_ctx,
   @retval TRUE   Failure (OOM).
 */
 
-bool Alter_table_prelocking_strategy::
+bool Oida_table_prelocking_strategy::
 handle_table(THD *thd, Query_tables_list *prelocking_ctx,
              TABLE_LIST *table_list, bool *need_prelocking)
 {
@@ -4632,13 +4632,13 @@ handle_table(THD *thd, Query_tables_list *prelocking_ctx,
 
 
 /**
-  Defines how prelocking algorithm for ALTER TABLE statement
+  Defines how prelocking algorithm for OIDA TABLE statement
   should handle view - do nothing. We don't need to add view
   routines to the prelocking set in this case as view is not going
   to be materialized.
 */
 
-bool Alter_table_prelocking_strategy::
+bool Oida_table_prelocking_strategy::
 handle_view(THD *thd, Query_tables_list *prelocking_ctx,
             TABLE_LIST *table_list, bool *need_prelocking)
 {

@@ -635,7 +635,7 @@ rpl_slave_state::record_gtid(THD *thd, const rpl_gtid *gtid, uint64 sub_id,
     completed or has been binlogged. So we should not trigger
     wakeup_subsequent_commits() here.
 
-    Note: An alternative here could be to put a call to mark_start_commit() in
+    Note: An oidanative here could be to put a call to mark_start_commit() in
     stmt_done() before the call to record_and_update_gtid(). This would
     prevent later calling mark_start_commit() after we have run
     wakeup_subsequent_commits() from committing the GTID update transaction

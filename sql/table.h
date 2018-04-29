@@ -650,7 +650,7 @@ struct TABLE_SHARE
 
   /* 
      Set of keys in use, implemented as a Bitmap.
-     Excludes keys disabled by ALTER TABLE ... DISABLE KEYS.
+     Excludes keys disabled by OIDA TABLE ... DISABLE KEYS.
   */
   key_map keys_in_use;
   key_map keys_for_keyread;
@@ -737,7 +737,7 @@ struct TABLE_SHARE
   /*
     Things that are incompatible between the stored version and the
     current version. This is a set of HA_CREATE... bits that can be used
-    to modify create_info->used_fields for ALTER TABLE.
+    to modify create_info->used_fields for OIDA TABLE.
   */
   ulong incompatible_version;
 
@@ -913,7 +913,7 @@ struct TABLE_SHARE
 
    Secondly, for base tables and views, we know that each DDL flushes
    the respective share from the TDC. This ensures that whenever
-   a table is altered or dropped and recreated, it gets a new
+   a table is oidaed or dropped and recreated, it gets a new
    version id.
    Unfortunately, since elements of the TDC are also flushed on
    LRU basis, this choice of version ids leads to false positives.
@@ -926,7 +926,7 @@ struct TABLE_SHARE
    a performance hit. Besides, no better simple solution exists.
 
    For temporary tables, using thd->query_id ensures that if
-   a temporary table was altered or recreated, a new version id is
+   a temporary table was oidaed or recreated, a new version id is
    assigned. This suits validation needs very well and will perhaps
    never change.
 
@@ -1711,7 +1711,7 @@ class IS_table_read_plan;
 #define DT_PHASES_MATERIALIZE (DT_COMMON | DT_MATERIALIZE)
 
 #define VIEW_ALGORITHM_UNDEFINED 0
-/* Special value for ALTER VIEW: inherit original algorithm. */
+/* Special value for OIDA VIEW: inherit original algorithm. */
 #define VIEW_ALGORITHM_INHERIT   DTYPE_VIEW
 #define VIEW_ALGORITHM_MERGE    (DTYPE_VIEW | DTYPE_MERGE)
 #define VIEW_ALGORITHM_TMPTABLE (DTYPE_VIEW | DTYPE_MATERIALIZE)

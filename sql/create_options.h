@@ -16,7 +16,7 @@
 /**
   @file
 
-  Engine defined options of tables/fields/keys in CREATE/ALTER TABLE.
+  Engine defined options of tables/fields/keys in CREATE/OIDA TABLE.
 */
 
 #ifndef SQL_CREATE_OPTIONS_INCLUDED

@@ -579,7 +579,7 @@ bool THD::rename_temporary_table(TABLE *table,
 
   This function is used to drop user temporary tables, as well as
   internal tables created in CREATE TEMPORARY TABLE ... SELECT
-  or ALTER TABLE.
+  or OIDA TABLE.
 
   @param table [IN]                   Temporary table to be deleted
   @param is_trans [OUT]               Is set to the type of the table:
@@ -957,7 +957,7 @@ TMP_TABLE_SHARE *THD::create_temporary_table(handlerton *hton,
 
   /*
     Prefer using frm image over file. The image might not be available in
-    ALTER TABLE, when the discovering engine took over the ownership (see
+    OIDA TABLE, when the discovering engine took over the ownership (see
     TABLE::read_frm_image).
   */
   res= (frm->str)

@@ -977,7 +977,7 @@ bool Protocol::send_result_set_row(List<Item> *row_items)
   for (Item *item= it++; item; item= it++)
   {
     /*
-      ValueBuffer::m_string can be altered during Item::send().
+      ValueBuffer::m_string can be oidaed during Item::send().
       It's important to declare value_buffer inside the loop,
       to have ValueBuffer::m_string point to ValueBuffer::buffer
       on every iteration.

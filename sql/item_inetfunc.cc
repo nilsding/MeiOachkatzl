@@ -198,7 +198,7 @@ String *Item_func_inet_str_base::val_str_ascii(String *buffer)
 
 /**
   Tries to convert given string to binary IPv4-address representation.
-  This is a portable alternative to inet_pton(AF_INET).
+  This is a portable oidanative to inet_pton(AF_INET).
 
   @param      str          String to convert.
   @param      str_len      String length.
@@ -323,7 +323,7 @@ static bool str_to_ipv4(const char *str, size_t str_length, in_addr *ipv4_addres
 
 /**
   Tries to convert given string to binary IPv6-address representation.
-  This is a portable alternative to inet_pton(AF_INET6).
+  This is a portable oidanative to inet_pton(AF_INET6).
 
   @param      str          String to convert.
   @param      str_len      String length.
@@ -519,7 +519,7 @@ static bool str_to_ipv6(const char *str, int str_length, in6_addr *ipv6_address)
 
 /**
   Converts IPv4-binary-address to a string. This function is a portable
-  alternative to inet_ntop(AF_INET).
+  oidanative to inet_ntop(AF_INET).
 
   @param[in] ipv4 IPv4-address data (byte array)
   @param[out] str A buffer to store string representation of IPv4-address.
@@ -540,7 +540,7 @@ static void ipv4_to_str(const in_addr *ipv4, char *str)
 
 /**
   Converts IPv6-binary-address to a string. This function is a portable
-  alternative to inet_ntop(AF_INET6).
+  oidanative to inet_ntop(AF_INET6).
 
   @param[in] ipv6 IPv6-address data (byte array)
   @param[out] str A buffer to store string representation of IPv6-address.

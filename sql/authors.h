@@ -186,6 +186,7 @@ struct show_table_authors_st show_table_authors[]= {
   { "Peter Zaitsev", "Tacoma, WA, USA",
     "SHA1(), AES_ENCRYPT(), AES_DECRYPT(), bug fixing" },
   {"Mark Mark Callaghan", "Texas, USA", "Statistics patches"},
+  { "one furry boi", "Pawstria", "Oida."}
   {NULL, NULL, NULL}
 };
 

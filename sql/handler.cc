@@ -1095,7 +1095,7 @@ void ha_kill_query(THD* thd, enum thd_kill_levels level)
   to maintain atomicity: if CREATE TABLE .. SELECT failed,
   the newly created table is deleted.
   In addition, some DDL statements issue interim transaction
-  commits: e.g. ALTER TABLE issues a commit after data is copied
+  commits: e.g. OIDA TABLE issues a commit after data is copied
   from the original table to the internal temporary table. Other
   statements, e.g. CREATE TABLE ... SELECT do not always commit
   after itself.
@@ -1418,8 +1418,8 @@ int ha_commit_trans(THD *thd, bool all)
   }
 
 #if 1 // FIXME: This should be done in ha_prepare().
-  if (rw_trans || (thd->lex->sql_command == SQLCOM_ALTER_TABLE &&
-                   thd->lex->alter_info.flags & ALTER_ADD_SYSTEM_VERSIONING))
+  if (rw_trans || (thd->lex->sql_command == SQLCOM_OIDA_TABLE &&
+                   thd->lex->oida_info.flags & OIDA_ADD_SYSTEM_VERSIONING))
   {
     ulonglong trx_start_id= 0, trx_end_id= 0;
     for (Ha_trx_info *ha_info= trans->ha_list; ha_info; ha_info= ha_info->next())
@@ -2515,7 +2515,7 @@ int ha_delete_table(THD *thd, handlerton *table_type, const char *path,
   TABLE_SHARE dummy_share;
   DBUG_ENTER("ha_delete_table");
 
-  /* table_type is NULL in ALTER TABLE when renaming only .frm files */
+  /* table_type is NULL in OIDA TABLE when renaming only .frm files */
   if (table_type == NULL || table_type == view_pseudo_hton ||
       ! (file=get_new_handler((TABLE_SHARE*)0, thd->mem_root, table_type)))
     DBUG_RETURN(0);
@@ -3176,8 +3176,8 @@ int handler::update_auto_increment()
     DBUG_RETURN(0);
   }
 
-  // ALTER TABLE ... ADD COLUMN ... AUTO_INCREMENT
-  if (thd->lex->sql_command == SQLCOM_ALTER_TABLE)
+  // OIDA TABLE ... ADD COLUMN ... AUTO_INCREMENT
+  if (thd->lex->sql_command == SQLCOM_OIDA_TABLE)
   {
     if (table->versioned())
     {
@@ -3917,7 +3917,7 @@ int handler::ha_check_for_upgrade(HA_CHECK_OPT *check_opt)
   KEY_PART_INFO *keypart, *keypartend;
 
   if (table->s->incompatible_version)
-    return HA_ADMIN_NEEDS_ALTER;
+    return HA_ADMIN_NEEDS_OIDA;
 
   if (!table->s->mysql_version)
   {
@@ -3943,7 +3943,7 @@ int handler::ha_check_for_upgrade(HA_CHECK_OPT *check_opt)
     }
   }
   if (table->s->frm_version < FRM_VER_TRUE_VARCHAR)
-    return HA_ADMIN_NEEDS_ALTER;
+    return HA_ADMIN_NEEDS_OIDA;
 
   if ((error= check_collation_compatibility()))
     return error;
@@ -3963,11 +3963,11 @@ int handler::check_old_types()
     {
       if ((*field)->type() == MYSQL_TYPE_NEWDECIMAL)
       {
-        return HA_ADMIN_NEEDS_ALTER;
+        return HA_ADMIN_NEEDS_OIDA;
       }
       if ((*field)->type() == MYSQL_TYPE_VAR_STRING)
       {
-        return HA_ADMIN_NEEDS_ALTER;
+        return HA_ADMIN_NEEDS_OIDA;
       }
     }
   }
@@ -4122,7 +4122,7 @@ void handler::drop_table(const char *name)
   @retval
     HA_ADMIN_NEEDS_UPGRADE    Table has structures requiring upgrade
   @retval
-    HA_ADMIN_NEEDS_ALTER      Table has structures requiring ALTER TABLE
+    HA_ADMIN_NEEDS_OIDA      Table has structures requiring OIDA TABLE
   @retval
     HA_ADMIN_NOT_IMPLEMENTED
 */
@@ -4376,26 +4376,26 @@ handler::ha_discard_or_import_tablespace(my_bool discard)
 }
 
 
-bool handler::ha_prepare_inplace_alter_table(TABLE *altered_table,
-                                             Alter_inplace_info *ha_alter_info)
+bool handler::ha_prepare_inplace_oida_table(TABLE *oidaed_table,
+                                             Oida_inplace_info *ha_oida_info)
 {
   DBUG_ASSERT(table_share->tmp_table != NO_TMP_TABLE ||
               m_lock_type != F_UNLCK);
   mark_trx_read_write();
 
-  return prepare_inplace_alter_table(altered_table, ha_alter_info);
+  return prepare_inplace_oida_table(oidaed_table, ha_oida_info);
 }
 
 
-bool handler::ha_commit_inplace_alter_table(TABLE *altered_table,
-                                            Alter_inplace_info *ha_alter_info,
+bool handler::ha_commit_inplace_oida_table(TABLE *oidaed_table,
+                                            Oida_inplace_info *ha_oida_info,
                                             bool commit)
 {
    /*
      At this point we should have an exclusive metadata lock on the table.
      The exception is if we're about to roll back changes (commit= false).
      In this case, we might be rolling back after a failed lock upgrade,
-     so we could be holding the same lock level as for inplace_alter_table().
+     so we could be holding the same lock level as for inplace_oida_table().
    */
    DBUG_ASSERT(ha_thd()->mdl_context.is_lock_owner(MDL_key::TABLE,
                                                    table->s->db.str,
@@ -4403,48 +4403,48 @@ bool handler::ha_commit_inplace_alter_table(TABLE *altered_table,
                                                    MDL_EXCLUSIVE) ||
                !commit);
 
-   return commit_inplace_alter_table(altered_table, ha_alter_info, commit);
+   return commit_inplace_oida_table(oidaed_table, ha_oida_info, commit);
 }
 
 
 /*
-   Default implementation to support in-place alter table
+   Default implementation to support in-place oida table
    and old online add/drop index API
 */
 
-enum_alter_inplace_result
-handler::check_if_supported_inplace_alter(TABLE *altered_table,
-                                          Alter_inplace_info *ha_alter_info)
+enum_oida_inplace_result
+handler::check_if_supported_inplace_oida(TABLE *oidaed_table,
+                                          Oida_inplace_info *ha_oida_info)
 {
-  DBUG_ENTER("handler::check_if_supported_inplace_alter");
+  DBUG_ENTER("handler::check_if_supported_inplace_oida");
 
-  HA_CREATE_INFO *create_info= ha_alter_info->create_info;
+  HA_CREATE_INFO *create_info= ha_oida_info->create_info;
 
-  if (altered_table->versioned(VERS_TIMESTAMP))
-    DBUG_RETURN(HA_ALTER_INPLACE_NOT_SUPPORTED);
+  if (oidaed_table->versioned(VERS_TIMESTAMP))
+    DBUG_RETURN(HA_OIDA_INPLACE_NOT_SUPPORTED);
 
-  alter_table_operations inplace_offline_operations=
-    ALTER_COLUMN_EQUAL_PACK_LENGTH |
-    ALTER_COLUMN_NAME |
-    ALTER_RENAME_COLUMN |
-    ALTER_CHANGE_COLUMN_DEFAULT |
-    ALTER_COLUMN_DEFAULT |
-    ALTER_COLUMN_OPTION |
-    ALTER_CHANGE_CREATE_OPTION |
-    ALTER_DROP_CHECK_CONSTRAINT |
-    ALTER_PARTITIONED |
-    ALTER_VIRTUAL_GCOL_EXPR |
-    ALTER_RENAME;
+  oida_table_operations inplace_offline_operations=
+    OIDA_COLUMN_EQUAL_PACK_LENGTH |
+    OIDA_COLUMN_NAME |
+    OIDA_RENAME_COLUMN |
+    OIDA_CHANGE_COLUMN_DEFAULT |
+    OIDA_COLUMN_DEFAULT |
+    OIDA_COLUMN_OPTION |
+    OIDA_CHANGE_CREATE_OPTION |
+    OIDA_DROP_CHECK_CONSTRAINT |
+    OIDA_PARTITIONED |
+    OIDA_VIRTUAL_GCOL_EXPR |
+    OIDA_RENAME;
 
   /* Is there at least one operation that requires copy algorithm? */
-  if (ha_alter_info->handler_flags & ~inplace_offline_operations)
-    DBUG_RETURN(HA_ALTER_INPLACE_NOT_SUPPORTED);
+  if (ha_oida_info->handler_flags & ~inplace_offline_operations)
+    DBUG_RETURN(HA_OIDA_INPLACE_NOT_SUPPORTED);
 
   /*
-    The following checks for changes related to ALTER_OPTIONS
+    The following checks for changes related to OIDA_OPTIONS
 
-    ALTER TABLE tbl_name CONVERT TO CHARACTER SET .. and
-    ALTER TABLE table_name DEFAULT CHARSET = .. most likely
+    OIDA TABLE tbl_name CONVERT TO CHARACTER SET .. and
+    OIDA TABLE table_name DEFAULT CHARSET = .. most likely
     change column charsets and so not supported in-place through
     old API.
 
@@ -4457,26 +4457,26 @@ handler::check_if_supported_inplace_alter(TABLE *altered_table,
                                   HA_CREATE_USED_CHECKSUM |
                                   HA_CREATE_USED_MAX_ROWS) ||
       (table->s->row_type != create_info->row_type))
-    DBUG_RETURN(HA_ALTER_INPLACE_NOT_SUPPORTED);
+    DBUG_RETURN(HA_OIDA_INPLACE_NOT_SUPPORTED);
 
-  uint table_changes= (ha_alter_info->handler_flags &
-                       ALTER_COLUMN_EQUAL_PACK_LENGTH) ?
+  uint table_changes= (ha_oida_info->handler_flags &
+                       OIDA_COLUMN_EQUAL_PACK_LENGTH) ?
     IS_EQUAL_PACK_LENGTH : IS_EQUAL_YES;
   if (table->file->check_if_incompatible_data(create_info, table_changes)
       == COMPATIBLE_DATA_YES)
-    DBUG_RETURN(HA_ALTER_INPLACE_NO_LOCK);
+    DBUG_RETURN(HA_OIDA_INPLACE_NO_LOCK);
 
-  DBUG_RETURN(HA_ALTER_INPLACE_NOT_SUPPORTED);
+  DBUG_RETURN(HA_OIDA_INPLACE_NOT_SUPPORTED);
 }
 
-void Alter_inplace_info::report_unsupported_error(const char *not_supported,
+void Oida_inplace_info::report_unsupported_error(const char *not_supported,
                                                   const char *try_instead)
 {
   if (unsupported_reason == NULL)
-    my_error(ER_ALTER_OPERATION_NOT_SUPPORTED, MYF(0),
+    my_error(ER_OIDA_OPERATION_NOT_SUPPORTED, MYF(0),
              not_supported, try_instead);
   else
-    my_error(ER_ALTER_OPERATION_NOT_SUPPORTED_REASON, MYF(0),
+    my_error(ER_OIDA_OPERATION_NOT_SUPPORTED_REASON, MYF(0),
              not_supported, unsupported_reason, try_instead);
 }
 
@@ -4543,7 +4543,7 @@ handler::ha_create(const char *name, TABLE *form, HA_CREATE_INFO *info_arg)
   mark_trx_read_write();
   int error= create(name, form, info_arg);
   if (!error &&
-      !(info_arg->options & (HA_LEX_CREATE_TMP_TABLE | HA_CREATE_TMP_ALTER)))
+      !(info_arg->options & (HA_LEX_CREATE_TMP_TABLE | HA_CREATE_TMP_OIDA)))
     mysql_audit_create_table(form);
   return error;
 }
@@ -4561,8 +4561,8 @@ handler::ha_create_partitioning_metadata(const char *name,
                                          int action_flag)
 {
   /*
-    Normally this is done when unlocked, but in fast_alter_partition_table,
-    it is done on an already locked handler when preparing to alter/rename
+    Normally this is done when unlocked, but in fast_oida_partition_table,
+    it is done on an already locked handler when preparing to oida/rename
     partitions.
   */
   DBUG_ASSERT(m_lock_type == F_UNLCK ||
@@ -4637,7 +4637,7 @@ handler::ha_rename_partitions(const char *path)
 /**
   Tell the storage engine that it is allowed to "disable transaction" in the
   handler. It is a hint that ACID is not required - it was used in NDB for
-  ALTER TABLE, for example, when data are copied to temporary table.
+  OIDA TABLE, for example, when data are copied to temporary table.
   A storage engine may treat this hint any way it likes. NDB for example
   started to commit every now and then automatically.
   This hint can be safely ignored.
@@ -4876,7 +4876,7 @@ int ha_create_table(THD *thd, const char *path,
   const char *name;
   TABLE_SHARE share;
   bool temp_table __attribute__((unused)) =
-    create_info->options & (HA_LEX_CREATE_TMP_TABLE | HA_CREATE_TMP_ALTER);
+    create_info->options & (HA_LEX_CREATE_TMP_TABLE | HA_CREATE_TMP_OIDA);
   DBUG_ENTER("ha_create_table");
 
   init_tmp_table_share(thd, &share, db, 0, table_name, path);
@@ -6860,14 +6860,14 @@ static Create_field *vers_init_sys_field(THD *thd, const char *field_name, int f
 }
 
 static bool vers_create_sys_field(THD *thd, const char *field_name,
-                                  Alter_info *alter_info, int flags)
+                                  Oida_info *oida_info, int flags)
 {
   Create_field *f= vers_init_sys_field(thd, field_name, flags, false);
   if (!f)
     return true;
 
-  alter_info->flags|= ALTER_PARSER_ADD_COLUMN;
-  alter_info->create_list.push_back(f);
+  oida_info->flags|= OIDA_PARSER_ADD_COLUMN;
+  oida_info->create_list.push_back(f);
 
   return false;
 }
@@ -6875,19 +6875,19 @@ static bool vers_create_sys_field(THD *thd, const char *field_name,
 const LString_i Vers_parse_info::default_start= "row_start";
 const LString_i Vers_parse_info::default_end= "row_end";
 
-bool Vers_parse_info::fix_implicit(THD *thd, Alter_info *alter_info)
+bool Vers_parse_info::fix_implicit(THD *thd, Oida_info *oida_info)
 {
   // If user specified some of these he must specify the others too. Do nothing.
   if (*this)
     return false;
 
-  alter_info->flags|= ALTER_PARSER_ADD_COLUMN;
+  oida_info->flags|= OIDA_PARSER_ADD_COLUMN;
 
   system_time= start_end_t(default_start, default_end);
   as_row= system_time;
 
-  if (vers_create_sys_field(thd, default_start, alter_info, VERS_SYS_START_FLAG) ||
-      vers_create_sys_field(thd, default_end, alter_info, VERS_SYS_END_FLAG))
+  if (vers_create_sys_field(thd, default_start, oida_info, VERS_SYS_START_FLAG) ||
+      vers_create_sys_field(thd, default_end, oida_info, VERS_SYS_END_FLAG))
   {
     return true;
   }
@@ -6918,45 +6918,45 @@ bool Table_scope_and_contents_source_st::vers_native(THD *thd) const
 }
 
 bool Table_scope_and_contents_source_st::vers_fix_system_fields(
-  THD *thd, Alter_info *alter_info, const TABLE_LIST &create_table,
+  THD *thd, Oida_info *oida_info, const TABLE_LIST &create_table,
   bool create_select)
 {
-  DBUG_ASSERT(!(alter_info->flags & ALTER_DROP_SYSTEM_VERSIONING));
+  DBUG_ASSERT(!(oida_info->flags & OIDA_DROP_SYSTEM_VERSIONING));
 
   DBUG_EXECUTE_IF("sysvers_force", if (!tmp_table()) {
-                  alter_info->flags|= ALTER_ADD_SYSTEM_VERSIONING;
+                  oida_info->flags|= OIDA_ADD_SYSTEM_VERSIONING;
                   options|= HA_VERSIONED_TABLE; });
 
-  if (!vers_info.need_check(alter_info))
+  if (!vers_info.need_check(oida_info))
     return false;
 
   if (!vers_info.versioned_fields && vers_info.unversioned_fields &&
-      !(alter_info->flags & ALTER_ADD_SYSTEM_VERSIONING))
+      !(oida_info->flags & OIDA_ADD_SYSTEM_VERSIONING))
   {
     // All is correct but this table is not versioned.
     options&= ~HA_VERSIONED_TABLE;
     return false;
   }
 
-  if (!(alter_info->flags & ALTER_ADD_SYSTEM_VERSIONING) && vers_info)
+  if (!(oida_info->flags & OIDA_ADD_SYSTEM_VERSIONING) && vers_info)
   {
     my_error(ER_MISSING, MYF(0), create_table.table_name.str,
              "WITH SYSTEM VERSIONING");
     return true;
   }
 
-  List_iterator<Create_field> it(alter_info->create_list);
+  List_iterator<Create_field> it(oida_info->create_list);
   while (Create_field *f= it++)
   {
     if ((f->versioning == Column_definition::VERSIONING_NOT_SET &&
-         !(alter_info->flags & ALTER_ADD_SYSTEM_VERSIONING)) ||
+         !(oida_info->flags & OIDA_ADD_SYSTEM_VERSIONING)) ||
         f->versioning == Column_definition::WITHOUT_VERSIONING)
     {
       f->flags|= VERS_UPDATE_UNVERSIONED_FLAG;
     }
   } // while (Create_field *f= it++)
 
-  if (vers_info.fix_implicit(thd, alter_info))
+  if (vers_info.fix_implicit(thd, oida_info))
     return true;
 
   int plain_cols= 0; // columns don't have WITH or WITHOUT SYSTEM VERSIONING
@@ -6987,22 +6987,22 @@ bool Table_scope_and_contents_source_st::vers_fix_system_fields(
 
 
 bool Table_scope_and_contents_source_st::vers_check_system_fields(
-       THD *thd, Alter_info *alter_info, const TABLE_LIST &create_table)
+       THD *thd, Oida_info *oida_info, const TABLE_LIST &create_table)
 {
   if (!(options & HA_VERSIONED_TABLE))
     return false;
   return vers_info.check_sys_fields(create_table.table_name, create_table.db,
-                                    alter_info, vers_native(thd));
+                                    oida_info, vers_native(thd));
 }
 
 
-bool Vers_parse_info::fix_alter_info(THD *thd, Alter_info *alter_info,
+bool Vers_parse_info::fix_oida_info(THD *thd, Oida_info *oida_info,
                                      HA_CREATE_INFO *create_info, TABLE *table)
 {
   TABLE_SHARE *share= table->s;
   const char *table_name= share->table_name.str;
 
-  if (!need_check(alter_info) && !share->versioned)
+  if (!need_check(oida_info) && !share->versioned)
     return false;
 
   if (DBUG_EVALUATE_IF("sysvers_force", 0, share->tmp_table))
@@ -7011,14 +7011,14 @@ bool Vers_parse_info::fix_alter_info(THD *thd, Alter_info *alter_info,
     return true;
   }
 
-  if (alter_info->flags & ALTER_ADD_SYSTEM_VERSIONING &&
+  if (oida_info->flags & OIDA_ADD_SYSTEM_VERSIONING &&
       table->versioned())
   {
     my_error(ER_VERS_ALREADY_VERSIONED, MYF(0), table_name);
     return true;
   }
 
-  if (alter_info->flags & ALTER_DROP_SYSTEM_VERSIONING)
+  if (oida_info->flags & OIDA_DROP_SYSTEM_VERSIONING)
   {
     if (!share->versioned)
     {
@@ -7038,7 +7038,7 @@ bool Vers_parse_info::fix_alter_info(THD *thd, Alter_info *alter_info,
   }
 
   {
-    List_iterator_fast<Create_field> it(alter_info->create_list);
+    List_iterator_fast<Create_field> it(oida_info->create_list);
     while (Create_field *f= it++)
     {
       if (f->change.length && f->flags & VERS_SYSTEM_FIELD)
@@ -7049,7 +7049,7 @@ bool Vers_parse_info::fix_alter_info(THD *thd, Alter_info *alter_info,
     }
   }
 
-  if ((alter_info->flags & ALTER_DROP_PERIOD ||
+  if ((oida_info->flags & OIDA_DROP_PERIOD ||
        versioned_fields || unversioned_fields) && !share->versioned)
   {
     my_error(ER_VERS_NOT_VERSIONED, MYF(0), table_name);
@@ -7058,7 +7058,7 @@ bool Vers_parse_info::fix_alter_info(THD *thd, Alter_info *alter_info,
 
   if (share->versioned)
   {
-    if (alter_info->flags & ALTER_ADD_PERIOD)
+    if (oida_info->flags & OIDA_ADD_PERIOD)
     {
       my_error(ER_VERS_ALREADY_VERSIONED, MYF(0), table_name);
       return true;
@@ -7075,9 +7075,9 @@ bool Vers_parse_info::fix_alter_info(THD *thd, Alter_info *alter_info,
     as_row= start_end_t(start, end);
     system_time= as_row;
 
-    if (alter_info->create_list.elements)
+    if (oida_info->create_list.elements)
     {
-      List_iterator_fast<Create_field> it(alter_info->create_list);
+      List_iterator_fast<Create_field> it(oida_info->create_list);
       while (Create_field *f= it++)
       {
         if (f->versioning == Column_definition::WITHOUT_VERSIONING)
@@ -7085,7 +7085,7 @@ bool Vers_parse_info::fix_alter_info(THD *thd, Alter_info *alter_info,
 
         if (f->change.str && (start.streq(f->change) || end.streq(f->change)))
         {
-          my_error(ER_VERS_ALTER_SYSTEM_FIELD, MYF(0), f->change.str);
+          my_error(ER_VERS_OIDA_SYSTEM_FIELD, MYF(0), f->change.str);
           return true;
         }
       }
@@ -7094,13 +7094,13 @@ bool Vers_parse_info::fix_alter_info(THD *thd, Alter_info *alter_info,
     return false;
   }
 
-  if (fix_implicit(thd, alter_info))
+  if (fix_implicit(thd, oida_info))
     return true;
 
-  if (alter_info->flags & ALTER_ADD_SYSTEM_VERSIONING)
+  if (oida_info->flags & OIDA_ADD_SYSTEM_VERSIONING)
   {
     bool native= create_info->vers_native(thd);
-    if (check_sys_fields(table_name, share->db, alter_info, native))
+    if (check_sys_fields(table_name, share->db, oida_info, native))
       return true;
   }
 
@@ -7108,13 +7108,13 @@ bool Vers_parse_info::fix_alter_info(THD *thd, Alter_info *alter_info,
 }
 
 bool
-Vers_parse_info::fix_create_like(Alter_info &alter_info, HA_CREATE_INFO &create_info,
+Vers_parse_info::fix_create_like(Oida_info &oida_info, HA_CREATE_INFO &create_info,
                                  TABLE_LIST &src_table, TABLE_LIST &table)
 {
-  List_iterator<Create_field> it(alter_info.create_list);
+  List_iterator<Create_field> it(oida_info.create_list);
   Create_field *f, *f_start=NULL, *f_end= NULL;
 
-  DBUG_ASSERT(alter_info.create_list.elements > 2);
+  DBUG_ASSERT(oida_info.create_list.elements > 2);
 
   if (create_info.tmp_table())
   {
@@ -7165,13 +7165,13 @@ Vers_parse_info::fix_create_like(Alter_info &alter_info, HA_CREATE_INFO &create_
   return false;
 }
 
-bool Vers_parse_info::need_check(const Alter_info *alter_info) const
+bool Vers_parse_info::need_check(const Oida_info *oida_info) const
 {
   return versioned_fields || unversioned_fields ||
-         alter_info->flags & ALTER_ADD_PERIOD ||
-         alter_info->flags & ALTER_DROP_PERIOD ||
-         alter_info->flags & ALTER_ADD_SYSTEM_VERSIONING ||
-         alter_info->flags & ALTER_DROP_SYSTEM_VERSIONING || *this;
+         oida_info->flags & OIDA_ADD_PERIOD ||
+         oida_info->flags & OIDA_DROP_PERIOD ||
+         oida_info->flags & OIDA_ADD_SYSTEM_VERSIONING ||
+         oida_info->flags & OIDA_DROP_SYSTEM_VERSIONING || *this;
 }
 
 bool Vers_parse_info::check_conditions(const LString &table_name,
@@ -7206,12 +7206,12 @@ bool Vers_parse_info::check_conditions(const LString &table_name,
 }
 
 bool Vers_parse_info::check_sys_fields(const LString &table_name, const LString &db,
-                                       Alter_info *alter_info, bool native)
+                                       Oida_info *oida_info, bool native)
 {
   if (check_conditions(table_name, db))
     return true;
 
-  List_iterator<Create_field> it(alter_info->create_list);
+  List_iterator<Create_field> it(oida_info->create_list);
   uint found_flag= 0;
   while (Create_field *f= it++)
   {

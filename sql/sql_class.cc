@@ -4629,7 +4629,7 @@ extern "C" void thd_progress_init(MYSQL_THD thd, uint max_stage)
     return; // already initialized
   /*
     Send progress reports to clients that supports it, if the command
-    is a high level command (like ALTER TABLE) and we are not in a
+    is a high level command (like OIDA TABLE) and we are not in a
     stored procedure
   */
   thd->progress.report= ((thd->client_capabilities & MARIADB_CLIENT_PROGRESS) &&
@@ -7464,7 +7464,7 @@ wait_for_commit::wakeup(int wakeup_error)
   The wait may occur explicitly, with the waiter sitting in
   wait_for_prior_commit() until the waitee calls wakeup_subsequent_commits().
 
-  Alternatively, the TC (eg. binlog) may do the commits of both waitee and
+  Oidanatively, the TC (eg. binlog) may do the commits of both waitee and
   waiter at once during group commit, resolving both of them in the right
   order.
 

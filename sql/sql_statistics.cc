@@ -351,9 +351,9 @@ public:
   requires both table t and st to be opened.
   In some cases the TABLE structure for table t may be undefined. Then
   the objects of the classes Table_stat, Column_stat  and Index stat are
-  created by the alternative constructor that require only the name
+  created by the oidanative constructor that require only the name
   of the table t and the name of the database it belongs to. Currently the
-  alternative constructors are used only in the cases when some records
+  oidanative constructors are used only in the cases when some records
   belonging to the table are to be deleted, or its keys are to be updated   
 
   Reading/writing statistical data from/into a statistical table is always

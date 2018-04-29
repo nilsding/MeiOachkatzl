@@ -16,7 +16,7 @@
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 */
 
-/* drop and alter of tables */
+/* drop and oida of tables */
 
 #include "mariadb.h"
 #include "sql_priv.h"
@@ -78,10 +78,10 @@ static int copy_data_between_tables(THD *thd, TABLE *from,TABLE *to,
                                     List<Create_field> &create, bool ignore,
 				    uint order_num, ORDER *order,
 				    ha_rows *copied,ha_rows *deleted,
-                                    Alter_info::enum_enable_or_disable keys_onoff,
-                                    Alter_table_ctx *alter_ctx);
+                                    Oida_info::enum_enable_or_disable keys_onoff,
+                                    Oida_table_ctx *oida_ctx);
 
-static int mysql_prepare_create_table(THD *, HA_CREATE_INFO *, Alter_info *,
+static int mysql_prepare_create_table(THD *, HA_CREATE_INFO *, Oida_info *,
                                       uint *, handler *, KEY **, uint *, int);
 static uint blob_length_by_type(enum_field_types type);
 
@@ -522,7 +522,7 @@ uint tablename_to_filename(const char *from, char *to, size_t to_length)
     'db' is always converted.
     'ext' is not converted.
 
-    The conversion suppression is required for ALTER TABLE. This
+    The conversion suppression is required for OIDA TABLE. This
     statement creates intermediate tables. These are regular
     (non-temporary) tables with a temporary name. Their path names must
     be derivable from the table name. So we cannot use
@@ -1222,7 +1222,7 @@ static int execute_ddl_log_action(THD *thd, DDL_LOG_ENTRY *ddl_log_entry)
     }
     case DDL_LOG_EXCHANGE_ACTION:
     {
-      /* We hold LOCK_gdl, so we can alter global_ddl_log.file_entry_buf */
+      /* We hold LOCK_gdl, so we can oida global_ddl_log.file_entry_buf */
       char *file_entry_buf= (char*)&global_ddl_log.file_entry_buf;
       /* not yet implemented for frm */
       DBUG_ASSERT(!frm_action);
@@ -1386,7 +1386,7 @@ static bool execute_ddl_log_entry_no_lock(THD *thd, uint first_entry)
   Write a ddl log entry.
 
   A careful write of the ddl log is performed to ensure that we can
-  handle crashes occurring during CREATE and ALTER TABLE processing.
+  handle crashes occurring during CREATE and OIDA TABLE processing.
 
   @param ddl_log_entry         Information about log entry
   @param[out] entry_written    Entry information written into   
@@ -1752,20 +1752,20 @@ void release_ddl_log()
 /**
    @brief construct a temporary shadow file name.
 
-   @details Make a shadow file name used by ALTER TABLE to construct the
+   @details Make a shadow file name used by OIDA TABLE to construct the
    modified table (with keeping the original). The modified table is then
    moved back as original table. The name must start with the temp file
    prefix so it gets filtered out by table files listing routines. 
     
    @param[out] buff      buffer to receive the constructed name
    @param      bufflen   size of buff
-   @param      lpt       alter table data structure
+   @param      lpt       oida table data structure
 
    @retval     path length
 */
 
 uint build_table_shadow_filename(char *buff, size_t bufflen, 
-                                 ALTER_PARTITION_PARAM_TYPE *lpt)
+                                 OIDA_PARTITION_PARAM_TYPE *lpt)
 {
   char tmp_name[FN_REFLEN];
   my_snprintf(tmp_name, sizeof (tmp_name), "%s-%s", tmp_file_prefix,
@@ -1802,7 +1802,7 @@ uint build_table_shadow_filename(char *buff, size_t bufflen,
     tables since it only handles partitioned data if it exists.
 */
 
-bool mysql_write_frm(ALTER_PARTITION_PARAM_TYPE *lpt, uint flags)
+bool mysql_write_frm(OIDA_PARTITION_PARAM_TYPE *lpt, uint flags)
 {
   /*
     Prepare table to prepare for writing a new frm file where the
@@ -1827,10 +1827,10 @@ bool mysql_write_frm(ALTER_PARTITION_PARAM_TYPE *lpt, uint flags)
   strxmov(shadow_frm_name, shadow_path, reg_ext, NullS);
   if (flags & WFRM_WRITE_SHADOW)
   {
-    if (mysql_prepare_create_table(lpt->thd, lpt->create_info, lpt->alter_info,
+    if (mysql_prepare_create_table(lpt->thd, lpt->create_info, lpt->oida_info,
                                    &lpt->db_options, lpt->table->file,
                                    &lpt->key_info_buffer, &lpt->key_count,
-                                   C_ALTER_TABLE))
+                                   C_OIDA_TABLE))
     {
       DBUG_RETURN(TRUE);
     }
@@ -1842,7 +1842,7 @@ bool mysql_write_frm(ALTER_PARTITION_PARAM_TYPE *lpt, uint flags)
         if (!(part_syntax_buf= generate_partition_syntax(lpt->thd, part_info,
                                                          &syntax_len, TRUE,
                                                          lpt->create_info,
-                                                         lpt->alter_info)))
+                                                         lpt->oida_info)))
         {
           DBUG_RETURN(TRUE);
         }
@@ -1855,7 +1855,7 @@ bool mysql_write_frm(ALTER_PARTITION_PARAM_TYPE *lpt, uint flags)
     lpt->create_info->table_options= lpt->db_options;
     LEX_CUSTRING frm= build_frm_image(lpt->thd, &lpt->table_name,
                                       lpt->create_info,
-                                      lpt->alter_info->create_list,
+                                      lpt->oida_info->create_list,
                                       lpt->key_count, lpt->key_info_buffer,
                                       lpt->table->file);
     if (!frm.str)
@@ -1923,7 +1923,7 @@ bool mysql_write_frm(ALTER_PARTITION_PARAM_TYPE *lpt, uint flags)
       if (!(part_syntax_buf= generate_partition_syntax(lpt->thd, part_info,
                                                        &syntax_len, TRUE,
                                                        lpt->create_info,
-                                                       lpt->alter_info)))
+                                                       lpt->oida_info)))
       {
         error= 1;
         goto err;
@@ -3013,7 +3013,7 @@ CHARSET_INFO* get_sql_field_charset(Column_definition *sql_field,
   if (!cs)
     cs= create_info->default_table_charset;
   /*
-    table_charset is set only in ALTER TABLE t1 CONVERT TO CHARACTER SET csname
+    table_charset is set only in OIDA TABLE t1 CONVERT TO CHARACTER SET csname
     if we want change character set for all varchar/char columns.
     But the table charset must not affect the BLOB fields, so don't
     allow to change my_charset_bin to somethig else.
@@ -3080,7 +3080,7 @@ static void check_duplicate_key(THD *thd, Key *key, KEY *key_info,
     We only check for duplicate indexes if it is requested and the
     key is not auto-generated.
 
-    Check is requested if the key was explicitly created or altered
+    Check is requested if the key was explicitly created or oidaed
     by the user (unless it's a foreign key).
   */
   if (!key->key_create_info.check_for_duplicate_indexes || key->generated)
@@ -3347,12 +3347,12 @@ mysql_add_invisible_index(THD *thd, List<Key> *key_list,
     mysql_prepare_create_table()
       thd                       Thread object.
       create_info               Create information (like MAX_ROWS).
-      alter_info                List of columns and indexes to create
+      oida_info                List of columns and indexes to create
       db_options          INOUT Table options (like HA_OPTION_PACK_RECORD).
       file                      The handler for the new table.
       key_info_buffer     OUT   An array of KEY structs for the indexes.
       key_count           OUT   The number of elements in the array.
-      create_table_mode         C_ORDINARY_CREATE, C_ALTER_TABLE,
+      create_table_mode         C_ORDINARY_CREATE, C_OIDA_TABLE,
                                 C_CREATE_SELECT, C_ASSISTED_DISCOVERY
 
   DESCRIPTION
@@ -3368,7 +3368,7 @@ mysql_add_invisible_index(THD *thd, List<Key> *key_list,
 
 static int
 mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
-                           Alter_info *alter_info, uint *db_options,
+                           Oida_info *oida_info, uint *db_options,
                            handler *file, KEY **key_info_buffer,
                            uint *key_count, int create_table_mode)
 {
@@ -3380,20 +3380,20 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
   KEY_PART_INFO *key_part_info;
   int		field_no,dup_no;
   int		select_field_pos,auto_increment=0;
-  List_iterator_fast<Create_field> it(alter_info->create_list);
-  List_iterator<Create_field> it2(alter_info->create_list);
+  List_iterator_fast<Create_field> it(oida_info->create_list);
+  List_iterator<Create_field> it2(oida_info->create_list);
   uint total_uneven_bit_length= 0;
   int select_field_count= C_CREATE_SELECT(create_table_mode);
-  bool tmp_table= create_table_mode == C_ALTER_TABLE;
+  bool tmp_table= create_table_mode == C_OIDA_TABLE;
   DBUG_ENTER("mysql_prepare_create_table");
 
   DBUG_EXECUTE_IF("test_pseudo_invisible",{
-          mysql_add_invisible_field(thd, &alter_info->create_list,
+          mysql_add_invisible_field(thd, &oida_info->create_list,
                       "invisible", &type_handler_long, INVISIBLE_SYSTEM,
                       new (thd->mem_root)Item_int(thd, 9));
           });
   DBUG_EXECUTE_IF("test_completely_invisible",{
-          mysql_add_invisible_field(thd, &alter_info->create_list,
+          mysql_add_invisible_field(thd, &oida_info->create_list,
                       "invisible", &type_handler_long, INVISIBLE_FULL,
                       new (thd->mem_root)Item_int(thd, 9));
           });
@@ -3401,7 +3401,7 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
           LEX_CSTRING temp;
           temp.str= "invisible";
           temp.length= strlen("invisible");
-          mysql_add_invisible_index(thd, &alter_info->key_list
+          mysql_add_invisible_index(thd, &oida_info->key_list
                   , &temp, Key::MULTIPLE);
           });
   LEX_CSTRING* connect_string = &create_info->connect_string;
@@ -3419,7 +3419,7 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
     DBUG_RETURN(TRUE);
   }
 
-  select_field_pos= alter_info->create_list.elements - select_field_count;
+  select_field_pos= oida_info->create_list.elements - select_field_count;
   null_fields= 0;
   create_info->varchar= 0;
   max_key_length= file->max_key_length();
@@ -3435,7 +3435,7 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
     }
 
     /* The user specified fields: check that structure is ok */
-    if (check_sequence_fields(thd->lex, &alter_info->create_list))
+    if (check_sequence_fields(thd->lex, &oida_info->create_list))
       DBUG_RETURN(TRUE);
   }
 
@@ -3596,8 +3596,8 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
 
   /* Create keys */
 
-  List_iterator<Key> key_iterator(alter_info->key_list);
-  List_iterator<Key> key_iterator2(alter_info->key_list);
+  List_iterator<Key> key_iterator(oida_info->key_list);
+  List_iterator<Key> key_iterator2(oida_info->key_list);
   uint key_parts=0, fk_key_count=0;
   bool primary_key=0,unique_key=0;
   Key *key, *key2;
@@ -3616,7 +3616,7 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
     {
       fk_key_count++;
       Foreign_key *fk_key= (Foreign_key*) key;
-      if (fk_key->validate(alter_info->create_list))
+      if (fk_key->validate(oida_info->create_list))
         DBUG_RETURN(TRUE);
       if (fk_key->ref_columns.elements &&
 	  fk_key->ref_columns.elements != fk_key->columns.elements)
@@ -3809,7 +3809,7 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
     /*
       Remember block_size for the future if the block size was given
       either for key or table and it was given for the key during
-      create/alter table or we have an active key_block_size for the
+      create/oida table or we have an active key_block_size for the
       table.
       The idea is that table specific key_block_size > 0 will only affect
       new keys and old keys will remember their original value.
@@ -4139,7 +4139,7 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
     }
 
     // Check if a duplicate index is defined.
-    check_duplicate_key(thd, key, key_info, &alter_info->key_list);
+    check_duplicate_key(thd, key, key_info, &oida_info->key_list);
 
     key_info++;
   }
@@ -4218,21 +4218,21 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
   }
 
   /* Check table level constraints */
-  create_info->check_constraint_list= &alter_info->check_constraint_list;
+  create_info->check_constraint_list= &oida_info->check_constraint_list;
   {
     uint nr= 1;
-    List_iterator_fast<Virtual_column_info> c_it(alter_info->check_constraint_list);
+    List_iterator_fast<Virtual_column_info> c_it(oida_info->check_constraint_list);
     Virtual_column_info *check;
     while ((check= c_it++))
     {
       if (!check->name.length)
         make_unique_constraint_name(thd, &check->name,
-                                    &alter_info->check_constraint_list,
+                                    &oida_info->check_constraint_list,
                                     &nr);
       {
         /* Check that there's no repeating constraint names. */
         List_iterator_fast<Virtual_column_info>
-          dup_it(alter_info->check_constraint_list);
+          dup_it(oida_info->check_constraint_list);
         Virtual_column_info *dup_check;
         while ((dup_check= dup_it++) && dup_check != check)
         {
@@ -4425,7 +4425,7 @@ bool Column_definition::sp_prepare_create_field(THD *thd, MEM_ROOT *mem_root)
 
 
 static bool vers_prepare_keys(THD *thd, HA_CREATE_INFO *create_info,
-                         Alter_info *alter_info, KEY **key_info, uint key_count)
+                         Oida_info *oida_info, KEY **key_info, uint key_count)
 {
   DBUG_ASSERT(create_info->versioned());
 
@@ -4434,7 +4434,7 @@ static bool vers_prepare_keys(THD *thd, HA_CREATE_INFO *create_info,
   const char *row_end_field= create_info->vers_info.as_row.end;
   DBUG_ASSERT(row_end_field);
 
-  List_iterator<Key> key_it(alter_info->key_list);
+  List_iterator<Key> key_it(oida_info->key_list);
   Key *key= NULL;
   while ((key=key_it++))
   {
@@ -4468,7 +4468,7 @@ static bool vers_prepare_keys(THD *thd, HA_CREATE_INFO *create_info,
 handler *mysql_create_frm_image(THD *thd,
                                 const LEX_CSTRING *db, const LEX_CSTRING *table_name,
                                 HA_CREATE_INFO *create_info,
-                                Alter_info *alter_info, int create_table_mode,
+                                Oida_info *oida_info, int create_table_mode,
                                 KEY **key_info,
                                 uint *key_count,
                                 LEX_CUSTRING *frm)
@@ -4477,7 +4477,7 @@ handler *mysql_create_frm_image(THD *thd,
   handler       *file;
   DBUG_ENTER("mysql_create_frm_image");
 
-  if (!alter_info->create_list.elements)
+  if (!oida_info->create_list.elements)
   {
     my_error(ER_TABLE_MUST_HAVE_COLUMNS, MYF(0));
     DBUG_RETURN(NULL);
@@ -4518,11 +4518,11 @@ handler *mysql_create_frm_image(THD *thd,
   {
     /*
       The table has been specified as a partitioned table.
-      If this is part of an ALTER TABLE the handler will be the partition
+      If this is part of an OIDA TABLE the handler will be the partition
       handler but we need to specify the default handler to use for
       partitions also in the call to check_partition_info. We transport
       this information in the default_db_type variable, it is either
-      DB_TYPE_DEFAULT or the engine set in the ALTER TABLE command.
+      DB_TYPE_DEFAULT or the engine set in the OIDA TABLE command.
     */
     handlerton *part_engine_type= create_info->db_type;
     char *part_syntax_buf;
@@ -4578,8 +4578,8 @@ handler *mysql_create_frm_image(THD *thd,
         part_info->default_engine_type)
     {
       /*
-        This only happens at ALTER TABLE.
-        default_engine_type was assigned from the engine set in the ALTER
+        This only happens at OIDA TABLE.
+        default_engine_type was assigned from the engine set in the OIDA
         TABLE command.
       */
       ;
@@ -4619,7 +4619,7 @@ handler *mysql_create_frm_image(THD *thd,
     sql_mode_t old_mode= thd->variables.sql_mode;
     thd->variables.sql_mode &= ~MODE_ANSI_QUOTES;
     part_syntax_buf= generate_partition_syntax(thd, part_info, &syntax_len,
-                                               true, create_info, alter_info);
+                                               true, create_info, oida_info);
     thd->variables.sql_mode= old_mode;
     if (!part_syntax_buf)
       goto err;
@@ -4697,7 +4697,7 @@ handler *mysql_create_frm_image(THD *thd,
   */
   if (create_info->db_type == partition_hton)
   {
-    List_iterator_fast<Key> key_iterator(alter_info->key_list);
+    List_iterator_fast<Key> key_iterator(oida_info->key_list);
     Key *key;
     while ((key= key_iterator++))
     {
@@ -4712,19 +4712,19 @@ handler *mysql_create_frm_image(THD *thd,
 
   if (create_info->versioned())
   {
-    if(vers_prepare_keys(thd, create_info, alter_info, key_info,
+    if(vers_prepare_keys(thd, create_info, oida_info, key_info,
                                 *key_count))
       goto err;
   }
 
-  if (mysql_prepare_create_table(thd, create_info, alter_info, &db_options,
+  if (mysql_prepare_create_table(thd, create_info, oida_info, &db_options,
                                  file, key_info, key_count,
                                  create_table_mode))
     goto err;
   create_info->table_options=db_options;
 
   *frm= build_frm_image(thd, table_name, create_info,
-                        alter_info->create_list, *key_count,
+                        oida_info->create_list, *key_count,
                         *key_info, file);
 
   if (frm->str)
@@ -4742,14 +4742,14 @@ err:
   @param thd                 Thread object
   @param orig_db             Database for error messages
   @param orig_table_name     Table name for error messages
-                             (it's different from table_name for ALTER TABLE)
+                             (it's different from table_name for OIDA TABLE)
   @param db                  Database
   @param table_name          Table name
   @param path                Path to table (i.e. to its .FRM file without
                              the extension).
   @param create_info         Create information (like MAX_ROWS)
-  @param alter_info          Description of fields and keys for new table
-  @param create_table_mode   C_ORDINARY_CREATE, C_ALTER_TABLE, C_ASSISTED_DISCOVERY
+  @param oida_info          Description of fields and keys for new table
+  @param create_table_mode   C_ORDINARY_CREATE, C_OIDA_TABLE, C_ASSISTED_DISCOVERY
                              or any positive number (for C_CREATE_SELECT).
   @param[out] is_trans       Identifies the type of engine where the table
                              was created: either trans or non-trans.
@@ -4778,7 +4778,7 @@ int create_table_impl(THD *thd,
                        const char *path,
                        const DDL_options_st options,
                        HA_CREATE_INFO *create_info,
-                       Alter_info *alter_info,
+                       Oida_info *oida_info,
                        int create_table_mode,
                        bool *is_trans,
                        KEY **key_info,
@@ -4788,8 +4788,8 @@ int create_table_impl(THD *thd,
   LEX_CSTRING	*alias;
   handler	*file= 0;
   int		error= 1;
-  bool          frm_only= create_table_mode == C_ALTER_TABLE_FRM_ONLY;
-  bool          internal_tmp_table= create_table_mode == C_ALTER_TABLE || frm_only;
+  bool          frm_only= create_table_mode == C_OIDA_TABLE_FRM_ONLY;
+  bool          internal_tmp_table= create_table_mode == C_OIDA_TABLE || frm_only;
   DBUG_ENTER("mysql_create_table_no_lock");
   DBUG_PRINT("enter", ("db: '%s'  table: '%s'  tmp: %d  path: %s",
                        db->str, table_name->str, internal_tmp_table, path));
@@ -4912,8 +4912,8 @@ int create_table_impl(THD *thd,
   if (create_table_mode == C_ASSISTED_DISCOVERY)
   {
     /* check that it's used correctly */
-    DBUG_ASSERT(alter_info->create_list.elements == 0);
-    DBUG_ASSERT(alter_info->key_list.elements == 0);
+    DBUG_ASSERT(oida_info->create_list.elements == 0);
+    DBUG_ASSERT(oida_info->key_list.elements == 0);
 
     TABLE_SHARE share;
     handlerton *hton= create_info->db_type;
@@ -4959,7 +4959,7 @@ int create_table_impl(THD *thd,
   else
   {
     file= mysql_create_frm_image(thd, orig_db, orig_table_name, create_info,
-                                 alter_info, create_table_mode, key_info,
+                                 oida_info, create_table_mode, key_info,
                                  key_count, frm);
     if (!file)
       goto err;
@@ -5050,7 +5050,7 @@ int mysql_create_table_no_lock(THD *thd,
                                const LEX_CSTRING *db,
                                const LEX_CSTRING *table_name,
                                Table_specification_st *create_info,
-                               Alter_info *alter_info, bool *is_trans,
+                               Oida_info *oida_info, bool *is_trans,
                                int create_table_mode,
                                TABLE_LIST *table_list)
 {
@@ -5078,7 +5078,7 @@ int mysql_create_table_no_lock(THD *thd,
 
   res= create_table_impl(thd, db, table_name, db, table_name, path,
                          *create_info, create_info,
-                         alter_info, create_table_mode,
+                         oida_info, create_table_mode,
                          is_trans, &not_used_1, &not_used_2, &frm);
   my_free(const_cast<uchar*>(frm.str));
 
@@ -5107,7 +5107,7 @@ int mysql_create_table_no_lock(THD *thd,
 
 bool mysql_create_table(THD *thd, TABLE_LIST *create_table,
                         Table_specification_st *create_info,
-                        Alter_info *alter_info)
+                        Oida_info *oida_info)
 {
   bool is_trans= FALSE;
   bool result;
@@ -5142,17 +5142,17 @@ bool mysql_create_table(THD *thd, TABLE_LIST *create_table,
   /* Got lock. */
   DEBUG_SYNC(thd, "locked_table_name");
 
-  if (alter_info->create_list.elements || alter_info->key_list.elements)
+  if (oida_info->create_list.elements || oida_info->key_list.elements)
     create_table_mode= C_ORDINARY_CREATE;
   else
     create_table_mode= C_ASSISTED_DISCOVERY;
 
   if (!opt_explicit_defaults_for_timestamp)
-    promote_first_timestamp_column(&alter_info->create_list);
+    promote_first_timestamp_column(&oida_info->create_list);
 
   if (mysql_create_table_no_lock(thd, &create_table->db,
                                  &create_table->table_name, create_info,
-                                 alter_info,
+                                 oida_info,
                                  &is_trans, create_table_mode,
                                  create_table) > 0)
   {
@@ -5312,8 +5312,8 @@ static void make_unique_constraint_name(THD *thd, LEX_CSTRING *name,
 
 /**
   INVISIBLE_FULL are internally created. They are completely invisible
-  to Alter command (Opposite of SYSTEM_INVISIBLE which throws an
-  error when same name column is added by Alter). So in the case of when
+  to Oida command (Opposite of SYSTEM_INVISIBLE which throws an
+  error when same name column is added by Oida). So in the case of when
   user added a same column name as of INVISIBLE_FULL , we change
   INVISIBLE_FULL column name.
 */
@@ -5339,7 +5339,7 @@ char * make_unique_invisible_field_name(THD *thd, const char *field_name,
 }
 
 /****************************************************************************
-** Alter a table definition
+** Oida a table definition
 ****************************************************************************/
 
 bool operator!=(const MYSQL_TIME &lhs, const MYSQL_TIME &rhs)
@@ -5455,7 +5455,7 @@ mysql_rename_table(handlerton *base, const LEX_CSTRING *old_db,
   }
   delete file;
   if (error == HA_ERR_WRONG_COMMAND)
-    my_error(ER_NOT_SUPPORTED_YET, MYF(0), "ALTER TABLE");
+    my_error(ER_NOT_SUPPORTED_YET, MYF(0), "OIDA TABLE");
   else if (error)
     my_error(ER_ERROR_ON_RENAME, MYF(0), from, to, error);
   else if (!(flags & FN_IS_TMP))
@@ -5500,8 +5500,8 @@ bool mysql_create_like_table(THD* thd, TABLE_LIST* table,
 {
   Table_specification_st local_create_info;
   TABLE_LIST *pos_in_locked_tables= 0;
-  Alter_info local_alter_info;
-  Alter_table_ctx local_alter_ctx; // Not used
+  Oida_info local_oida_info;
+  Oida_table_ctx local_oida_ctx; // Not used
   bool res= TRUE;
   bool is_trans= FALSE;
   bool do_logging= FALSE;
@@ -5517,7 +5517,7 @@ bool mysql_create_like_table(THD* thd, TABLE_LIST* table,
 
   /*
     We the open source table to get its description in HA_CREATE_INFO
-    and Alter_info objects. This also acquires a shared metadata lock
+    and Oida_info objects. This also acquires a shared metadata lock
     on this table which ensures that no concurrent DDL operation will
     mess with it.
     Also in case when we create non-temporary table open_tables()
@@ -5556,18 +5556,18 @@ bool mysql_create_like_table(THD* thd, TABLE_LIST* table,
   DEBUG_SYNC(thd, "create_table_like_after_open");
 
   /*
-    Fill Table_specification_st and Alter_info with the source table description.
+    Fill Table_specification_st and Oida_info with the source table description.
     Set OR REPLACE and IF NOT EXISTS option as in the CREATE TABLE LIKE
     statement.
   */
   local_create_info.init(create_info->create_like_options());
   local_create_info.db_type= src_table->table->s->db_type();
   local_create_info.row_type= src_table->table->s->row_type;
-  if (mysql_prepare_alter_table(thd, src_table->table, &local_create_info,
-                                &local_alter_info, &local_alter_ctx))
+  if (mysql_prepare_oida_table(thd, src_table->table, &local_create_info,
+                                &local_oida_info, &local_oida_ctx))
     goto err;
 #ifdef WITH_PARTITION_STORAGE_ENGINE
-  /* Partition info is not handled by mysql_prepare_alter_table() call. */
+  /* Partition info is not handled by mysql_prepare_oida_table() call. */
   if (src_table->table->part_info)
     thd->work_part_info= src_table->table->part_info->get_clone(thd);
 #endif
@@ -5593,7 +5593,7 @@ bool mysql_create_like_table(THD* thd, TABLE_LIST* table,
   local_create_info.data_file_name= local_create_info.index_file_name= NULL;
 
   if (src_table->table->versioned() &&
-      local_create_info.vers_info.fix_create_like(local_alter_info, local_create_info,
+      local_create_info.vers_info.fix_create_like(local_oida_info, local_create_info,
                                                   *src_table, *table))
   {
     goto err;
@@ -5605,7 +5605,7 @@ bool mysql_create_like_table(THD* thd, TABLE_LIST* table,
 
   res= ((create_res=
          mysql_create_table_no_lock(thd, &table->db, &table->table_name,
-                                    &local_create_info, &local_alter_info,
+                                    &local_create_info, &local_oida_info,
                                     &is_trans, C_ORDINARY_CREATE,
                                     table)) > 0);
   /* Remember to log if we deleted something */
@@ -5821,15 +5821,15 @@ int mysql_discard_or_import_tablespace(THD *thd,
                                        TABLE_LIST *table_list,
                                        bool discard)
 {
-  Alter_table_prelocking_strategy alter_prelocking_strategy;
+  Oida_table_prelocking_strategy oida_prelocking_strategy;
   int error;
   DBUG_ENTER("mysql_discard_or_import_tablespace");
 
-  mysql_audit_alter_table(thd, table_list);
+  mysql_audit_oida_table(thd, table_list);
 
   /*
     Note that DISCARD/IMPORT TABLESPACE always is the only operation in an
-    ALTER TABLE
+    OIDA TABLE
   */
 
   THD_STAGE_INFO(thd, stage_discard_or_import_tablespace);
@@ -5841,7 +5841,7 @@ int mysql_discard_or_import_tablespace(THD *thd,
   thd->tablespace_op= TRUE;
   /*
     Adjust values of table-level and metadata which was set in parser
-    for the case general ALTER TABLE.
+    for the case general OIDA TABLE.
   */
   table_list->mdl_request.set_type(MDL_EXCLUSIVE);
   table_list->lock_type= TL_WRITE;
@@ -5849,7 +5849,7 @@ int mysql_discard_or_import_tablespace(THD *thd,
   table_list->required_type= TABLE_TYPE_NORMAL;
 
   if (open_and_lock_tables(thd, table_list, FALSE, 0,
-                           &alter_prelocking_strategy))
+                           &oida_prelocking_strategy))
   {
     thd->tablespace_op=FALSE;
     DBUG_RETURN(-1);
@@ -5868,7 +5868,7 @@ int mysql_discard_or_import_tablespace(THD *thd,
   */
   query_cache_invalidate3(thd, table_list, 0);
 
-  /* The ALTER TABLE is always in its own transaction */
+  /* The OIDA TABLE is always in its own transaction */
   error= trans_commit_stmt(thd);
   if (trans_commit_implicit(thd))
     error=1;
@@ -5918,8 +5918,8 @@ static bool is_candidate_key(KEY *key)
    SYNOPSIS
      handle_if_exists_option()
        thd                       Thread object.
-       table                     The altered table.
-       alter_info                List of columns and indexes to create
+       table                     The oidaed table.
+       oida_info                List of columns and indexes to create
 
    DESCRIPTION
      Looks for the IF [NOT] EXISTS options, checks the states and remove items
@@ -5930,14 +5930,14 @@ static bool is_candidate_key(KEY *key)
 */
 
 static void
-handle_if_exists_options(THD *thd, TABLE *table, Alter_info *alter_info)
+handle_if_exists_options(THD *thd, TABLE *table, Oida_info *oida_info)
 {
   Field **f_ptr;
   DBUG_ENTER("handle_if_exists_option");
 
   /* Handle ADD COLUMN IF NOT EXISTS. */
   {
-    List_iterator<Create_field> it(alter_info->create_list);
+    List_iterator<Create_field> it(oida_info->create_list);
     Create_field *sql_field;
 
     while ((sql_field=it++))
@@ -5960,7 +5960,7 @@ handle_if_exists_options(THD *thd, TABLE *table, Alter_info *alter_info)
           If in the ADD list there is a field with the same name,
           remove the sql_field from the list.
         */
-        List_iterator<Create_field> chk_it(alter_info->create_list);
+        List_iterator<Create_field> chk_it(oida_info->create_list);
         Create_field *chk_field;
         while ((chk_field= chk_it++) && chk_field != sql_field)
         {
@@ -5976,18 +5976,18 @@ drop_create_field:
                           ER_DUP_FIELDNAME, ER_THD(thd, ER_DUP_FIELDNAME),
                           sql_field->field_name.str);
       it.remove();
-      if (alter_info->create_list.is_empty())
+      if (oida_info->create_list.is_empty())
       {
-        alter_info->flags&= ~ALTER_PARSER_ADD_COLUMN;
-        if (alter_info->key_list.is_empty())
-          alter_info->flags&= ~(ALTER_ADD_INDEX | ALTER_ADD_FOREIGN_KEY);
+        oida_info->flags&= ~OIDA_PARSER_ADD_COLUMN;
+        if (oida_info->key_list.is_empty())
+          oida_info->flags&= ~(OIDA_ADD_INDEX | OIDA_ADD_FOREIGN_KEY);
       }
     }
   }
 
   /* Handle MODIFY COLUMN IF EXISTS. */
   {
-    List_iterator<Create_field> it(alter_info->create_list);
+    List_iterator<Create_field> it(oida_info->create_list);
     Create_field *sql_field;
 
     while ((sql_field=it++))
@@ -6014,24 +6014,24 @@ drop_create_field:
                             ER_THD(thd, ER_BAD_FIELD_ERROR),
                             sql_field->change.str, table->s->table_name.str);
         it.remove();
-        if (alter_info->create_list.is_empty())
+        if (oida_info->create_list.is_empty())
         {
-          alter_info->flags&= ~(ALTER_PARSER_ADD_COLUMN | ALTER_CHANGE_COLUMN);
-          if (alter_info->key_list.is_empty())
-            alter_info->flags&= ~ALTER_ADD_INDEX;
+          oida_info->flags&= ~(OIDA_PARSER_ADD_COLUMN | OIDA_CHANGE_COLUMN);
+          if (oida_info->key_list.is_empty())
+            oida_info->flags&= ~OIDA_ADD_INDEX;
         }
       }
     }
   }
 
-  /* Handle ALTER COLUMN IF EXISTS SET/DROP DEFAULT. */
+  /* Handle OIDA COLUMN IF EXISTS SET/DROP DEFAULT. */
   {
-    List_iterator<Alter_column> it(alter_info->alter_list);
-    Alter_column *acol;
+    List_iterator<Oida_column> it(oida_info->oida_list);
+    Oida_column *acol;
 
     while ((acol=it++))
     {
-      if (!acol->alter_if_exists)
+      if (!acol->oida_if_exists)
         continue;
       /*
          If there is NO field with the same name in the table already,
@@ -6050,9 +6050,9 @@ drop_create_field:
                             ER_THD(thd, ER_BAD_FIELD_ERROR),
                             acol->name, table->s->table_name.str);
         it.remove();
-        if (alter_info->alter_list.is_empty())
+        if (oida_info->oida_list.is_empty())
         {
-          alter_info->flags&= ~(ALTER_CHANGE_COLUMN_DEFAULT);
+          oida_info->flags&= ~(OIDA_CHANGE_COLUMN_DEFAULT);
         }
       }
     }
@@ -6060,15 +6060,15 @@ drop_create_field:
 
   /* Handle DROP COLUMN/KEY IF EXISTS. */
   {
-    List_iterator<Alter_drop> drop_it(alter_info->drop_list);
-    Alter_drop *drop;
+    List_iterator<Oida_drop> drop_it(oida_info->drop_list);
+    Oida_drop *drop;
     bool remove_drop;
     while ((drop= drop_it++))
     {
       if (!drop->drop_if_exists)
         continue;
       remove_drop= TRUE;
-      if (drop->type == Alter_drop::COLUMN)
+      if (drop->type == Oida_drop::COLUMN)
       {
         /*
            If there is NO field with that name in the table,
@@ -6084,7 +6084,7 @@ drop_create_field:
           }
         }
       }
-      else if (drop->type == Alter_drop::CHECK_CONSTRAINT)
+      else if (drop->type == Oida_drop::CHECK_CONSTRAINT)
       {
         for (uint i=table->s->field_check_constraints;
              i < table->s->table_check_constraints;
@@ -6098,10 +6098,10 @@ drop_create_field:
           }
         }
       }
-      else /* Alter_drop::KEY and Alter_drop::FOREIGN_KEY */
+      else /* Oida_drop::KEY and Oida_drop::FOREIGN_KEY */
       {
         uint n_key;
-        if (drop->type != Alter_drop::FOREIGN_KEY)
+        if (drop->type != Oida_drop::FOREIGN_KEY)
         {
           for (n_key=0; n_key < table->s->keys; n_key++)
           {
@@ -6137,8 +6137,8 @@ drop_create_field:
         /*
           Check if the name appears twice in the DROP list.
         */
-        List_iterator<Alter_drop> chk_it(alter_info->drop_list);
-        Alter_drop *chk_drop;
+        List_iterator<Oida_drop> chk_it(oida_info->drop_list);
+        Oida_drop *chk_drop;
         while ((chk_drop= chk_it++) && chk_drop != drop)
         {
           if (drop->type == chk_drop->type &&
@@ -6158,19 +6158,19 @@ drop_create_field:
                             ER_THD(thd, ER_CANT_DROP_FIELD_OR_KEY),
                             drop->type_name(), drop->name);
         drop_it.remove();
-        if (alter_info->drop_list.is_empty())
-          alter_info->flags&= ~(ALTER_PARSER_DROP_COLUMN |
-                                ALTER_DROP_INDEX  |
-                                ALTER_DROP_FOREIGN_KEY);
+        if (oida_info->drop_list.is_empty())
+          oida_info->flags&= ~(OIDA_PARSER_DROP_COLUMN |
+                                OIDA_DROP_INDEX  |
+                                OIDA_DROP_FOREIGN_KEY);
       }
     }
   }
 
-  /* ALTER TABLE ADD KEY IF NOT EXISTS */
-  /* ALTER TABLE ADD FOREIGN KEY IF NOT EXISTS */
+  /* OIDA TABLE ADD KEY IF NOT EXISTS */
+  /* OIDA TABLE ADD FOREIGN KEY IF NOT EXISTS */
   {
     Key *key;
-    List_iterator<Key> key_it(alter_info->key_list);
+    List_iterator<Key> key_it(oida_info->key_list);
     uint n_key;
     const char *keyname= NULL;
     while ((key=key_it++))
@@ -6227,7 +6227,7 @@ drop_create_field:
 
       {
         Key *chk_key;
-        List_iterator<Key> chk_it(alter_info->key_list);
+        List_iterator<Key> chk_it(oida_info->key_list);
         const char *chkname;
         while ((chk_key=chk_it++) && chk_key != key)
         {
@@ -6259,20 +6259,20 @@ remove_key:
           /* ADD FOREIGN KEY appends two items. */
           key_it.remove();
         }
-        if (alter_info->key_list.is_empty())
-          alter_info->flags&= ~(ALTER_ADD_INDEX | ALTER_ADD_FOREIGN_KEY);
+        if (oida_info->key_list.is_empty())
+          oida_info->flags&= ~(OIDA_ADD_INDEX | OIDA_ADD_FOREIGN_KEY);
       }
       else
       {
         DBUG_ASSERT(key->or_replace());
-        Alter_drop::drop_type type= (key->type == Key::FOREIGN_KEY) ?
-          Alter_drop::FOREIGN_KEY : Alter_drop::KEY;
-        Alter_drop *ad= new Alter_drop(type, key->name.str, FALSE);
+        Oida_drop::drop_type type= (key->type == Key::FOREIGN_KEY) ?
+          Oida_drop::FOREIGN_KEY : Oida_drop::KEY;
+        Oida_drop *ad= new Oida_drop(type, key->name.str, FALSE);
         if (ad != NULL)
         {
           // Adding the index into the drop list for replacing
-          alter_info->flags |= ALTER_DROP_INDEX;
-          alter_info->drop_list.push_back(ad, thd->mem_root);
+          oida_info->flags |= OIDA_DROP_INDEX;
+          oida_info->drop_list.push_back(ad, thd->mem_root);
         }
       }
     }
@@ -6283,8 +6283,8 @@ remove_key:
   thd->work_part_info= thd->lex->part_info;
   if (tab_part_info)
   {
-    /* ALTER TABLE ADD PARTITION IF NOT EXISTS */
-    if ((alter_info->partition_flags & ALTER_PARTITION_ADD) &&
+    /* OIDA TABLE ADD PARTITION IF NOT EXISTS */
+    if ((oida_info->partition_flags & OIDA_PARTITION_ADD) &&
         thd->lex->create_info.if_not_exists())
     {
       partition_info *alt_part_info= thd->lex->part_info;
@@ -6300,18 +6300,18 @@ remove_key:
                                 ER_SAME_NAME_PARTITION,
                                 ER_THD(thd, ER_SAME_NAME_PARTITION),
                                 pe->partition_name);
-            alter_info->partition_flags&= ~ALTER_PARTITION_ADD;
+            oida_info->partition_flags&= ~OIDA_PARTITION_ADD;
             thd->work_part_info= NULL;
             break;
           }
         }
       }
     }
-    /* ALTER TABLE DROP PARTITION IF EXISTS */
-    if ((alter_info->partition_flags & ALTER_PARTITION_DROP) &&
+    /* OIDA TABLE DROP PARTITION IF EXISTS */
+    if ((oida_info->partition_flags & OIDA_PARTITION_DROP) &&
         thd->lex->if_exists())
     {
-      List_iterator<const char> names_it(alter_info->partition_names);
+      List_iterator<const char> names_it(oida_info->partition_names);
       const char *name;
 
       while ((name= names_it++))
@@ -6333,21 +6333,21 @@ remove_key:
           names_it.remove();
         }
       }
-      if (alter_info->partition_names.elements == 0)
-        alter_info->partition_flags&= ~ALTER_PARTITION_DROP;
+      if (oida_info->partition_names.elements == 0)
+        oida_info->partition_flags&= ~OIDA_PARTITION_DROP;
     }
   }
 #endif /*WITH_PARTITION_STORAGE_ENGINE*/
 
   /* ADD CONSTRAINT IF NOT EXISTS. */
   {
-    List_iterator<Virtual_column_info> it(alter_info->check_constraint_list);
+    List_iterator<Virtual_column_info> it(oida_info->check_constraint_list);
     Virtual_column_info *check;
     TABLE_SHARE *share= table->s;
     uint c;
     while ((check=it++))
     {
-      if (!(check->flags & Alter_info::CHECK_CONSTRAINT_IF_NOT_EXISTS) &&
+      if (!(check->flags & Oida_info::CHECK_CONSTRAINT_IF_NOT_EXISTS) &&
           check->name.length)
         continue;
       check->flags= 0;
@@ -6363,8 +6363,8 @@ remove_key:
             ER_DUP_CONSTRAINT_NAME, ER_THD(thd, ER_DUP_CONSTRAINT_NAME),
             "CHECK", check->name.str);
           it.remove();
-          if (alter_info->check_constraint_list.elements == 0)
-            alter_info->flags&= ~ALTER_ADD_CHECK_CONSTRAINT;
+          if (oida_info->check_constraint_list.elements == 0)
+            oida_info->flags&= ~OIDA_ADD_CHECK_CONSTRAINT;
 
           break;
         }
@@ -6379,13 +6379,13 @@ remove_key:
 /**
   Get Create_field object for newly created table by field index.
 
-  @param alter_info  Alter_info describing newly created table.
+  @param oida_info  Oida_info describing newly created table.
   @param idx         Field index.
 */
 
-static Create_field *get_field_by_index(Alter_info *alter_info, uint idx)
+static Create_field *get_field_by_index(Oida_info *oida_info, uint idx)
 {
-  List_iterator_fast<Create_field> field_it(alter_info->create_list);
+  List_iterator_fast<Create_field> field_it(oida_info->create_list);
   uint field_idx= 0;
   Create_field *field;
 
@@ -6403,19 +6403,19 @@ static int compare_uint(const uint *s, const uint *t)
 
 
 /**
-   Compare original and new versions of a table and fill Alter_inplace_info
+   Compare original and new versions of a table and fill Oida_inplace_info
    describing differences between those versions.
 
    @param          thd                Thread
    @param          table              The original table.
    @param          varchar            Indicates that new definition has new
                                       VARCHAR column.
-   @param[in/out]  ha_alter_info      Data structure which already contains
+   @param[in/out]  ha_oida_info      Data structure which already contains
                                       basic information about create options,
                                       field and keys for the new version of
                                       table and which should be completed with
                                       more detailed information needed for
-                                      in-place ALTER.
+                                      in-place OIDA.
 
    First argument 'table' contains information of the original
    table, which includes all corresponding parts that the new
@@ -6425,7 +6425,7 @@ static int compare_uint(const uint *s, const uint *t)
    The result of this comparison is then passed to SE which determines
    whether it can carry out these changes in-place.
 
-   Mark any changes detected in the ha_alter_flags.
+   Mark any changes detected in the ha_oida_flags.
    We generally try to specify handler flags only if there are real
    changes. But in cases when it is cumbersome to determine if some
    attribute has really changed we might choose to set flag
@@ -6436,7 +6436,7 @@ static int compare_uint(const uint *s, const uint *t)
    table->key_info or key_info_buffer respectively for the indexes
    that need to be dropped and/or (re-)created.
 
-   Note that this function assumes that it is OK to change Alter_info
+   Note that this function assumes that it is OK to change Oida_info
    and HA_CREATE_INFO which it gets. It is caller who is responsible
    for creating copies for this structures if he needs them unchanged.
 
@@ -6444,10 +6444,10 @@ static int compare_uint(const uint *s, const uint *t)
    @retval false success
 */
 
-static bool fill_alter_inplace_info(THD *thd,
+static bool fill_oida_inplace_info(THD *thd,
                                     TABLE *table,
                                     bool varchar,
-                                    Alter_inplace_info *ha_alter_info)
+                                    Oida_inplace_info *ha_oida_info)
 {
   Field **f_ptr, *field;
   List_iterator_fast<Create_field> new_field_it;
@@ -6455,57 +6455,57 @@ static bool fill_alter_inplace_info(THD *thd,
   KEY_PART_INFO *key_part, *new_part;
   KEY_PART_INFO *end;
   uint candidate_key_count= 0;
-  Alter_info *alter_info= ha_alter_info->alter_info;
-  DBUG_ENTER("fill_alter_inplace_info");
-  DBUG_PRINT("info", ("alter_info->flags: %llu", alter_info->flags));
+  Oida_info *oida_info= ha_oida_info->oida_info;
+  DBUG_ENTER("fill_oida_inplace_info");
+  DBUG_PRINT("info", ("oida_info->flags: %llu", oida_info->flags));
 
   /* Allocate result buffers. */
-  if (! (ha_alter_info->index_drop_buffer=
+  if (! (ha_oida_info->index_drop_buffer=
           (KEY**) thd->alloc(sizeof(KEY*) * table->s->keys)) ||
-      ! (ha_alter_info->index_add_buffer=
+      ! (ha_oida_info->index_add_buffer=
           (uint*) thd->alloc(sizeof(uint) *
-                            alter_info->key_list.elements)))
+                            oida_info->key_list.elements)))
     DBUG_RETURN(true);
 
   /*
     Copy parser flags, but remove some flags that handlers doesn't
     need to care about (old engines may not ignore these parser flags).
-    ALTER_RENAME_COLUMN is replaced by ALTER_COLUMN_NAME.
-    ALTER_CHANGE_COLUMN_DEFAULT is replaced by ALTER_CHANGE_COLUMN
-    ALTER_PARSE_ADD_COLUMN, ALTER_PARSE_DROP_COLUMN, ALTER_ADD_INDEX and
-    ALTER_DROP_INDEX are replaced with versions that have higher granuality.
+    OIDA_RENAME_COLUMN is replaced by OIDA_COLUMN_NAME.
+    OIDA_CHANGE_COLUMN_DEFAULT is replaced by OIDA_CHANGE_COLUMN
+    OIDA_PARSE_ADD_COLUMN, OIDA_PARSE_DROP_COLUMN, OIDA_ADD_INDEX and
+    OIDA_DROP_INDEX are replaced with versions that have higher granuality.
   */
 
-  ha_alter_info->handler_flags|= (alter_info->flags &
-                                  ~(ALTER_ADD_INDEX |
-                                    ALTER_DROP_INDEX |
-                                    ALTER_PARSER_ADD_COLUMN |
-                                    ALTER_PARSER_DROP_COLUMN |
-                                    ALTER_COLUMN_ORDER |
-                                    ALTER_RENAME_COLUMN |
-                                    ALTER_CHANGE_COLUMN |
-                                    ALTER_COLUMN_UNVERSIONED));
+  ha_oida_info->handler_flags|= (oida_info->flags &
+                                  ~(OIDA_ADD_INDEX |
+                                    OIDA_DROP_INDEX |
+                                    OIDA_PARSER_ADD_COLUMN |
+                                    OIDA_PARSER_DROP_COLUMN |
+                                    OIDA_COLUMN_ORDER |
+                                    OIDA_RENAME_COLUMN |
+                                    OIDA_CHANGE_COLUMN |
+                                    OIDA_COLUMN_UNVERSIONED));
   /*
     Comparing new and old default values of column is cumbersome.
     So instead of using such a comparison for detecting if default
     has really changed we rely on flags set by parser to get an
     approximate value for storage engine flag.
   */
-  if (alter_info->flags & ALTER_CHANGE_COLUMN)
-    ha_alter_info->handler_flags|= ALTER_COLUMN_DEFAULT;
+  if (oida_info->flags & OIDA_CHANGE_COLUMN)
+    ha_oida_info->handler_flags|= OIDA_COLUMN_DEFAULT;
 
   /*
-    If we altering table with old VARCHAR fields we will be automatically
+    If we oidaing table with old VARCHAR fields we will be automatically
     upgrading VARCHAR column types.
   */
   if (table->s->frm_version < FRM_VER_TRUE_VARCHAR && varchar)
-    ha_alter_info->handler_flags|=  ALTER_STORED_COLUMN_TYPE;
+    ha_oida_info->handler_flags|=  OIDA_STORED_COLUMN_TYPE;
 
-  DBUG_PRINT("info", ("handler_flags: %llu", ha_alter_info->handler_flags));
+  DBUG_PRINT("info", ("handler_flags: %llu", ha_oida_info->handler_flags));
 
   /*
     Go through fields in old version of table and detect changes to them.
-    We don't want to rely solely on Alter_info flags for this since:
+    We don't want to rely solely on Oida_info flags for this since:
     a) new definition of column can be fully identical to the old one
        despite the fact that this column is mentioned in MODIFY clause.
     b) even if new column type differs from its old column from metadata
@@ -6514,7 +6514,7 @@ static bool fill_alter_inplace_info(THD *thd,
     c) flags passed to storage engine contain more detailed information
        about nature of changes than those provided from parser.
   */
-  bool maybe_alter_vcol= false;
+  bool maybe_oida_vcol= false;
   uint field_stored_index= 0;
   for (f_ptr= table->field; (field= *f_ptr); f_ptr++,
                                field_stored_index+= field->stored_in_db())
@@ -6525,7 +6525,7 @@ static bool fill_alter_inplace_info(THD *thd,
 
     /* Use transformed info to evaluate flags for storage engine. */
     uint new_field_index= 0, new_field_stored_index= 0;
-    new_field_it.init(alter_info->create_list);
+    new_field_it.init(oida_info->create_list);
     while ((new_field= new_field_it++))
     {
       if (new_field->field == field)
@@ -6547,9 +6547,9 @@ static bool fill_alter_inplace_info(THD *thd,
       case IS_EQUAL_NO:
         /* New column type is incompatible with old one. */
         if (field->stored_in_db())
-          ha_alter_info->handler_flags|= ALTER_STORED_COLUMN_TYPE;
+          ha_oida_info->handler_flags|= OIDA_STORED_COLUMN_TYPE;
         else
-          ha_alter_info->handler_flags|= ALTER_VIRTUAL_COLUMN_TYPE;
+          ha_oida_info->handler_flags|= OIDA_VIRTUAL_COLUMN_TYPE;
         if (table->s->tmp_table == NO_TMP_TABLE)
         {
           delete_statistics_for_column(thd, table, field);
@@ -6588,45 +6588,45 @@ static bool fill_alter_inplace_info(THD *thd,
           be carried out by simply updating data dictionary without changing
           actual data (for example, VARCHAR(300) is changed to VARCHAR(400)).
         */
-        ha_alter_info->handler_flags|= ALTER_COLUMN_EQUAL_PACK_LENGTH;
+        ha_oida_info->handler_flags|= OIDA_COLUMN_EQUAL_PACK_LENGTH;
         break;
       default:
         DBUG_ASSERT(0);
         /* Safety. */
-        ha_alter_info->handler_flags|= ALTER_STORED_COLUMN_TYPE;
+        ha_oida_info->handler_flags|= OIDA_STORED_COLUMN_TYPE;
       }
 
       if (field->vcol_info || new_field->vcol_info)
       {
         /* base <-> virtual or stored <-> virtual */
         if (field->stored_in_db() != new_field->stored_in_db())
-          ha_alter_info->handler_flags|= ( ALTER_STORED_COLUMN_TYPE |
-                                           ALTER_VIRTUAL_COLUMN_TYPE);
+          ha_oida_info->handler_flags|= ( OIDA_STORED_COLUMN_TYPE |
+                                           OIDA_VIRTUAL_COLUMN_TYPE);
         if (field->vcol_info && new_field->vcol_info)
         {
           bool value_changes= is_equal == IS_EQUAL_NO;
-          alter_table_operations alter_expr;
+          oida_table_operations oida_expr;
           if (field->stored_in_db())
-            alter_expr= ALTER_STORED_GCOL_EXPR;
+            oida_expr= OIDA_STORED_GCOL_EXPR;
           else
-            alter_expr= ALTER_VIRTUAL_GCOL_EXPR;
+            oida_expr= OIDA_VIRTUAL_GCOL_EXPR;
           if (!field->vcol_info->is_equal(new_field->vcol_info))
           {
-            ha_alter_info->handler_flags|= alter_expr;
+            ha_oida_info->handler_flags|= oida_expr;
             value_changes= true;
           }
 
-          if ((ha_alter_info->handler_flags & ALTER_COLUMN_DEFAULT)
-              && !(ha_alter_info->handler_flags & alter_expr))
+          if ((ha_oida_info->handler_flags & OIDA_COLUMN_DEFAULT)
+              && !(ha_oida_info->handler_flags & oida_expr))
           { /*
               a DEFAULT value of a some column was changed.  see if this vcol
               uses DEFAULT() function. The check is kind of expensive, so don't
-              do it if ALTER_COLUMN_VCOL is already set.
+              do it if OIDA_COLUMN_VCOL is already set.
             */
             if (field->vcol_info->expr->walk(
                                  &Item::check_func_default_processor, 0, 0))
             {
-              ha_alter_info->handler_flags|= alter_expr;
+              ha_oida_info->handler_flags|= oida_expr;
               value_changes= true;
             }
           }
@@ -6635,13 +6635,13 @@ static bool fill_alter_inplace_info(THD *thd,
               field->flags & PART_KEY_FLAG)
           {
             if (value_changes)
-              ha_alter_info->handler_flags|= ALTER_COLUMN_VCOL;
+              ha_oida_info->handler_flags|= OIDA_COLUMN_VCOL;
             else
-              maybe_alter_vcol= true;
+              maybe_oida_vcol= true;
           }
         }
         else /* base <-> stored */
-          ha_alter_info->handler_flags|= ALTER_STORED_COLUMN_TYPE;
+          ha_oida_info->handler_flags|= OIDA_STORED_COLUMN_TYPE;
       }
 
       /* Check if field was renamed */
@@ -6649,7 +6649,7 @@ static bool fill_alter_inplace_info(THD *thd,
                          &new_field->field_name))
       {
         field->flags|= FIELD_IS_RENAMED;
-        ha_alter_info->handler_flags|= ALTER_COLUMN_NAME;
+        ha_oida_info->handler_flags|= OIDA_COLUMN_NAME;
         rename_column_in_stat_tables(thd, table, field,
                                      new_field->field_name.str);
       }
@@ -6659,9 +6659,9 @@ static bool fill_alter_inplace_info(THD *thd,
           (uint) (field->flags & NOT_NULL_FLAG))
       {
         if (new_field->flags & NOT_NULL_FLAG)
-          ha_alter_info->handler_flags|= ALTER_COLUMN_NOT_NULLABLE;
+          ha_oida_info->handler_flags|= OIDA_COLUMN_NOT_NULLABLE;
         else
-          ha_alter_info->handler_flags|= ALTER_COLUMN_NULLABLE;
+          ha_oida_info->handler_flags|= OIDA_COLUMN_NULLABLE;
       }
 
       /*
@@ -6675,27 +6675,27 @@ static bool fill_alter_inplace_info(THD *thd,
       if (field->stored_in_db())
       {
         if (field_stored_index != new_field_stored_index)
-          ha_alter_info->handler_flags|= ALTER_STORED_COLUMN_ORDER;
+          ha_oida_info->handler_flags|= OIDA_STORED_COLUMN_ORDER;
       }
       else
       {
         if (field->field_index != new_field_index)
-          ha_alter_info->handler_flags|= ALTER_VIRTUAL_COLUMN_ORDER;
+          ha_oida_info->handler_flags|= OIDA_VIRTUAL_COLUMN_ORDER;
       }
 
       /* Detect changes in storage type of column */
       if (new_field->field_storage_type() != field->field_storage_type())
-        ha_alter_info->handler_flags|= ALTER_COLUMN_STORAGE_TYPE;
+        ha_oida_info->handler_flags|= OIDA_COLUMN_STORAGE_TYPE;
 
       /* Detect changes in column format of column */
       if (new_field->column_format() != field->column_format())
-        ha_alter_info->handler_flags|= ALTER_COLUMN_COLUMN_FORMAT;
+        ha_oida_info->handler_flags|= OIDA_COLUMN_COLUMN_FORMAT;
 
       if (engine_options_differ(field->option_struct, new_field->option_struct,
                                 table->file->ht->field_options))
       {
-        ha_alter_info->handler_flags|= ALTER_COLUMN_OPTION;
-        ha_alter_info->create_info->fields_option_struct[f_ptr - table->field]=
+        ha_oida_info->handler_flags|= OIDA_COLUMN_OPTION;
+        ha_oida_info->create_info->fields_option_struct[f_ptr - table->field]=
           new_field->option_struct;
       }
 
@@ -6705,28 +6705,28 @@ static bool fill_alter_inplace_info(THD *thd,
       // Field is not present in new version of table and therefore was dropped.
       field->flags|= FIELD_IS_DROPPED;
       if (field->stored_in_db())
-        ha_alter_info->handler_flags|= ALTER_DROP_STORED_COLUMN;
+        ha_oida_info->handler_flags|= OIDA_DROP_STORED_COLUMN;
       else
-        ha_alter_info->handler_flags|= ALTER_DROP_VIRTUAL_COLUMN;
+        ha_oida_info->handler_flags|= OIDA_DROP_VIRTUAL_COLUMN;
     }
   }
 
-  if (maybe_alter_vcol)
+  if (maybe_oida_vcol)
   {
     /*
-      What if one of the normal columns was altered and it was part of the some
+      What if one of the normal columns was oidaed and it was part of the some
       virtual column expression?  Currently we don't detect this correctly
       (FIXME), so let's just say that a vcol *might* be affected if any other
-      column was altered.
+      column was oidaed.
     */
-    if (ha_alter_info->handler_flags & (ALTER_STORED_COLUMN_TYPE |
-                                        ALTER_VIRTUAL_COLUMN_TYPE |
-                                        ALTER_COLUMN_NOT_NULLABLE |
-                                        ALTER_COLUMN_OPTION))
-      ha_alter_info->handler_flags|= ALTER_COLUMN_VCOL;
+    if (ha_oida_info->handler_flags & (OIDA_STORED_COLUMN_TYPE |
+                                        OIDA_VIRTUAL_COLUMN_TYPE |
+                                        OIDA_COLUMN_NOT_NULLABLE |
+                                        OIDA_COLUMN_OPTION))
+      ha_oida_info->handler_flags|= OIDA_COLUMN_VCOL;
   }
 
-  new_field_it.init(alter_info->create_list);
+  new_field_it.init(oida_info->create_list);
   while ((new_field= new_field_it++))
   {
     if (! new_field->field)
@@ -6735,12 +6735,12 @@ static bool fill_alter_inplace_info(THD *thd,
       if (new_field->vcol_info)
       {
         if (new_field->stored_in_db())
-          ha_alter_info->handler_flags|= ALTER_ADD_STORED_GENERATED_COLUMN;
+          ha_oida_info->handler_flags|= OIDA_ADD_STORED_GENERATED_COLUMN;
         else
-          ha_alter_info->handler_flags|= ALTER_ADD_VIRTUAL_COLUMN;
+          ha_oida_info->handler_flags|= OIDA_ADD_VIRTUAL_COLUMN;
       }
       else
-        ha_alter_info->handler_flags|= ALTER_ADD_STORED_BASE_COLUMN;
+        ha_oida_info->handler_flags|= OIDA_ADD_STORED_BASE_COLUMN;
     }
   }
 
@@ -6752,20 +6752,20 @@ static bool fill_alter_inplace_info(THD *thd,
   KEY *table_key_end= table->key_info + table->s->keys;
   KEY *new_key;
   KEY *new_key_end=
-    ha_alter_info->key_info_buffer + ha_alter_info->key_count;
+    ha_oida_info->key_info_buffer + ha_oida_info->key_count;
 
   DBUG_PRINT("info", ("index count old: %d  new: %d",
-                      table->s->keys, ha_alter_info->key_count));
+                      table->s->keys, ha_oida_info->key_count));
 
   /*
     Step through all keys of the old table and search matching new keys.
   */
-  ha_alter_info->index_drop_count= 0;
-  ha_alter_info->index_add_count= 0;
+  ha_oida_info->index_drop_count= 0;
+  ha_oida_info->index_add_count= 0;
   for (table_key= table->key_info; table_key < table_key_end; table_key++)
   {
     /* Search a new key with the same name. */
-    for (new_key= ha_alter_info->key_info_buffer;
+    for (new_key= ha_oida_info->key_info_buffer;
          new_key < new_key_end;
          new_key++)
     {
@@ -6776,8 +6776,8 @@ static bool fill_alter_inplace_info(THD *thd,
     if (new_key >= new_key_end)
     {
       /* Key not found. Add the key to the drop buffer. */
-      ha_alter_info->index_drop_buffer
-        [ha_alter_info->index_drop_count++]=
+      ha_oida_info->index_drop_buffer
+        [ha_oida_info->index_drop_count++]=
         table_key;
       DBUG_PRINT("info", ("index dropped: '%s'", table_key->name.str));
       continue;
@@ -6817,7 +6817,7 @@ static bool fill_alter_inplace_info(THD *thd,
       if (key_part->length != new_part->length)
         goto index_changed;
 
-      new_field= get_field_by_index(alter_info, new_part->fieldnr);
+      new_field= get_field_by_index(oida_info, new_part->fieldnr);
 
       /*
         For prefix keys KEY_PART_INFO::field points to cloned Field
@@ -6840,12 +6840,12 @@ static bool fill_alter_inplace_info(THD *thd,
 
   index_changed:
     /* Key modified. Add the key / key offset to both buffers. */
-    ha_alter_info->index_drop_buffer
-      [ha_alter_info->index_drop_count++]=
+    ha_oida_info->index_drop_buffer
+      [ha_oida_info->index_drop_count++]=
       table_key;
-    ha_alter_info->index_add_buffer
-      [ha_alter_info->index_add_count++]=
-      (uint)(new_key - ha_alter_info->key_info_buffer);
+    ha_oida_info->index_add_buffer
+      [ha_oida_info->index_add_count++]=
+      (uint)(new_key - ha_oida_info->key_info_buffer);
     /* Mark all old fields which are used in newly created index. */
     DBUG_PRINT("info", ("index changed: '%s'", table_key->name.str));
   }
@@ -6854,7 +6854,7 @@ static bool fill_alter_inplace_info(THD *thd,
   /*
     Step through all keys of the new table and find matching old keys.
   */
-  for (new_key= ha_alter_info->key_info_buffer;
+  for (new_key= ha_oida_info->key_info_buffer;
        new_key < new_key_end;
        new_key++)
   {
@@ -6868,13 +6868,13 @@ static bool fill_alter_inplace_info(THD *thd,
     if (table_key >= table_key_end)
     {
       /* Key not found. Add the offset of the key to the add buffer. */
-      ha_alter_info->index_add_buffer
-        [ha_alter_info->index_add_count++]=
-        (uint)(new_key - ha_alter_info->key_info_buffer);
+      ha_oida_info->index_add_buffer
+        [ha_oida_info->index_add_count++]=
+        (uint)(new_key - ha_oida_info->key_info_buffer);
       DBUG_PRINT("info", ("index added: '%s'", new_key->name.str));
     }
     else
-      ha_alter_info->create_info->indexes_option_struct[table_key - table->key_info]=
+      ha_oida_info->create_info->indexes_option_struct[table_key - table->key_info]=
         new_key->option_struct;
   }
 
@@ -6882,8 +6882,8 @@ static bool fill_alter_inplace_info(THD *thd,
     Sort index_add_buffer according to how key_info_buffer is sorted.
     I.e. with primary keys first - see sort_keys().
   */
-  my_qsort(ha_alter_info->index_add_buffer,
-           ha_alter_info->index_add_count,
+  my_qsort(ha_oida_info->index_add_buffer,
+           ha_oida_info->index_add_count,
            sizeof(uint), (qsort_cmp) compare_uint);
 
   /* Now let us calculate flags for storage engine API. */
@@ -6906,10 +6906,10 @@ static bool fill_alter_inplace_info(THD *thd,
 
   /* Figure out what kind of indexes we are dropping. */
   KEY **dropped_key;
-  KEY **dropped_key_end= ha_alter_info->index_drop_buffer +
-                         ha_alter_info->index_drop_count;
+  KEY **dropped_key_end= ha_oida_info->index_drop_buffer +
+                         ha_oida_info->index_drop_count;
 
-  for (dropped_key= ha_alter_info->index_drop_buffer;
+  for (dropped_key= ha_oida_info->index_drop_buffer;
        dropped_key < dropped_key_end; dropped_key++)
   {
     table_key= *dropped_key;
@@ -6922,24 +6922,24 @@ static bool fill_alter_inplace_info(THD *thd,
       */
       if ((uint) (table_key - table->key_info) == table->s->primary_key)
       {
-        ha_alter_info->handler_flags|= ALTER_DROP_PK_INDEX;
+        ha_oida_info->handler_flags|= OIDA_DROP_PK_INDEX;
         candidate_key_count--;
       }
       else
       {
-        ha_alter_info->handler_flags|= ALTER_DROP_UNIQUE_INDEX;
+        ha_oida_info->handler_flags|= OIDA_DROP_UNIQUE_INDEX;
         if (is_candidate_key(table_key))
           candidate_key_count--;
       }
     }
     else
-      ha_alter_info->handler_flags|= ALTER_DROP_NON_UNIQUE_NON_PRIM_INDEX;
+      ha_oida_info->handler_flags|= OIDA_DROP_NON_UNIQUE_NON_PRIM_INDEX;
   }
 
   /* Now figure out what kind of indexes we are adding. */
-  for (uint add_key_idx= 0; add_key_idx < ha_alter_info->index_add_count; add_key_idx++)
+  for (uint add_key_idx= 0; add_key_idx < ha_oida_info->index_add_count; add_key_idx++)
   {
-    new_key= ha_alter_info->key_info_buffer + ha_alter_info->index_add_buffer[add_key_idx];
+    new_key= ha_oida_info->key_info_buffer + ha_oida_info->index_add_buffer[add_key_idx];
 
     if (new_key->flags & HA_NOSAME)
     {
@@ -6952,36 +6952,36 @@ static bool fill_alter_inplace_info(THD *thd,
       {
         /* Candidate key or primary key! */
         if (candidate_key_count == 0 || is_pk)
-          ha_alter_info->handler_flags|= ALTER_ADD_PK_INDEX;
+          ha_oida_info->handler_flags|= OIDA_ADD_PK_INDEX;
         else
-          ha_alter_info->handler_flags|= ALTER_ADD_UNIQUE_INDEX;
+          ha_oida_info->handler_flags|= OIDA_ADD_UNIQUE_INDEX;
         candidate_key_count++;
       }
       else
       {
-        ha_alter_info->handler_flags|= ALTER_ADD_UNIQUE_INDEX;
+        ha_oida_info->handler_flags|= OIDA_ADD_UNIQUE_INDEX;
       }
     }
     else
-      ha_alter_info->handler_flags|= ALTER_ADD_NON_UNIQUE_NON_PRIM_INDEX;
+      ha_oida_info->handler_flags|= OIDA_ADD_NON_UNIQUE_NON_PRIM_INDEX;
   }
 
-  DBUG_PRINT("exit", ("handler_flags: %llu", ha_alter_info->handler_flags));
+  DBUG_PRINT("exit", ("handler_flags: %llu", ha_oida_info->handler_flags));
   DBUG_RETURN(false);
 }
 
 
 /**
   Mark fields participating in newly added indexes in TABLE object which
-  corresponds to new version of altered table.
+  corresponds to new version of oidaed table.
 
-  @param ha_alter_info  Alter_inplace_info describing in-place ALTER.
-  @param altered_table  TABLE object for new version of TABLE in which
+  @param ha_oida_info  Oida_inplace_info describing in-place OIDA.
+  @param oidaed_table  TABLE object for new version of TABLE in which
                         fields should be marked.
 */
 
-static void update_altered_table(const Alter_inplace_info &ha_alter_info,
-                                 TABLE *altered_table)
+static void update_oidaed_table(const Oida_inplace_info &ha_oida_info,
+                                 TABLE *oidaed_table)
 {
   uint field_idx, add_key_idx;
   KEY *key;
@@ -6991,33 +6991,33 @@ static void update_altered_table(const Alter_inplace_info &ha_alter_info,
     Clear marker for all fields, as we are going to set it only
     for fields which participate in new indexes.
   */
-  for (field_idx= 0; field_idx < altered_table->s->fields; ++field_idx)
-    altered_table->field[field_idx]->flags&= ~FIELD_IN_ADD_INDEX;
+  for (field_idx= 0; field_idx < oidaed_table->s->fields; ++field_idx)
+    oidaed_table->field[field_idx]->flags&= ~FIELD_IN_ADD_INDEX;
 
   /*
     Go through array of newly added indexes and mark fields
     participating in them.
   */
-  for (add_key_idx= 0; add_key_idx < ha_alter_info.index_add_count;
+  for (add_key_idx= 0; add_key_idx < ha_oida_info.index_add_count;
        add_key_idx++)
   {
-    key= ha_alter_info.key_info_buffer +
-         ha_alter_info.index_add_buffer[add_key_idx];
+    key= ha_oida_info.key_info_buffer +
+         ha_oida_info.index_add_buffer[add_key_idx];
 
     end= key->key_part + key->user_defined_key_parts;
     for (key_part= key->key_part; key_part < end; key_part++)
-      altered_table->field[key_part->fieldnr]->flags|= FIELD_IN_ADD_INDEX;
+      oidaed_table->field[key_part->fieldnr]->flags|= FIELD_IN_ADD_INDEX;
   }
 }
 
 
 /**
   Compare two tables to see if their metadata are compatible.
-  One table specified by a TABLE instance, the other using Alter_info
+  One table specified by a TABLE instance, the other using Oida_info
   and HA_CREATE_INFO.
 
   @param[in]  table          The first table.
-  @param[in]  alter_info     Alter options, fields and keys for the
+  @param[in]  oida_info     Oida options, fields and keys for the
                              second table.
   @param[in]  create_info    Create options for the second table.
   @param[out] metadata_equal Result of comparison.
@@ -7027,7 +7027,7 @@ static void update_altered_table(const Alter_inplace_info &ha_alter_info,
 */
 
 bool mysql_compare_tables(TABLE *table,
-                          Alter_info *alter_info,
+                          Oida_info *oida_info,
                           HA_CREATE_INFO *create_info,
                           bool *metadata_equal)
 {
@@ -7040,38 +7040,38 @@ bool mysql_compare_tables(TABLE *table,
   *metadata_equal= false;
 
   /*
-    Create a copy of alter_info.
+    Create a copy of oida_info.
     To compare definitions, we need to "prepare" the definition - transform it
     from parser output to a format that describes the table layout (all column
     defaults are initialized, duplicate columns are removed). This is done by
     mysql_prepare_create_table.  Unfortunately, mysql_prepare_create_table
     performs its transformations "in-place", that is, modifies the argument.
-    Since we would like to keep mysql_compare_tables() idempotent (not altering
-    any of the arguments) we create a copy of alter_info here and pass it to
+    Since we would like to keep mysql_compare_tables() idempotent (not oidaing
+    any of the arguments) we create a copy of oida_info here and pass it to
     mysql_prepare_create_table, then use the result to compare the tables, and
     then destroy the copy.
   */
-  Alter_info tmp_alter_info(*alter_info, thd->mem_root);
+  Oida_info tmp_oida_info(*oida_info, thd->mem_root);
   uint db_options= 0; /* not used */
   KEY *key_info_buffer= NULL;
 
   /* Create the prepared information. */
   int create_table_mode= table->s->tmp_table == NO_TMP_TABLE ?
-                           C_ORDINARY_CREATE : C_ALTER_TABLE;
-  if (mysql_prepare_create_table(thd, create_info, &tmp_alter_info,
+                           C_ORDINARY_CREATE : C_OIDA_TABLE;
+  if (mysql_prepare_create_table(thd, create_info, &tmp_oida_info,
                                  &db_options, table->file, &key_info_buffer,
                                  &key_count, create_table_mode))
     DBUG_RETURN(1);
 
   /* Some very basic checks. */
-  if (table->s->fields != alter_info->create_list.elements ||
+  if (table->s->fields != oida_info->create_list.elements ||
       table->s->db_type() != create_info->db_type ||
       table->s->tmp_table ||
       (table->s->row_type != create_info->row_type))
     DBUG_RETURN(false);
 
   /* Go through fields and check if they are compatible. */
-  tmp_new_field_it.init(tmp_alter_info.create_list);
+  tmp_new_field_it.init(tmp_oida_info.create_list);
   for (Field **f_ptr= table->field; *f_ptr; f_ptr++)
   {
     Field *field= *f_ptr;
@@ -7083,8 +7083,8 @@ bool mysql_compare_tables(TABLE *table,
       DBUG_RETURN(false);
 
     /*
-      mysql_prepare_alter_table() clears HA_OPTION_PACK_RECORD bit when
-      preparing description of existing table. In ALTER TABLE it is later
+      mysql_prepare_oida_table() clears HA_OPTION_PACK_RECORD bit when
+      preparing description of existing table. In OIDA TABLE it is later
       updated to correct value by create_table_impl() call.
       So to get correct value of this bit in this function we have to
       mimic behavior of create_table_impl().
@@ -7180,10 +7180,10 @@ bool mysql_compare_tables(TABLE *table,
 
 
 /*
-  Manages enabling/disabling of indexes for ALTER TABLE
+  Manages enabling/disabling of indexes for OIDA TABLE
 
   SYNOPSIS
-    alter_table_manage_keys()
+    oida_table_manage_keys()
       table                  Target table
       indexes_were_disabled  Whether the indexes of the from table
                              were disabled
@@ -7195,24 +7195,24 @@ bool mysql_compare_tables(TABLE *table,
 */
 
 static
-bool alter_table_manage_keys(TABLE *table, int indexes_were_disabled,
-                             Alter_info::enum_enable_or_disable keys_onoff)
+bool oida_table_manage_keys(TABLE *table, int indexes_were_disabled,
+                             Oida_info::enum_enable_or_disable keys_onoff)
 {
   int error= 0;
-  DBUG_ENTER("alter_table_manage_keys");
+  DBUG_ENTER("oida_table_manage_keys");
   DBUG_PRINT("enter", ("table=%p were_disabled=%d on_off=%d",
              table, indexes_were_disabled, keys_onoff));
 
   switch (keys_onoff) {
-  case Alter_info::ENABLE:
-    DEBUG_SYNC(table->in_use, "alter_table_enable_indexes");
+  case Oida_info::ENABLE:
+    DEBUG_SYNC(table->in_use, "oida_table_enable_indexes");
     error= table->file->ha_enable_indexes(HA_KEY_SWITCH_NONUNIQ_SAVE);
     break;
-  case Alter_info::LEAVE_AS_IS:
+  case Oida_info::LEAVE_AS_IS:
     if (!indexes_were_disabled)
       break;
     /* fall through */
-  case Alter_info::DISABLE:
+  case Oida_info::DISABLE:
     error= table->file->ha_disable_indexes(HA_KEY_SWITCH_NONUNIQ_SAVE);
   }
 
@@ -7233,7 +7233,7 @@ bool alter_table_manage_keys(TABLE *table, int indexes_were_disabled,
 
 
 /**
-  Check if the pending ALTER TABLE operations support the in-place
+  Check if the pending OIDA TABLE operations support the in-place
   algorithm based on restrictions in the SQL layer or given the
   nature of the operations themselves. If in-place isn't supported,
   it won't be necessary to check with the storage engine.
@@ -7241,24 +7241,24 @@ bool alter_table_manage_keys(TABLE *table, int indexes_were_disabled,
   @param table        The original TABLE.
   @param create_info  Information from the parsing phase about new
                       table properties.
-  @param alter_info   Data related to detected changes.
+  @param oida_info   Data related to detected changes.
 
   @return false       In-place is possible, check with storage engine.
   @return true        Incompatible operations, must use table copy.
 */
 
-static bool is_inplace_alter_impossible(TABLE *table,
+static bool is_inplace_oida_impossible(TABLE *table,
                                         HA_CREATE_INFO *create_info,
-                                        const Alter_info *alter_info)
+                                        const Oida_info *oida_info)
 {
-  DBUG_ENTER("is_inplace_alter_impossible");
+  DBUG_ENTER("is_inplace_oida_impossible");
 
-  /* At the moment we can't handle altering temporary tables without a copy. */
+  /* At the moment we can't handle oidaing temporary tables without a copy. */
   if (table->s->tmp_table)
     DBUG_RETURN(true);
 
   /*
-    For the ALTER TABLE tbl_name ORDER BY ... we always use copy
+    For the OIDA TABLE tbl_name ORDER BY ... we always use copy
     algorithm. In theory, this operation can be done in-place by some
     engine, but since a) no current engine does this and b) our current
     API lacks infrastructure for passing information about table ordering
@@ -7268,13 +7268,13 @@ static bool is_inplace_alter_impossible(TABLE *table,
     not supported for in-place in combination with other operations.
     Alone, it will be done by simple_rename_or_index_change().
   */
-  if (alter_info->flags & (ALTER_ORDER | ALTER_KEYS_ONOFF))
+  if (oida_info->flags & (OIDA_ORDER | OIDA_KEYS_ONOFF))
     DBUG_RETURN(true);
 
   /*
     If the table engine is changed explicitly (using ENGINE clause)
     or implicitly (e.g. when non-partitioned table becomes
-    partitioned) a regular alter table (copy) needs to be
+    partitioned) a regular oida table (copy) needs to be
     performed.
   */
   if (create_info->db_type != table->s->db_type())
@@ -7283,9 +7283,9 @@ static bool is_inplace_alter_impossible(TABLE *table,
   /*
     There was a bug prior to mysql-4.0.25. Number of null fields was
     calculated incorrectly. As a result frm and data files gets out of
-    sync after fast alter table. There is no way to determine by which
+    sync after fast oida table. There is no way to determine by which
     mysql version (in 4.0 and 4.1 branches) table was created, thus we
-    disable fast alter table for all tables created by mysql versions
+    disable fast oida table for all tables created by mysql versions
     prior to 5.0 branch.
     See BUG#6236.
   */
@@ -7293,7 +7293,7 @@ static bool is_inplace_alter_impossible(TABLE *table,
     DBUG_RETURN(true);
 
   /*
-    If we are using a MySQL 5.7 table with virtual fields, ALTER TABLE must
+    If we are using a MySQL 5.7 table with virtual fields, OIDA TABLE must
     recreate the table as we need to rewrite generated fields
   */
   if (table->s->mysql_version > 50700 && table->s->mysql_version < 100000 &&
@@ -7305,27 +7305,27 @@ static bool is_inplace_alter_impossible(TABLE *table,
 
 
 /**
-  Perform in-place alter table.
+  Perform in-place oida table.
 
   @param thd                Thread handle.
   @param table_list         TABLE_LIST for the table to change.
   @param table              The original TABLE.
-  @param altered_table      TABLE object for new version of the table.
-  @param ha_alter_info      Structure describing ALTER TABLE to be carried
+  @param oidaed_table      TABLE object for new version of the table.
+  @param ha_oida_info      Structure describing OIDA TABLE to be carried
                             out and serving as a storage place for data
                             used during different phases.
   @param inplace_supported  Enum describing the locking requirements.
   @param target_mdl_request Metadata request/lock on the target table name.
-  @param alter_ctx          ALTER TABLE runtime context.
+  @param oida_ctx          OIDA TABLE runtime context.
 
   @retval   true              Error
   @retval   false             Success
 
   @note
-    If mysql_alter_table does not need to copy the table, it is
-    either an alter table where the storage engine does not
+    If mysql_oida_table does not need to copy the table, it is
+    either an oida table where the storage engine does not
     need to know about the change, only the frm will change,
-    or the storage engine supports performing the alter table
+    or the storage engine supports performing the oida table
     operation directly, in-place without mysql having to copy
     the table.
 
@@ -7334,24 +7334,24 @@ static bool is_inplace_alter_impossible(TABLE *table,
         failure.
 */
 
-static bool mysql_inplace_alter_table(THD *thd,
+static bool mysql_inplace_oida_table(THD *thd,
                                       TABLE_LIST *table_list,
                                       TABLE *table,
-                                      TABLE *altered_table,
-                                      Alter_inplace_info *ha_alter_info,
-                                      enum_alter_inplace_result inplace_supported,
+                                      TABLE *oidaed_table,
+                                      Oida_inplace_info *ha_oida_info,
+                                      enum_oida_inplace_result inplace_supported,
                                       MDL_request *target_mdl_request,
-                                      Alter_table_ctx *alter_ctx)
+                                      Oida_table_ctx *oida_ctx)
 {
   Open_table_context ot_ctx(thd, MYSQL_OPEN_REOPEN | MYSQL_OPEN_IGNORE_KILLED);
   handlerton *db_type= table->s->db_type();
   MDL_ticket *mdl_ticket= table->mdl_ticket;
-  HA_CREATE_INFO *create_info= ha_alter_info->create_info;
-  Alter_info *alter_info= ha_alter_info->alter_info;
+  HA_CREATE_INFO *create_info= ha_oida_info->create_info;
+  Oida_info *oida_info= ha_oida_info->oida_info;
   bool reopen_tables= false;
   bool res;
 
-  DBUG_ENTER("mysql_inplace_alter_table");
+  DBUG_ENTER("mysql_inplace_oida_table");
 
   /*
     Upgrade to EXCLUSIVE lock if:
@@ -7364,23 +7364,23 @@ static bool mysql_inplace_alter_table(THD *thd,
     lock for prepare phase under LOCK TABLES in the same way as when
     exclusive lock is required for duration of the whole statement.
   */
-  if (inplace_supported == HA_ALTER_INPLACE_EXCLUSIVE_LOCK ||
-      ((inplace_supported == HA_ALTER_INPLACE_SHARED_LOCK_AFTER_PREPARE ||
-        inplace_supported == HA_ALTER_INPLACE_NO_LOCK_AFTER_PREPARE) &&
+  if (inplace_supported == HA_OIDA_INPLACE_EXCLUSIVE_LOCK ||
+      ((inplace_supported == HA_OIDA_INPLACE_SHARED_LOCK_AFTER_PREPARE ||
+        inplace_supported == HA_OIDA_INPLACE_NO_LOCK_AFTER_PREPARE) &&
        (thd->locked_tables_mode == LTM_LOCK_TABLES ||
         thd->locked_tables_mode == LTM_PRELOCKED_UNDER_LOCK_TABLES)) ||
-      alter_info->requested_lock == Alter_info::ALTER_TABLE_LOCK_EXCLUSIVE)
+      oida_info->requested_lock == Oida_info::OIDA_TABLE_LOCK_EXCLUSIVE)
   {
     if (wait_while_table_is_used(thd, table, HA_EXTRA_FORCE_REOPEN))
       goto cleanup;
     /*
       Get rid of all TABLE instances belonging to this thread
-      except one to be used for in-place ALTER TABLE.
+      except one to be used for in-place OIDA TABLE.
 
       This is mostly needed to satisfy InnoDB assumptions/asserts.
     */
     close_all_tables_for_name(thd, table->s,
-                              alter_ctx->is_table_renamed() ?
+                              oida_ctx->is_table_renamed() ?
                               HA_EXTRA_PREPARE_FOR_RENAME :
 			      HA_EXTRA_NOT_USED,
                               table);
@@ -7390,14 +7390,14 @@ static bool mysql_inplace_alter_table(THD *thd,
     */
     reopen_tables= true;
   }
-  else if (inplace_supported == HA_ALTER_INPLACE_SHARED_LOCK_AFTER_PREPARE ||
-           inplace_supported == HA_ALTER_INPLACE_NO_LOCK_AFTER_PREPARE)
+  else if (inplace_supported == HA_OIDA_INPLACE_SHARED_LOCK_AFTER_PREPARE ||
+           inplace_supported == HA_OIDA_INPLACE_NO_LOCK_AFTER_PREPARE)
   {
     /*
       Storage engine has requested exclusive lock only for prepare phase
       and we are not under LOCK TABLES.
       Don't mark TABLE_SHARE as old in this case, as this won't allow opening
-      of table by other threads during main phase of in-place ALTER TABLE.
+      of table by other threads during main phase of in-place OIDA TABLE.
     */
     if (thd->mdl_context.upgrade_shared_lock(table->mdl_ticket, MDL_EXCLUSIVE,
                                              thd->variables.lock_wait_timeout))
@@ -7414,8 +7414,8 @@ static bool mysql_inplace_alter_table(THD *thd,
     - Or this is requested by the user
     Note that under LOCK TABLES, we will already have SHARED_NO_READ_WRITE.
   */
-  if ((inplace_supported == HA_ALTER_INPLACE_SHARED_LOCK ||
-       alter_info->requested_lock == Alter_info::ALTER_TABLE_LOCK_SHARED) &&
+  if ((inplace_supported == HA_OIDA_INPLACE_SHARED_LOCK ||
+       oida_info->requested_lock == Oida_info::OIDA_TABLE_LOCK_SHARED) &&
       thd->mdl_context.upgrade_shared_lock(table->mdl_ticket,
                                            MDL_SHARED_NO_WRITE,
                                            thd->variables.lock_wait_timeout))
@@ -7424,37 +7424,37 @@ static bool mysql_inplace_alter_table(THD *thd,
   }
 
   // It's now safe to take the table level lock.
-  if (lock_tables(thd, table_list, alter_ctx->tables_opened, 0))
+  if (lock_tables(thd, table_list, oida_ctx->tables_opened, 0))
     goto cleanup;
 
-  DEBUG_SYNC(thd, "alter_table_inplace_after_lock_upgrade");
-  THD_STAGE_INFO(thd, stage_alter_inplace_prepare);
+  DEBUG_SYNC(thd, "oida_table_inplace_after_lock_upgrade");
+  THD_STAGE_INFO(thd, stage_oida_inplace_prepare);
 
   switch (inplace_supported) {
-  case HA_ALTER_ERROR:
-  case HA_ALTER_INPLACE_NOT_SUPPORTED:
+  case HA_OIDA_ERROR:
+  case HA_OIDA_INPLACE_NOT_SUPPORTED:
     DBUG_ASSERT(0);
     // fall through
-  case HA_ALTER_INPLACE_NO_LOCK:
-  case HA_ALTER_INPLACE_NO_LOCK_AFTER_PREPARE:
-    switch (alter_info->requested_lock) {
-    case Alter_info::ALTER_TABLE_LOCK_DEFAULT:
-    case Alter_info::ALTER_TABLE_LOCK_NONE:
-      ha_alter_info->online= true;
+  case HA_OIDA_INPLACE_NO_LOCK:
+  case HA_OIDA_INPLACE_NO_LOCK_AFTER_PREPARE:
+    switch (oida_info->requested_lock) {
+    case Oida_info::OIDA_TABLE_LOCK_DEFAULT:
+    case Oida_info::OIDA_TABLE_LOCK_NONE:
+      ha_oida_info->online= true;
       break;
-    case Alter_info::ALTER_TABLE_LOCK_SHARED:
-    case Alter_info::ALTER_TABLE_LOCK_EXCLUSIVE:
+    case Oida_info::OIDA_TABLE_LOCK_SHARED:
+    case Oida_info::OIDA_TABLE_LOCK_EXCLUSIVE:
       break;
     }
     break;
-  case HA_ALTER_INPLACE_EXCLUSIVE_LOCK:
-  case HA_ALTER_INPLACE_SHARED_LOCK_AFTER_PREPARE:
-  case HA_ALTER_INPLACE_SHARED_LOCK:
+  case HA_OIDA_INPLACE_EXCLUSIVE_LOCK:
+  case HA_OIDA_INPLACE_SHARED_LOCK_AFTER_PREPARE:
+  case HA_OIDA_INPLACE_SHARED_LOCK:
     break;
   }
 
-  if (table->file->ha_prepare_inplace_alter_table(altered_table,
-                                                  ha_alter_info))
+  if (table->file->ha_prepare_inplace_oida_table(oidaed_table,
+                                                  ha_oida_info))
   {
     goto rollback;
   }
@@ -7464,29 +7464,29 @@ static bool mysql_inplace_alter_table(THD *thd,
     necessary only for prepare phase (unless we are not under LOCK TABLES) and
     user has not explicitly requested exclusive lock.
   */
-  if ((inplace_supported == HA_ALTER_INPLACE_SHARED_LOCK_AFTER_PREPARE ||
-       inplace_supported == HA_ALTER_INPLACE_NO_LOCK_AFTER_PREPARE) &&
+  if ((inplace_supported == HA_OIDA_INPLACE_SHARED_LOCK_AFTER_PREPARE ||
+       inplace_supported == HA_OIDA_INPLACE_NO_LOCK_AFTER_PREPARE) &&
       !(thd->locked_tables_mode == LTM_LOCK_TABLES ||
         thd->locked_tables_mode == LTM_PRELOCKED_UNDER_LOCK_TABLES) &&
-      (alter_info->requested_lock != Alter_info::ALTER_TABLE_LOCK_EXCLUSIVE))
+      (oida_info->requested_lock != Oida_info::OIDA_TABLE_LOCK_EXCLUSIVE))
   {
     /* If storage engine or user requested shared lock downgrade to SNW. */
-    if (inplace_supported == HA_ALTER_INPLACE_SHARED_LOCK_AFTER_PREPARE ||
-        alter_info->requested_lock == Alter_info::ALTER_TABLE_LOCK_SHARED)
+    if (inplace_supported == HA_OIDA_INPLACE_SHARED_LOCK_AFTER_PREPARE ||
+        oida_info->requested_lock == Oida_info::OIDA_TABLE_LOCK_SHARED)
       table->mdl_ticket->downgrade_lock(MDL_SHARED_NO_WRITE);
     else
     {
-      DBUG_ASSERT(inplace_supported == HA_ALTER_INPLACE_NO_LOCK_AFTER_PREPARE);
+      DBUG_ASSERT(inplace_supported == HA_OIDA_INPLACE_NO_LOCK_AFTER_PREPARE);
       table->mdl_ticket->downgrade_lock(MDL_SHARED_UPGRADABLE);
     }
   }
 
-  DEBUG_SYNC(thd, "alter_table_inplace_after_lock_downgrade");
-  THD_STAGE_INFO(thd, stage_alter_inplace);
+  DEBUG_SYNC(thd, "oida_table_inplace_after_lock_downgrade");
+  THD_STAGE_INFO(thd, stage_oida_inplace);
 
-  /* We can abort alter table for any table type */
-  thd->abort_on_warning= !ha_alter_info->ignore && thd->is_strict_mode();
-  res= table->file->ha_inplace_alter_table(altered_table, ha_alter_info);
+  /* We can abort oida table for any table type */
+  thd->abort_on_warning= !ha_oida_info->ignore && thd->is_strict_mode();
+  res= table->file->ha_inplace_oida_table(oidaed_table, ha_oida_info);
   thd->abort_on_warning= false;
   if (res)
     goto rollback;
@@ -7501,16 +7501,16 @@ static bool mysql_inplace_alter_table(THD *thd,
     be no long waits left.
   */
 
-  DBUG_EXECUTE_IF("alter_table_rollback_new_index", {
-      table->file->ha_commit_inplace_alter_table(altered_table,
-                                                 ha_alter_info,
+  DBUG_EXECUTE_IF("oida_table_rollback_new_index", {
+      table->file->ha_commit_inplace_oida_table(oidaed_table,
+                                                 ha_oida_info,
                                                  false);
       my_error(ER_UNKNOWN_ERROR, MYF(0));
       goto cleanup;
     });
 
-  DEBUG_SYNC(thd, "alter_table_inplace_before_commit");
-  THD_STAGE_INFO(thd, stage_alter_inplace_commit);
+  DEBUG_SYNC(thd, "oida_table_inplace_before_commit");
+  THD_STAGE_INFO(thd, stage_oida_inplace_commit);
 
   {
     TR_table trt(thd, true);
@@ -7532,18 +7532,18 @@ static bool mysql_inplace_alter_table(THD *thd,
       }
     }
 
-    if (table->file->ha_commit_inplace_alter_table(altered_table,
-                                                  ha_alter_info,
+    if (table->file->ha_commit_inplace_oida_table(oidaed_table,
+                                                  ha_oida_info,
                                                   true))
     {
       goto rollback;
     }
 
-    thd->drop_temporary_table(altered_table, NULL, false);
+    thd->drop_temporary_table(oidaed_table, NULL, false);
   }
 
   close_all_tables_for_name(thd, table->s,
-                            alter_ctx->is_table_renamed() ?
+                            oida_ctx->is_table_renamed() ?
                             HA_EXTRA_PREPARE_FOR_RENAME :
                             HA_EXTRA_NOT_USED,
                             NULL);
@@ -7553,13 +7553,13 @@ static bool mysql_inplace_alter_table(THD *thd,
     Replace the old .FRM with the new .FRM, but keep the old name for now.
     Rename to the new name (if needed) will be handled separately below.
   */
-  if (mysql_rename_table(db_type, &alter_ctx->new_db, &alter_ctx->tmp_name,
-                         &alter_ctx->db, &alter_ctx->alias,
+  if (mysql_rename_table(db_type, &oida_ctx->new_db, &oida_ctx->tmp_name,
+                         &oida_ctx->db, &oida_ctx->alias,
                          FN_FROM_IS_TMP | NO_HA_TABLE))
   {
     // Since changes were done in-place, we can't revert them.
     (void) quick_rm_table(thd, db_type,
-                          &alter_ctx->new_db, &alter_ctx->tmp_name,
+                          &oida_ctx->new_db, &oida_ctx->tmp_name,
                           FN_IS_TMP | NO_HA_TABLE);
     DBUG_RETURN(true);
   }
@@ -7582,15 +7582,15 @@ static bool mysql_inplace_alter_table(THD *thd,
   close_thread_table(thd, &thd->open_tables);
   table_list->table= NULL;
 
-  // Rename altered table if requested.
-  if (alter_ctx->is_table_renamed())
+  // Rename oidaed table if requested.
+  if (oida_ctx->is_table_renamed())
   {
     // Remove TABLE and TABLE_SHARE for old name from TDC.
     tdc_remove_table(thd, TDC_RT_REMOVE_ALL,
-                     alter_ctx->db.str, alter_ctx->table_name.str, false);
+                     oida_ctx->db.str, oida_ctx->table_name.str, false);
 
-    if (mysql_rename_table(db_type, &alter_ctx->db, &alter_ctx->table_name,
-                           &alter_ctx->new_db, &alter_ctx->new_alias, 0))
+    if (mysql_rename_table(db_type, &oida_ctx->db, &oida_ctx->table_name,
+                           &oida_ctx->new_db, &oida_ctx->new_alias, 0))
     {
       /*
         If the rename fails we will still have a working table
@@ -7599,37 +7599,37 @@ static bool mysql_inplace_alter_table(THD *thd,
       DBUG_RETURN(true);
     }
     if (Table_triggers_list::change_table_name(thd,
-                                               &alter_ctx->db,
-                                               &alter_ctx->alias,
-                                               &alter_ctx->table_name,
-                                               &alter_ctx->new_db,
-                                               &alter_ctx->new_alias))
+                                               &oida_ctx->db,
+                                               &oida_ctx->alias,
+                                               &oida_ctx->table_name,
+                                               &oida_ctx->new_db,
+                                               &oida_ctx->new_alias))
     {
       /*
         If the rename of trigger files fails, try to rename the table
         back so we at least have matching table and trigger files.
       */
       (void) mysql_rename_table(db_type,
-                                &alter_ctx->new_db, &alter_ctx->new_alias,
-                                &alter_ctx->db, &alter_ctx->alias, NO_FK_CHECKS);
+                                &oida_ctx->new_db, &oida_ctx->new_alias,
+                                &oida_ctx->db, &oida_ctx->alias, NO_FK_CHECKS);
       DBUG_RETURN(true);
     }
-    rename_table_in_stat_tables(thd, &alter_ctx->db, &alter_ctx->alias,
-                                &alter_ctx->new_db, &alter_ctx->new_alias);
+    rename_table_in_stat_tables(thd, &oida_ctx->db, &oida_ctx->alias,
+                                &oida_ctx->new_db, &oida_ctx->new_alias);
   }
 
   DBUG_RETURN(false);
 
  rollback:
-  table->file->ha_commit_inplace_alter_table(altered_table,
-                                             ha_alter_info,
+  table->file->ha_commit_inplace_oida_table(oidaed_table,
+                                             ha_oida_info,
                                              false);
  cleanup:
   if (reopen_tables)
   {
     /* Close the only table instance which is still around. */
     close_all_tables_for_name(thd, table->s,
-                              alter_ctx->is_table_renamed() ?
+                              oida_ctx->is_table_renamed() ?
                               HA_EXTRA_PREPARE_FOR_RENAME :
                               HA_EXTRA_NOT_USED,
                               NULL);
@@ -7637,10 +7637,10 @@ static bool mysql_inplace_alter_table(THD *thd,
       thd->locked_tables_list.unlink_all_closed_tables(thd, NULL, 0);
     /* QQ; do something about metadata locks ? */
   }
-  thd->drop_temporary_table(altered_table, NULL, false);
+  thd->drop_temporary_table(oidaed_table, NULL, false);
   // Delete temporary .frm/.par
-  (void) quick_rm_table(thd, create_info->db_type, &alter_ctx->new_db,
-                        &alter_ctx->tmp_name, FN_IS_TMP | NO_HA_TABLE);
+  (void) quick_rm_table(thd, create_info->db_type, &oida_ctx->new_db,
+                        &oida_ctx->tmp_name, FN_IS_TMP | NO_HA_TABLE);
   DBUG_RETURN(true);
 }
 
@@ -7687,17 +7687,17 @@ static void append_drop_column(THD *thd, bool dont, String *str,
 
 
 /**
-  Prepare column and key definitions for CREATE TABLE in ALTER TABLE.
+  Prepare column and key definitions for CREATE TABLE in OIDA TABLE.
 
-  This function transforms parse output of ALTER TABLE - lists of
+  This function transforms parse output of OIDA TABLE - lists of
   columns and keys to add, drop or modify into, essentially,
   CREATE TABLE definition - a list of columns and keys of the new
   table. While doing so, it also performs some (bug not all)
   semantic checks.
 
   This function is invoked when we know that we're going to
-  perform ALTER TABLE via a temporary table -- i.e. in-place ALTER TABLE
-  is not possible, perhaps because the ALTER statement contains
+  perform OIDA TABLE via a temporary table -- i.e. in-place OIDA TABLE
+  is not possible, perhaps because the OIDA statement contains
   instructions that require change in table data, not only in
   table definition or indexes.
 
@@ -7707,42 +7707,42 @@ static void append_drop_column(THD *thd, bool dont, String *str,
                               Used as an interface to the storage engine
                               to acquire additional information about
                               the original table.
-  @param[in,out]  create_info A blob with CREATE/ALTER TABLE
+  @param[in,out]  create_info A blob with CREATE/OIDA TABLE
                               parameters
-  @param[in,out]  alter_info  Another blob with ALTER/CREATE parameters.
+  @param[in,out]  oida_info  Another blob with OIDA/CREATE parameters.
                               Originally create_info was used only in
-                              CREATE TABLE and alter_info only in ALTER TABLE.
-                              But since ALTER might end-up doing CREATE,
+                              CREATE TABLE and oida_info only in OIDA TABLE.
+                              But since OIDA might end-up doing CREATE,
                               this distinction is gone and we just carry
                               around two structures.
-  @param[in,out]  alter_ctx   Runtime context for ALTER TABLE.
+  @param[in,out]  oida_ctx   Runtime context for OIDA TABLE.
 
   @return
     Fills various create_info members based on information retrieved
     from the storage engine.
     Sets create_info->varchar if the table has a VARCHAR column.
-    Prepares alter_info->create_list and alter_info->key_list with
+    Prepares oida_info->create_list and oida_info->key_list with
     columns and keys of the new table.
 
-  @retval TRUE   error, out of memory or a semantical error in ALTER
+  @retval TRUE   error, out of memory or a semantical error in OIDA
                  TABLE instructions
   @retval FALSE  success
 */
 
 bool
-mysql_prepare_alter_table(THD *thd, TABLE *table,
+mysql_prepare_oida_table(THD *thd, TABLE *table,
                           HA_CREATE_INFO *create_info,
-                          Alter_info *alter_info,
-                          Alter_table_ctx *alter_ctx)
+                          Oida_info *oida_info,
+                          Oida_table_ctx *oida_ctx)
 {
   /* New column definitions are added here */
   List<Create_field> new_create_list;
   /* New key definitions are added here */
   List<Key> new_key_list;
-  List_iterator<Alter_drop> drop_it(alter_info->drop_list);
-  List_iterator<Create_field> def_it(alter_info->create_list);
-  List_iterator<Alter_column> alter_it(alter_info->alter_list);
-  List_iterator<Key> key_it(alter_info->key_list);
+  List_iterator<Oida_drop> drop_it(oida_info->drop_list);
+  List_iterator<Create_field> def_it(oida_info->create_list);
+  List_iterator<Oida_column> oida_it(oida_info->oida_list);
+  List_iterator<Key> key_it(oida_info->key_list);
   List_iterator<Create_field> find_it(new_create_list);
   List_iterator<Create_field> field_it(new_create_list);
   List<Key_part_spec> key_parts;
@@ -7757,12 +7757,12 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
   Create_field *def;
   Field **f_ptr,*field;
   MY_BITMAP *dropped_fields= NULL; // if it's NULL - no dropped fields
-  DBUG_ENTER("mysql_prepare_alter_table");
+  DBUG_ENTER("mysql_prepare_oida_table");
 
   /*
     Merge incompatible changes flag in case of upgrade of a table from an
     old MariaDB or MySQL version.  This ensures that we don't try to do an
-    online alter table if field packing or character set changes are required.
+    online oida table if field packing or character set changes are required.
   */
   create_info->used_fields|= table->s->incompatible_version;
   used_fields= create_info->used_fields;
@@ -7804,7 +7804,7 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
 
   column_rename_param.db_name=       table->s->db;
   column_rename_param.table_name=    table->s->table_name;
-  if (column_rename_param.fields.copy(&alter_info->create_list, thd->mem_root))
+  if (column_rename_param.fields.copy(&oida_info->create_list, thd->mem_root))
     DBUG_RETURN(1);                             // OOM
 
   restore_record(table, s->default_values);     // Empty record for DEFAULT
@@ -7826,14 +7826,14 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
   {
     if (field->invisible == INVISIBLE_FULL)
         continue;
-    Alter_drop *drop;
+    Oida_drop *drop;
     if (field->type() == MYSQL_TYPE_VARCHAR)
       create_info->varchar= TRUE;
     /* Check if field should be dropped */
     drop_it.rewind();
     while ((drop=drop_it++))
     {
-      if (drop->type == Alter_drop::COLUMN &&
+      if (drop->type == Oida_drop::COLUMN &&
           !my_strcasecmp(system_charset_info,field->field_name.str, drop->name))
         break;
     }
@@ -7845,7 +7845,7 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
     */
     if (drop && field->invisible < INVISIBLE_SYSTEM &&
         !(field->flags & VERS_SYSTEM_FIELD &&
-          !(alter_info->flags & ALTER_DROP_SYSTEM_VERSIONING)))
+          !(oida_info->flags & OIDA_DROP_SYSTEM_VERSIONING)))
     {
       /* Reset auto_increment value if it was dropped */
       if (MTYP_TYPENR(field->unireg_check) == Field::NEXT_NUMBER &&
@@ -7866,7 +7866,7 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
     /* invisible versioning column is dropped automatically on DROP SYSTEM VERSIONING */
     if (!drop && field->invisible >= INVISIBLE_SYSTEM &&
         field->flags & VERS_SYSTEM_FIELD &&
-        alter_info->flags & ALTER_DROP_SYSTEM_VERSIONING)
+        oida_info->flags & OIDA_DROP_SYSTEM_VERSIONING)
     {
       if (table->s->tmp_table == NO_TMP_TABLE)
         (void) delete_statistics_for_column(thd, table, field);
@@ -7877,7 +7877,7 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
       If we are doing a rename of a column, update all references in virtual
       column expressions, constraints and defaults to use the new column name
     */
-    if (alter_info->flags & ALTER_RENAME_COLUMN)
+    if (oida_info->flags & OIDA_RENAME_COLUMN)
     {
       if (field->vcol_info)
         field->vcol_info->expr->walk(&Item::rename_fields_processor, 1,
@@ -7916,7 +7916,7 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
       if (!def->after.str)
       {
         /*
-          If this ALTER TABLE doesn't have an AFTER clause for the modified
+          If this OIDA TABLE doesn't have an AFTER clause for the modified
           column then remove this column from the list of columns to be
           processed. So later we can iterate over the columns remaining
           in this list and process modified columns with AFTER clause or
@@ -7925,7 +7925,7 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
 	def_it.remove();
       }
     }
-    else if (alter_info->flags & ALTER_DROP_SYSTEM_VERSIONING &&
+    else if (oida_info->flags & OIDA_DROP_SYSTEM_VERSIONING &&
              field->flags & VERS_SYSTEM_FIELD &&
              field->invisible < INVISIBLE_SYSTEM)
     {
@@ -7936,12 +7936,12 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
     }
     else if (drop && field->invisible < INVISIBLE_SYSTEM &&
              field->flags & VERS_SYSTEM_FIELD &&
-             !(alter_info->flags & ALTER_DROP_SYSTEM_VERSIONING))
+             !(oida_info->flags & OIDA_DROP_SYSTEM_VERSIONING))
     {
       /* "dropping" a versioning field only hides it from the user */
       def= new (thd->mem_root) Create_field(thd, field, field);
       def->invisible= INVISIBLE_SYSTEM;
-      alter_info->flags|= ALTER_CHANGE_COLUMN;
+      oida_info->flags|= OIDA_CHANGE_COLUMN;
       if (field->flags & VERS_SYS_START_FLAG)
         create_info->vers_info.as_row.start= def->field_name= Vers_parse_info::default_start;
       else
@@ -7958,27 +7958,27 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
       */
       def= new (thd->mem_root) Create_field(thd, field, field);
       new_create_list.push_back(def, thd->mem_root);
-      alter_it.rewind();			// Change default if ALTER
-      Alter_column *alter;
-      while ((alter=alter_it++))
+      oida_it.rewind();			// Change default if OIDA
+      Oida_column *oida;
+      while ((oida=oida_it++))
       {
 	if (!my_strcasecmp(system_charset_info,field->field_name.str,
-                           alter->name))
+                           oida->name))
 	  break;
       }
-      if (alter)
+      if (oida)
       {
-	if ((def->default_value= alter->default_value))
+	if ((def->default_value= oida->default_value))
           def->flags&= ~NO_DEFAULT_VALUE_FLAG;
         else
           def->flags|= NO_DEFAULT_VALUE_FLAG;
-	alter_it.remove();
+	oida_it.remove();
       }
     }
   }
   dropped_sys_vers_fields &= VERS_SYSTEM_FIELD;
   if ((dropped_sys_vers_fields ||
-       alter_info->flags & ALTER_DROP_PERIOD) &&
+       oida_info->flags & OIDA_DROP_PERIOD) &&
       dropped_sys_vers_fields != VERS_SYSTEM_FIELD)
   {
     StringBuffer<NAME_LEN*3> tmp;
@@ -7989,7 +7989,7 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
     my_error(ER_MISSING, MYF(0), table->s->table_name.str, tmp.c_ptr());
     goto err;
   }
-  alter_info->flags &= ~(ALTER_DROP_PERIOD | ALTER_ADD_PERIOD);
+  oida_info->flags &= ~(OIDA_DROP_PERIOD | OIDA_ADD_PERIOD);
   def_it.rewind();
   while ((def=def_it++))			// Add new columns
   {
@@ -8021,21 +8021,21 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
       either has a default value or the '0000-00-00' is allowed by the
       set sql mode.
       If the '0000-00-00' value isn't allowed then raise the error_if_not_empty
-      flag to allow ALTER TABLE only if the table to be altered is empty.
+      flag to allow OIDA TABLE only if the table to be oidaed is empty.
     */
     if ((def->real_field_type() == MYSQL_TYPE_DATE ||
          def->real_field_type() == MYSQL_TYPE_NEWDATE ||
          def->real_field_type() == MYSQL_TYPE_DATETIME ||
          def->real_field_type() == MYSQL_TYPE_DATETIME2) &&
-         !alter_ctx->datetime_field &&
+         !oida_ctx->datetime_field &&
          !(~def->flags & (NO_DEFAULT_VALUE_FLAG | NOT_NULL_FLAG)) &&
          thd->variables.sql_mode & MODE_NO_ZERO_DATE)
     {
-        alter_ctx->datetime_field= def;
-        alter_ctx->error_if_not_empty= TRUE;
+        oida_ctx->datetime_field= def;
+        oida_ctx->error_if_not_empty= TRUE;
     }
     if (def->flags & VERS_SYSTEM_FIELD &&
-        !(alter_info->flags & ALTER_ADD_SYSTEM_VERSIONING))
+        !(oida_info->flags & OIDA_ADD_SYSTEM_VERSIONING))
     {
       my_error(ER_VERS_NOT_VERSIONED, MYF(0), table->s->table_name.str);
       goto err;
@@ -8056,7 +8056,7 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
         {
           /*
             Create_fields representing changed columns are added directly
-            from Alter_info::create_list to new_create_list. We can therefore
+            from Oida_info::create_list to new_create_list. We can therefore
             safely use pointer equality rather than name matching here.
             This prevents removing the wrong column in case of column rename.
           */
@@ -8088,34 +8088,34 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
       }
     }
     /*
-      Check if there is alter for newly added field.
+      Check if there is oida for newly added field.
     */
-    alter_it.rewind();
-    Alter_column *alter;
-    while ((alter=alter_it++))
+    oida_it.rewind();
+    Oida_column *oida;
+    while ((oida=oida_it++))
     {
       if (!my_strcasecmp(system_charset_info,def->field_name.str,
-                         alter->name))
+                         oida->name))
         break;
     }
-    if (alter)
+    if (oida)
     {
       if (def->real_field_type() == MYSQL_TYPE_BLOB)
       {
         my_error(ER_BLOB_CANT_HAVE_DEFAULT, MYF(0), def->change.str);
         goto err;
       }
-      if ((def->default_value= alter->default_value)) // Use new default
+      if ((def->default_value= oida->default_value)) // Use new default
         def->flags&= ~NO_DEFAULT_VALUE_FLAG;
       else
         def->flags|= NO_DEFAULT_VALUE_FLAG;
-      alter_it.remove();
+      oida_it.remove();
     }
   }
-  if (alter_info->alter_list.elements)
+  if (oida_info->oida_list.elements)
   {
     my_error(ER_BAD_FIELD_ERROR, MYF(0),
-             alter_info->alter_list.head()->name, table->s->table_name.str);
+             oida_info->oida_list.head()->name, table->s->table_name.str);
     goto err;
   }
   if (!new_create_list.elements)
@@ -8136,11 +8136,11 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
     if (key_info->flags & HA_INVISIBLE_KEY)
       continue;
     const char *key_name= key_info->name.str;
-    Alter_drop *drop;
+    Oida_drop *drop;
     drop_it.rewind();
     while ((drop=drop_it++))
     {
-      if (drop->type == Alter_drop::KEY &&
+      if (drop->type == Oida_drop::KEY &&
 	  !my_strcasecmp(system_charset_info,key_name, drop->name))
 	break;
     }
@@ -8329,11 +8329,11 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
          i < share->table_check_constraints ; i++)
     {
       Virtual_column_info *check= table->check_constraints[i];
-      Alter_drop *drop;
+      Oida_drop *drop;
       drop_it.rewind();
       while ((drop=drop_it++))
       {
-        if (drop->type == Alter_drop::CHECK_CONSTRAINT &&
+        if (drop->type == Oida_drop::CHECK_CONSTRAINT &&
             !my_strcasecmp(system_charset_info, check->name.str, drop->name))
         {
           drop_it.remove();
@@ -8347,7 +8347,7 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
         bitmap_clear_all(table->read_set);
         check->expr->walk(&Item::register_field_in_read_map, 1, 0);
         if (bitmap_is_subset(table->read_set, dropped_fields))
-          drop= (Alter_drop*)1;
+          drop= (Oida_drop*)1;
         else if (bitmap_is_overlapping(dropped_fields, table->read_set))
         {
           bitmap_intersect(table->read_set, dropped_fields);
@@ -8365,28 +8365,28 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
     }
   }
   /* Add new constraints */
-  new_constraint_list.append(&alter_info->check_constraint_list);
+  new_constraint_list.append(&oida_info->check_constraint_list);
 
-  if (alter_info->drop_list.elements)
+  if (oida_info->drop_list.elements)
   {
-    Alter_drop *drop;
+    Oida_drop *drop;
     drop_it.rewind();
     while ((drop=drop_it++)) {
       switch (drop->type) {
-      case Alter_drop::KEY:
-      case Alter_drop::COLUMN:
-      case Alter_drop::CHECK_CONSTRAINT:
+      case Oida_drop::KEY:
+      case Oida_drop::COLUMN:
+      case Oida_drop::CHECK_CONSTRAINT:
           my_error(ER_CANT_DROP_FIELD_OR_KEY, MYF(0), drop->type_name(),
-                   alter_info->drop_list.head()->name);
+                   oida_info->drop_list.head()->name);
         goto err;
-      case Alter_drop::FOREIGN_KEY:
-        // Leave the DROP FOREIGN KEY names in the alter_info->drop_list.
+      case Oida_drop::FOREIGN_KEY:
+        // Leave the DROP FOREIGN KEY names in the oida_info->drop_list.
         break;
       }
     }
   }
 
-  if (table->versioned() && !(alter_info->flags & ALTER_DROP_SYSTEM_VERSIONING) &&
+  if (table->versioned() && !(oida_info->flags & OIDA_DROP_SYSTEM_VERSIONING) &&
       new_create_list.elements == VERSIONING_FIELDS)
   {
     my_error(ER_VERS_TABLE_MUST_HAVE_COLUMNS, MYF(0), table->s->table_name.str);
@@ -8422,9 +8422,9 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
     create_info->options|=HA_LEX_CREATE_TMP_TABLE;
 
   rc= FALSE;
-  alter_info->create_list.swap(new_create_list);
-  alter_info->key_list.swap(new_key_list);
-  alter_info->check_constraint_list.swap(new_constraint_list);
+  oida_info->create_list.swap(new_create_list);
+  oida_info->key_list.swap(new_key_list);
+  oida_info->check_constraint_list.swap(new_constraint_list);
 err:
   DBUG_RETURN(rc);
 }
@@ -8434,17 +8434,17 @@ err:
   Get Create_field object for newly created table by its name
   in the old version of table.
 
-  @param alter_info  Alter_info describing newly created table.
+  @param oida_info  Oida_info describing newly created table.
   @param old_name    Name of field in old table.
 
   @returns Pointer to Create_field object, NULL - if field is
            not present in new version of table.
 */
 
-static Create_field *get_field_by_old_name(Alter_info *alter_info,
+static Create_field *get_field_by_old_name(Oida_info *oida_info,
                                            const char *old_name)
 {
-  List_iterator_fast<Create_field> new_field_it(alter_info->create_list);
+  List_iterator_fast<Create_field> new_field_it(oida_info->create_list);
   Create_field *new_field;
 
   while ((new_field= new_field_it++))
@@ -8468,13 +8468,13 @@ enum fk_column_change_type
 };
 
 /**
-  Check that ALTER TABLE's changes on columns of a foreign key are allowed.
+  Check that OIDA TABLE's changes on columns of a foreign key are allowed.
 
   @param[in]   thd              Thread context.
-  @param[in]   alter_info       Alter_info describing changes to be done
-                                by ALTER TABLE.
+  @param[in]   oida_info       Oida_info describing changes to be done
+                                by OIDA TABLE.
   @param[in]   fk_columns       List of columns of the foreign key to check.
-  @param[out]  bad_column_name  Name of field on which ALTER TABLE tries to
+  @param[out]  bad_column_name  Name of field on which OIDA TABLE tries to
                                 do prohibited operation.
 
   @note This function takes into account value of @@foreign_key_checks
@@ -8482,7 +8482,7 @@ enum fk_column_change_type
 
   @retval FK_COLUMN_NO_CHANGE    No significant changes are to be done on
                                  foreign key columns.
-  @retval FK_COLUMN_DATA_CHANGE  ALTER TABLE might result in value
+  @retval FK_COLUMN_DATA_CHANGE  OIDA TABLE might result in value
                                  change in foreign key column (and
                                  foreign_key_checks is on).
   @retval FK_COLUMN_RENAMED      Foreign key column is renamed.
@@ -8490,7 +8490,7 @@ enum fk_column_change_type
 */
 
 static enum fk_column_change_type
-fk_check_column_changes(THD *thd, Alter_info *alter_info,
+fk_check_column_changes(THD *thd, Oida_info *oida_info,
                         List<LEX_CSTRING> &fk_columns,
                         const char **bad_column_name)
 {
@@ -8501,7 +8501,7 @@ fk_check_column_changes(THD *thd, Alter_info *alter_info,
 
   while ((column= column_it++))
   {
-    Create_field *new_field= get_field_by_old_name(alter_info, column->str);
+    Create_field *new_field= get_field_by_old_name(oida_info, column->str);
 
     if (new_field)
     {
@@ -8529,7 +8529,7 @@ fk_check_column_changes(THD *thd, Alter_info *alter_info,
           /*
             Column in a FK has changed significantly. Unless
             foreign_key_checks are off we prohibit this since this
-            means values in this column might be changed by ALTER
+            means values in this column might be changed by OIDA
             and thus referential integrity might be broken,
           */
           *bad_column_name= column->str;
@@ -8558,7 +8558,7 @@ fk_check_column_changes(THD *thd, Alter_info *alter_info,
 
 
 /**
-  Check if ALTER TABLE we are about to execute using COPY algorithm
+  Check if OIDA TABLE we are about to execute using COPY algorithm
   is not supported as it might break referential integrity.
 
   @note If foreign_key_checks is disabled (=0), we allow to break
@@ -8568,28 +8568,28 @@ fk_check_column_changes(THD *thd, Alter_info *alter_info,
         and thus will end-up in error anyway.
 
   @param[in]  thd          Thread context.
-  @param[in]  table        Table to be altered.
-  @param[in]  alter_info   Lists of fields, keys to be changed, added
+  @param[in]  table        Table to be oidaed.
+  @param[in]  oida_info   Lists of fields, keys to be changed, added
                            or dropped.
-  @param[out] alter_ctx    ALTER TABLE runtime context.
-                           Alter_table_ctx::fk_error_if_delete flag
-                           is set if deletion during alter can break
+  @param[out] oida_ctx    OIDA TABLE runtime context.
+                           Oida_table_ctx::fk_error_if_delete flag
+                           is set if deletion during oida can break
                            foreign key integrity.
 
   @retval false  Success.
-  @retval true   Error, ALTER - tries to do change which is not compatible
+  @retval true   Error, OIDA - tries to do change which is not compatible
                  with foreign key definitions on the table.
 */
 
-static bool fk_prepare_copy_alter_table(THD *thd, TABLE *table,
-                                        Alter_info *alter_info,
-                                        Alter_table_ctx *alter_ctx)
+static bool fk_prepare_copy_oida_table(THD *thd, TABLE *table,
+                                        Oida_info *oida_info,
+                                        Oida_table_ctx *oida_ctx)
 {
   List <FOREIGN_KEY_INFO> fk_parent_key_list;
   List <FOREIGN_KEY_INFO> fk_child_key_list;
   FOREIGN_KEY_INFO *f_key;
 
-  DBUG_ENTER("fk_prepare_copy_alter_table");
+  DBUG_ENTER("fk_prepare_copy_oida_table");
 
   table->file->get_parent_foreign_key_list(thd, &fk_parent_key_list);
 
@@ -8599,15 +8599,15 @@ static bool fk_prepare_copy_alter_table(THD *thd, TABLE *table,
 
   /*
     Remove from the list all foreign keys in which table participates as
-    parent which are to be dropped by this ALTER TABLE. This is possible
+    parent which are to be dropped by this OIDA TABLE. This is possible
     when a foreign key has the same table as child and parent.
   */
   List_iterator<FOREIGN_KEY_INFO> fk_parent_key_it(fk_parent_key_list);
 
   while ((f_key= fk_parent_key_it++))
   {
-    Alter_drop *drop;
-    List_iterator_fast<Alter_drop> drop_it(alter_info->drop_list);
+    Oida_drop *drop;
+    List_iterator_fast<Oida_drop> drop_it(oida_info->drop_list);
 
     while ((drop= drop_it++))
     {
@@ -8618,7 +8618,7 @@ static bool fk_prepare_copy_alter_table(THD *thd, TABLE *table,
         For l_c_t_n = 0 we use case-sensitive comparison, for
         l_c_t_n > 0 modes case-insensitive comparison is used.
       */
-      if ((drop->type == Alter_drop::FOREIGN_KEY) &&
+      if ((drop->type == Oida_drop::FOREIGN_KEY) &&
           (my_strcasecmp(system_charset_info, f_key->foreign_id->str,
                          drop->name) == 0) &&
           (lex_string_cmp(table_alias_charset, f_key->foreign_db,
@@ -8631,13 +8631,13 @@ static bool fk_prepare_copy_alter_table(THD *thd, TABLE *table,
 
   /*
     If there are FKs in which this table is parent which were not
-    dropped we need to prevent ALTER deleting rows from the table,
+    dropped we need to prevent OIDA deleting rows from the table,
     as it might break referential integrity. OTOH it is OK to do
     so if foreign_key_checks are disabled.
   */
   if (!fk_parent_key_list.is_empty() &&
       !(thd->variables.option_bits & OPTION_NO_FOREIGN_KEY_CHECKS))
-    alter_ctx->set_fk_error_if_delete_row(fk_parent_key_list.head());
+    oida_ctx->set_fk_error_if_delete_row(fk_parent_key_list.head());
 
   fk_parent_key_it.rewind();
   while ((f_key= fk_parent_key_it++))
@@ -8645,14 +8645,14 @@ static bool fk_prepare_copy_alter_table(THD *thd, TABLE *table,
     enum fk_column_change_type changes;
     const char *bad_column_name;
 
-    changes= fk_check_column_changes(thd, alter_info,
+    changes= fk_check_column_changes(thd, oida_info,
                                      f_key->referenced_fields,
                                      &bad_column_name);
 
     switch(changes)
     {
     case FK_COLUMN_NO_CHANGE:
-      /* No significant changes. We can proceed with ALTER! */
+      /* No significant changes. We can proceed with OIDA! */
       break;
     case FK_COLUMN_DATA_CHANGE:
     {
@@ -8664,9 +8664,9 @@ static bool fk_prepare_copy_alter_table(THD *thd, TABLE *table,
       DBUG_RETURN(true);
     }
     case FK_COLUMN_RENAMED:
-      my_error(ER_ALTER_OPERATION_NOT_SUPPORTED_REASON, MYF(0),
+      my_error(ER_OIDA_OPERATION_NOT_SUPPORTED_REASON, MYF(0),
                "ALGORITHM=COPY",
-               ER_THD(thd, ER_ALTER_OPERATION_NOT_SUPPORTED_REASON_FK_RENAME),
+               ER_THD(thd, ER_OIDA_OPERATION_NOT_SUPPORTED_REASON_FK_RENAME),
                "ALGORITHM=INPLACE");
       DBUG_RETURN(true);
     case FK_COLUMN_DROPPED:
@@ -8694,19 +8694,19 @@ static bool fk_prepare_copy_alter_table(THD *thd, TABLE *table,
 
   /*
     Remove from the list all foreign keys which are to be dropped
-    by this ALTER TABLE.
+    by this OIDA TABLE.
   */
   List_iterator<FOREIGN_KEY_INFO> fk_key_it(fk_child_key_list);
 
   while ((f_key= fk_key_it++))
   {
-    Alter_drop *drop;
-    List_iterator_fast<Alter_drop> drop_it(alter_info->drop_list);
+    Oida_drop *drop;
+    List_iterator_fast<Oida_drop> drop_it(oida_info->drop_list);
 
     while ((drop= drop_it++))
     {
       /* Names of foreign keys in InnoDB are case-insensitive. */
-      if ((drop->type == Alter_drop::FOREIGN_KEY) &&
+      if ((drop->type == Oida_drop::FOREIGN_KEY) &&
           (my_strcasecmp(system_charset_info, f_key->foreign_id->str,
                          drop->name) == 0))
         fk_key_it.remove();
@@ -8719,23 +8719,23 @@ static bool fk_prepare_copy_alter_table(THD *thd, TABLE *table,
     enum fk_column_change_type changes;
     const char *bad_column_name;
 
-    changes= fk_check_column_changes(thd, alter_info,
+    changes= fk_check_column_changes(thd, oida_info,
                                      f_key->foreign_fields,
                                      &bad_column_name);
 
     switch(changes)
     {
     case FK_COLUMN_NO_CHANGE:
-      /* No significant changes. We can proceed with ALTER! */
+      /* No significant changes. We can proceed with OIDA! */
       break;
     case FK_COLUMN_DATA_CHANGE:
       my_error(ER_FK_COLUMN_CANNOT_CHANGE, MYF(0), bad_column_name,
                f_key->foreign_id->str);
       DBUG_RETURN(true);
     case FK_COLUMN_RENAMED:
-      my_error(ER_ALTER_OPERATION_NOT_SUPPORTED_REASON, MYF(0),
+      my_error(ER_OIDA_OPERATION_NOT_SUPPORTED_REASON, MYF(0),
                "ALGORITHM=COPY",
-               ER_THD(thd, ER_ALTER_OPERATION_NOT_SUPPORTED_REASON_FK_RENAME),
+               ER_THD(thd, ER_OIDA_OPERATION_NOT_SUPPORTED_REASON_FK_RENAME),
                "ALGORITHM=INPLACE");
       DBUG_RETURN(true);
     case FK_COLUMN_DROPPED:
@@ -8758,7 +8758,7 @@ static bool fk_prepare_copy_alter_table(THD *thd, TABLE *table,
   @param thd            Thread handler
   @param table_list     TABLE_LIST for the table to change
   @param keys_onoff     ENABLE or DISABLE KEYS?
-  @param alter_ctx      ALTER TABLE runtime context.
+  @param oida_ctx      OIDA TABLE runtime context.
 
   @return Operation status
     @retval false           Success
@@ -8766,8 +8766,8 @@ static bool fk_prepare_copy_alter_table(THD *thd, TABLE *table,
 */
 static bool
 simple_tmp_rename_or_index_change(THD *thd, TABLE_LIST *table_list,
-                                  Alter_info::enum_enable_or_disable keys_onoff,
-                                  Alter_table_ctx *alter_ctx)
+                                  Oida_info::enum_enable_or_disable keys_onoff,
+                                  Oida_table_ctx *oida_ctx)
 {
   DBUG_ENTER("simple_tmp_rename_or_index_change");
 
@@ -8776,14 +8776,14 @@ simple_tmp_rename_or_index_change(THD *thd, TABLE_LIST *table_list,
 
   DBUG_ASSERT(table->s->tmp_table);
 
-  if (keys_onoff != Alter_info::LEAVE_AS_IS)
+  if (keys_onoff != Oida_info::LEAVE_AS_IS)
   {
     THD_STAGE_INFO(thd, stage_manage_keys);
-    error= alter_table_manage_keys(table, table->file->indexes_are_disabled(),
+    error= oida_table_manage_keys(table, table->file->indexes_are_disabled(),
                                    keys_onoff);
   }
 
-  if (!error && alter_ctx->is_table_renamed())
+  if (!error && oida_ctx->is_table_renamed())
   {
     THD_STAGE_INFO(thd, stage_rename);
 
@@ -8792,15 +8792,15 @@ simple_tmp_rename_or_index_change(THD *thd, TABLE_LIST *table_list,
       back to the original name (unlike the case for non-temporary tables),
       as it was an allocation error and the table was not renamed.
     */
-    error= thd->rename_temporary_table(table, &alter_ctx->new_db,
-                                       &alter_ctx->new_alias);
+    error= thd->rename_temporary_table(table, &oida_ctx->new_db,
+                                       &oida_ctx->new_alias);
   }
 
   if (!error)
   {
     int res= 0;
     /*
-      We do not replicate alter table statement on temporary tables under
+      We do not replicate oida table statement on temporary tables under
       ROW-based replication.
     */
     if (!thd->is_current_stmt_binlog_format_row())
@@ -8823,7 +8823,7 @@ simple_tmp_rename_or_index_change(THD *thd, TABLE_LIST *table_list,
   @param thd            Thread handler
   @param table_list     TABLE_LIST for the table to change
   @param keys_onoff     ENABLE or DISABLE KEYS?
-  @param alter_ctx      ALTER TABLE runtime context.
+  @param oida_ctx      OIDA TABLE runtime context.
 
   @return Operation status
     @retval false           Success
@@ -8832,8 +8832,8 @@ simple_tmp_rename_or_index_change(THD *thd, TABLE_LIST *table_list,
 
 static bool
 simple_rename_or_index_change(THD *thd, TABLE_LIST *table_list,
-                              Alter_info::enum_enable_or_disable keys_onoff,
-                              Alter_table_ctx *alter_ctx)
+                              Oida_info::enum_enable_or_disable keys_onoff,
+                              Oida_table_ctx *oida_ctx)
 {
   TABLE *table= table_list->table;
   MDL_ticket *mdl_ticket= table->mdl_ticket;
@@ -8843,22 +8843,22 @@ simple_rename_or_index_change(THD *thd, TABLE_LIST *table_list,
                                        : HA_EXTRA_FORCE_REOPEN;
   DBUG_ENTER("simple_rename_or_index_change");
 
-  if (keys_onoff != Alter_info::LEAVE_AS_IS)
+  if (keys_onoff != Oida_info::LEAVE_AS_IS)
   {
     if (wait_while_table_is_used(thd, table, extra_func))
       DBUG_RETURN(true);
 
     // It's now safe to take the table level lock.
-    if (lock_tables(thd, table_list, alter_ctx->tables_opened, 0))
+    if (lock_tables(thd, table_list, oida_ctx->tables_opened, 0))
       DBUG_RETURN(true);
 
     THD_STAGE_INFO(thd, stage_manage_keys);
-    error= alter_table_manage_keys(table,
+    error= oida_table_manage_keys(table,
                                    table->file->indexes_are_disabled(),
                                    keys_onoff);
   }
 
-  if (!error && alter_ctx->is_table_renamed())
+  if (!error && oida_ctx->is_table_renamed())
   {
     THD_STAGE_INFO(thd, stage_rename);
     handlerton *old_db_type= table->s->db_type();
@@ -8875,24 +8875,24 @@ simple_rename_or_index_change(THD *thd, TABLE_LIST *table_list,
     close_all_tables_for_name(thd, table->s, HA_EXTRA_PREPARE_FOR_RENAME,
                               NULL);
 
-    (void) rename_table_in_stat_tables(thd, &alter_ctx->db,
-                                       &alter_ctx->table_name,
-                                       &alter_ctx->new_db,
-                                       &alter_ctx->new_alias);
+    (void) rename_table_in_stat_tables(thd, &oida_ctx->db,
+                                       &oida_ctx->table_name,
+                                       &oida_ctx->new_db,
+                                       &oida_ctx->new_alias);
 
-    if (mysql_rename_table(old_db_type, &alter_ctx->db, &alter_ctx->table_name,
-                           &alter_ctx->new_db, &alter_ctx->new_alias, 0))
+    if (mysql_rename_table(old_db_type, &oida_ctx->db, &oida_ctx->table_name,
+                           &oida_ctx->new_db, &oida_ctx->new_alias, 0))
       error= -1;
     else if (Table_triggers_list::change_table_name(thd,
-                                                 &alter_ctx->db,
-                                                 &alter_ctx->alias,
-                                                 &alter_ctx->table_name,
-                                                 &alter_ctx->new_db,
-                                                 &alter_ctx->new_alias))
+                                                 &oida_ctx->db,
+                                                 &oida_ctx->alias,
+                                                 &oida_ctx->table_name,
+                                                 &oida_ctx->new_db,
+                                                 &oida_ctx->new_alias))
     {
       (void) mysql_rename_table(old_db_type,
-                                &alter_ctx->new_db, &alter_ctx->new_alias,
-                                &alter_ctx->db, &alter_ctx->table_name,
+                                &oida_ctx->new_db, &oida_ctx->new_alias,
+                                &oida_ctx->db, &oida_ctx->table_name,
                                 NO_FK_CHECKS);
       error= -1;
     }
@@ -8916,7 +8916,7 @@ simple_rename_or_index_change(THD *thd, TABLE_LIST *table_list,
       statement. Otherwise we can rely on them being released
       along with the implicit commit.
     */
-    if (alter_ctx->is_table_renamed())
+    if (oida_ctx->is_table_renamed())
       thd->mdl_context.release_all_locks_for_name(mdl_ticket);
     else
       mdl_ticket->downgrade_lock(MDL_SHARED_NO_READ_WRITE);
@@ -8926,7 +8926,7 @@ simple_rename_or_index_change(THD *thd, TABLE_LIST *table_list,
 
 
 /**
-  Alter table
+  Oida table
 
   @param thd              Thread handle
   @param new_db           If there is a RENAME clause
@@ -8934,45 +8934,45 @@ simple_rename_or_index_change(THD *thd, TABLE_LIST *table_list,
   @param create_info      Information from the parsing phase about new
                           table properties.
   @param table_list       The table to change.
-  @param alter_info       Lists of fields, keys to be changed, added
+  @param oida_info       Lists of fields, keys to be changed, added
                           or dropped.
   @param order_num        How many ORDER BY fields has been specified.
   @param order            List of fields to ORDER BY.
-  @param ignore           Whether we have ALTER IGNORE TABLE
+  @param ignore           Whether we have OIDA IGNORE TABLE
 
   @retval   true          Error
   @retval   false         Success
 
   This is a veery long function and is everything but the kitchen sink :)
-  It is used to alter a table and not only by ALTER TABLE but also
+  It is used to oida a table and not only by OIDA TABLE but also
   CREATE|DROP INDEX are mapped on this function.
 
-  When the ALTER TABLE statement just does a RENAME or ENABLE|DISABLE KEYS,
+  When the OIDA TABLE statement just does a RENAME or ENABLE|DISABLE KEYS,
   or both, then this function short cuts its operation by renaming
   the table and/or enabling/disabling the keys. In this case, the FRM is
-  not changed, directly by mysql_alter_table. However, if there is a
+  not changed, directly by mysql_oida_table. However, if there is a
   RENAME + change of a field, or an index, the short cut is not used.
   See how `create_list` is used to generate the new FRM regarding the
   structure of the fields. The same is done for the indices of the table.
 
-  Altering a table can be done in two ways. The table can be modified
+  Oidaing a table can be done in two ways. The table can be modified
   directly using an in-place algorithm, or the changes can be done using
   an intermediate temporary table (copy). In-place is the preferred
   algorithm as it avoids copying table data. The storage engine
-  selects which algorithm to use in check_if_supported_inplace_alter()
-  based on information about the table changes from fill_alter_inplace_info().
+  selects which algorithm to use in check_if_supported_inplace_oida()
+  based on information about the table changes from fill_oida_inplace_info().
 */
 
-bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *new_name,
+bool mysql_oida_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *new_name,
                        HA_CREATE_INFO *create_info,
                        TABLE_LIST *table_list,
-                       Alter_info *alter_info,
+                       Oida_info *oida_info,
                        uint order_num, ORDER *order, bool ignore)
 {
-  DBUG_ENTER("mysql_alter_table");
+  DBUG_ENTER("mysql_oida_table");
 
   /*
-    Check if we attempt to alter mysql.slow_log or
+    Check if we attempt to oida mysql.slow_log or
     mysql.general_log table and return an error if
     it is the case.
     TODO: this design is obsolete and will be removed.
@@ -8981,14 +8981,14 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
 
   if (table_kind)
   {
-    /* Disable alter of enabled log tables */
+    /* Disable oida of enabled log tables */
     if (logger.is_log_table_enabled(table_kind))
     {
-      my_error(ER_BAD_LOG_STATEMENT, MYF(0), "ALTER");
+      my_error(ER_BAD_LOG_STATEMENT, MYF(0), "OIDA");
       DBUG_RETURN(true);
     }
 
-    /* Disable alter of log tables to unsupported engine */
+    /* Disable oida of log tables to unsupported engine */
     if ((create_info->used_fields & HA_CREATE_USED_ENGINE) &&
         (!create_info->db_type || /* unknown engine */
          !(create_info->db_type->flags & HTON_SUPPORT_LOG_TABLES)))
@@ -8999,7 +8999,7 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
     }
 
 #ifdef WITH_PARTITION_STORAGE_ENGINE
-    if (alter_info->partition_flags & ALTER_PARTITION_INFO)
+    if (oida_info->partition_flags & OIDA_PARTITION_INFO)
     {
       my_error(ER_WRONG_USAGE, MYF(0), "PARTITION", "log table");
       DBUG_RETURN(true);
@@ -9011,20 +9011,20 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
 
   /*
     Code below can handle only base tables so ensure that we won't open a view.
-    Note that RENAME TABLE the only ALTER clause which is supported for views
+    Note that RENAME TABLE the only OIDA clause which is supported for views
     has been already processed.
   */
   table_list->required_type= TABLE_TYPE_NORMAL;
 
-  Alter_table_prelocking_strategy alter_prelocking_strategy;
+  Oida_table_prelocking_strategy oida_prelocking_strategy;
 
-  DEBUG_SYNC(thd, "alter_table_before_open_tables");
+  DEBUG_SYNC(thd, "oida_table_before_open_tables");
   uint tables_opened;
 
-  thd->open_options|= HA_OPEN_FOR_ALTER;
+  thd->open_options|= HA_OPEN_FOR_OIDA;
   bool error= open_tables(thd, &table_list, &tables_opened, 0,
-                          &alter_prelocking_strategy);
-  thd->open_options&= ~HA_OPEN_FOR_ALTER;
+                          &oida_prelocking_strategy);
+  thd->open_options&= ~HA_OPEN_FOR_OIDA;
 
   TABLE *table= table_list->table;
   bool versioned= table && table->versioned();
@@ -9038,28 +9038,28 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
           (ha_check_storage_engine_flag(hton1, HTON_NATIVE_SYS_VERSIONING) ||
            ha_check_storage_engine_flag(hton2, HTON_NATIVE_SYS_VERSIONING)))
       {
-        my_error(ER_VERS_ALTER_ENGINE_PROHIBITED, MYF(0), table_list->db.str,
+        my_error(ER_VERS_OIDA_ENGINE_PROHIBITED, MYF(0), table_list->db.str,
                  table_list->table_name.str);
         DBUG_RETURN(true);
       }
     }
-    if (alter_info->data_modifying() && !thd->slave_thread &&
-        thd->variables.vers_alter_history == VERS_ALTER_HISTORY_ERROR)
+    if (oida_info->data_modifying() && !thd->slave_thread &&
+        thd->variables.vers_oida_history == VERS_OIDA_HISTORY_ERROR)
     {
-      my_error(ER_VERS_ALTER_NOT_ALLOWED, MYF(0),
+      my_error(ER_VERS_OIDA_NOT_ALLOWED, MYF(0),
                table_list->db.str, table_list->table_name.str);
       DBUG_RETURN(true);
     }
   }
 
-  DEBUG_SYNC(thd, "alter_opened_table");
+  DEBUG_SYNC(thd, "oida_opened_table");
 
 #ifdef WITH_WSREP
-  DBUG_EXECUTE_IF("sync.alter_opened_table",
+  DBUG_EXECUTE_IF("sync.oida_opened_table",
                   {
                     const char act[]=
                       "now "
-                      "wait_for signal.alter_opened_table";
+                      "wait_for signal.oida_opened_table";
                     DBUG_ASSERT(!debug_sync_set_action(thd,
                                                        STRING_WITH_LEN(act)));
                   };);
@@ -9086,12 +9086,12 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
     DBUG_RETURN(true);
   }
 
-  Alter_table_ctx alter_ctx(thd, table_list, tables_opened, new_db, new_name);
+  Oida_table_ctx oida_ctx(thd, table_list, tables_opened, new_db, new_name);
 
   MDL_request target_mdl_request;
 
   /* Check that we are not trying to rename to an existing table */
-  if (alter_ctx.is_table_renamed())
+  if (oida_ctx.is_table_renamed())
   {
     if (table->s->tmp_table != NO_TMP_TABLE)
     {
@@ -9100,9 +9100,9 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
         If such table exists, there must be a corresponding TABLE_SHARE in
         THD::all_temp_tables list.
       */
-      if (thd->find_tmp_table_share(alter_ctx.new_db.str, alter_ctx.new_name.str))
+      if (thd->find_tmp_table_share(oida_ctx.new_db.str, oida_ctx.new_name.str))
       {
-        my_error(ER_TABLE_EXISTS_ERROR, MYF(0), alter_ctx.new_alias.str);
+        my_error(ER_TABLE_EXISTS_ERROR, MYF(0), oida_ctx.new_alias.str);
         DBUG_RETURN(true);
       }
     }
@@ -9112,7 +9112,7 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
       MDL_request target_db_mdl_request;
 
       target_mdl_request.init(MDL_key::TABLE,
-                              alter_ctx.new_db.str, alter_ctx.new_name.str,
+                              oida_ctx.new_db.str, oida_ctx.new_name.str,
                               MDL_EXCLUSIVE, MDL_TRANSACTION);
       mdl_requests.push_front(&target_mdl_request);
 
@@ -9121,9 +9121,9 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
         need IX lock on the database name so that the target database
         is protected by MDL while the table is moved.
       */
-      if (alter_ctx.is_database_changed())
+      if (oida_ctx.is_database_changed())
       {
-        target_db_mdl_request.init(MDL_key::SCHEMA, alter_ctx.new_db.str, "",
+        target_db_mdl_request.init(MDL_key::SCHEMA, oida_ctx.new_db.str, "",
                                    MDL_INTENTION_EXCLUSIVE,
                                    MDL_TRANSACTION);
         mdl_requests.push_front(&target_db_mdl_request);
@@ -9131,7 +9131,7 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
 
       /*
         Global intention exclusive lock must have been already acquired when
-        table to be altered was open, so there is no need to do it here.
+        table to be oidaed was open, so there is no need to do it here.
       */
       DBUG_ASSERT(thd->mdl_context.is_lock_owner(MDL_key::GLOBAL,
                                                  "", "",
@@ -9146,10 +9146,10 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
         Table maybe does not exist, but we got an exclusive lock
         on the name, now we can safely try to find out for sure.
       */
-      if (ha_table_exists(thd, &alter_ctx.new_db, &alter_ctx.new_name))
+      if (ha_table_exists(thd, &oida_ctx.new_db, &oida_ctx.new_name))
       {
         /* Table will be closed in do_command() */
-        my_error(ER_TABLE_EXISTS_ERROR, MYF(0), alter_ctx.new_alias.str);
+        my_error(ER_TABLE_EXISTS_ERROR, MYF(0), oida_ctx.new_alias.str);
         DBUG_RETURN(true);
       }
     }
@@ -9175,16 +9175,16 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
       create_info->db_type= table->s->db_type();
   }
 
-  if (check_engine(thd, alter_ctx.new_db.str, alter_ctx.new_name.str, create_info))
+  if (check_engine(thd, oida_ctx.new_db.str, oida_ctx.new_name.str, create_info))
     DBUG_RETURN(true);
 
-  if (create_info->vers_info.fix_alter_info(thd, alter_info, create_info, table))
+  if (create_info->vers_info.fix_oida_info(thd, oida_info, create_info, table))
   {
     DBUG_RETURN(true);
   }
 
   if ((create_info->db_type != table->s->db_type() ||
-       (alter_info->partition_flags & ALTER_PARTITION_INFO)) &&
+       (oida_info->partition_flags & OIDA_PARTITION_INFO)) &&
       !table->file->can_switch_engines())
   {
     my_error(ER_ROW_IS_REFERENCED, MYF(0));
@@ -9197,68 +9197,68 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
    In function "check_fk_parent_table_access", create_info->db_type is used
    to identify whether engine supports FK constraint or not. Since
    create_info->db_type is set here, check to parent table access is delayed
-   till this point for the alter operation.
+   till this point for the oida operation.
   */
-  if ((alter_info->flags & ALTER_ADD_FOREIGN_KEY) &&
-      check_fk_parent_table_access(thd, create_info, alter_info, new_db->str))
+  if ((oida_info->flags & OIDA_ADD_FOREIGN_KEY) &&
+      check_fk_parent_table_access(thd, create_info, oida_info, new_db->str))
     DBUG_RETURN(true);
 
   /*
-    If this is an ALTER TABLE and no explicit row type specified reuse
+    If this is an OIDA TABLE and no explicit row type specified reuse
     the table's row type.
     Note: this is the same as if the row type was specified explicitly.
   */
   if (create_info->row_type == ROW_TYPE_NOT_USED)
   {
-    /* ALTER TABLE without explicit row type */
+    /* OIDA TABLE without explicit row type */
     create_info->row_type= table->s->row_type;
   }
   else
   {
-    /* ALTER TABLE with specific row type */
+    /* OIDA TABLE with specific row type */
     create_info->used_fields |= HA_CREATE_USED_ROW_FORMAT;
   }
 
   DBUG_PRINT("info", ("old type: %s  new type: %s",
              ha_resolve_storage_engine_name(table->s->db_type()),
              ha_resolve_storage_engine_name(create_info->db_type)));
-  if (ha_check_storage_engine_flag(table->s->db_type(), HTON_ALTER_NOT_SUPPORTED))
+  if (ha_check_storage_engine_flag(table->s->db_type(), HTON_OIDA_NOT_SUPPORTED))
   {
-    DBUG_PRINT("info", ("doesn't support alter"));
+    DBUG_PRINT("info", ("doesn't support oida"));
     my_error(ER_ILLEGAL_HA, MYF(0), hton_name(table->s->db_type())->str,
-             alter_ctx.db.str, alter_ctx.table_name.str);
+             oida_ctx.db.str, oida_ctx.table_name.str);
     DBUG_RETURN(true);
   }
 
   if (ha_check_storage_engine_flag(create_info->db_type,
-                                   HTON_ALTER_NOT_SUPPORTED))
+                                   HTON_OIDA_NOT_SUPPORTED))
   {
-    DBUG_PRINT("info", ("doesn't support alter"));
+    DBUG_PRINT("info", ("doesn't support oida"));
     my_error(ER_ILLEGAL_HA, MYF(0), hton_name(create_info->db_type)->str,
-             alter_ctx.new_db.str, alter_ctx.new_name.str);
+             oida_ctx.new_db.str, oida_ctx.new_name.str);
     DBUG_RETURN(true);
   }
 
   if (table->s->tmp_table == NO_TMP_TABLE)
-    mysql_audit_alter_table(thd, table_list);
+    mysql_audit_oida_table(thd, table_list);
 
   THD_STAGE_INFO(thd, stage_setup);
 
-  handle_if_exists_options(thd, table, alter_info);
+  handle_if_exists_options(thd, table, oida_info);
 
   /*
     Look if we have to do anything at all.
-    ALTER can become NOOP after handling
+    OIDA can become NOOP after handling
     the IF (NOT) EXISTS options.
   */
-  if (alter_info->flags == 0 && alter_info->partition_flags == 0)
+  if (oida_info->flags == 0 && oida_info->partition_flags == 0)
   {
-    my_snprintf(alter_ctx.tmp_buff, sizeof(alter_ctx.tmp_buff),
+    my_snprintf(oida_ctx.tmp_buff, sizeof(oida_ctx.tmp_buff),
                 ER_THD(thd, ER_INSERT_INFO), 0L, 0L,
                 thd->get_stmt_da()->current_statement_warn_count());
-    my_ok(thd, 0L, 0L, alter_ctx.tmp_buff);
+    my_ok(thd, 0L, 0L, oida_ctx.tmp_buff);
 
-    /* We don't replicate alter table statement on temporary tables */
+    /* We don't replicate oida table statement on temporary tables */
     if (table->s->tmp_table == NO_TMP_TABLE ||
         !thd->is_current_stmt_binlog_format_row())
     {
@@ -9273,86 +9273,86 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
      Test if we are only doing RENAME or KEYS ON/OFF. This works
      as we are testing if flags == 0 above.
   */
-  if (!(alter_info->flags & ~(ALTER_RENAME | ALTER_KEYS_ONOFF)) &&
-      alter_info->partition_flags == 0 &&
-      alter_info->requested_algorithm !=
-      Alter_info::ALTER_TABLE_ALGORITHM_COPY)   // No need to touch frm.
+  if (!(oida_info->flags & ~(OIDA_RENAME | OIDA_KEYS_ONOFF)) &&
+      oida_info->partition_flags == 0 &&
+      oida_info->requested_algorithm !=
+      Oida_info::OIDA_TABLE_ALGORITHM_COPY)   // No need to touch frm.
   {
     bool res;
 
     if (!table->s->tmp_table)
     {
       // This requires X-lock, no other lock levels supported.
-      if (alter_info->requested_lock != Alter_info::ALTER_TABLE_LOCK_DEFAULT &&
-          alter_info->requested_lock != Alter_info::ALTER_TABLE_LOCK_EXCLUSIVE)
+      if (oida_info->requested_lock != Oida_info::OIDA_TABLE_LOCK_DEFAULT &&
+          oida_info->requested_lock != Oida_info::OIDA_TABLE_LOCK_EXCLUSIVE)
       {
-        my_error(ER_ALTER_OPERATION_NOT_SUPPORTED, MYF(0),
+        my_error(ER_OIDA_OPERATION_NOT_SUPPORTED, MYF(0),
                  "LOCK=NONE/SHARED", "LOCK=EXCLUSIVE");
         DBUG_RETURN(true);
       }
       res= simple_rename_or_index_change(thd, table_list,
-                                         alter_info->keys_onoff,
-                                         &alter_ctx);
+                                         oida_info->keys_onoff,
+                                         &oida_ctx);
     }
     else
     {
       res= simple_tmp_rename_or_index_change(thd, table_list,
-                                             alter_info->keys_onoff,
-                                             &alter_ctx);
+                                             oida_info->keys_onoff,
+                                             &oida_ctx);
     }
     DBUG_RETURN(res);
   }
 
-  /* We have to do full alter table. */
+  /* We have to do full oida table. */
 
 #ifdef WITH_PARTITION_STORAGE_ENGINE
   bool partition_changed= false;
-  bool fast_alter_partition= false;
+  bool fast_oida_partition= false;
   {
-    if (prep_alter_part_table(thd, table, alter_info, create_info,
-                              &alter_ctx, &partition_changed,
-                              &fast_alter_partition))
+    if (prep_oida_part_table(thd, table, oida_info, create_info,
+                              &oida_ctx, &partition_changed,
+                              &fast_oida_partition))
     {
       DBUG_RETURN(true);
     }
   }
 #endif
 
-  if (mysql_prepare_alter_table(thd, table, create_info, alter_info,
-                                &alter_ctx))
+  if (mysql_prepare_oida_table(thd, table, create_info, oida_info,
+                                &oida_ctx))
   {
     DBUG_RETURN(true);
   }
 
-  set_table_default_charset(thd, create_info, &alter_ctx.db);
+  set_table_default_charset(thd, create_info, &oida_ctx.db);
 
   if (!opt_explicit_defaults_for_timestamp)
-    promote_first_timestamp_column(&alter_info->create_list);
+    promote_first_timestamp_column(&oida_info->create_list);
 
 #ifdef WITH_PARTITION_STORAGE_ENGINE
-  if (fast_alter_partition)
+  if (fast_oida_partition)
   {
     /*
       ALGORITHM and LOCK clauses are generally not allowed by the
       parser for operations related to partitioning.
-      The exceptions are ALTER_PARTITION_INFO and ALTER_PARTITION_REMOVE.
-      For consistency, we report ER_ALTER_OPERATION_NOT_SUPPORTED here.
+      The exceptions are OIDA_PARTITION_INFO and OIDA_PARTITION_REMOVE.
+      For consistency, we report ER_OIDA_OPERATION_NOT_SUPPORTED here.
     */
-    if (alter_info->requested_lock !=
-        Alter_info::ALTER_TABLE_LOCK_DEFAULT)
+    if (oida_info->requested_lock !=
+        Oida_info::OIDA_TABLE_LOCK_DEFAULT)
     {
-      my_error(ER_ALTER_OPERATION_NOT_SUPPORTED_REASON, MYF(0),
+      my_error(ER_OIDA_OPERATION_NOT_SUPPORTED_REASON, MYF(0),
                "LOCK=NONE/SHARED/EXCLUSIVE",
-               ER_THD(thd, ER_ALTER_OPERATION_NOT_SUPPORTED_REASON_PARTITION),
+               ER_THD(thd, ER_OIDA_OPERATION_NOT_SUPPORTED_REASON_PARTITION),
                "LOCK=DEFAULT");
       DBUG_RETURN(true);
     }
-    else if (alter_info->requested_algorithm !=
-             Alter_info::ALTER_TABLE_ALGORITHM_DEFAULT)
+    else if (oida_info->requested_algorithm !=
+             Oida_info::OIDA_TABLE_ALGORITHM_DEFAULT)
     {
-      my_error(ER_ALTER_OPERATION_NOT_SUPPORTED_REASON, MYF(0),
+      my_error(ER_OIDA_OPERATION_NOT_SUPPORTED_REASON, MYF(0),
                "ALGORITHM=COPY/INPLACE",
-               ER_THD(thd, ER_ALTER_OPERATION_NOT_SUPPORTED_REASON_PARTITION),
+               ER_THD(thd, ER_OIDA_OPERATION_NOT_SUPPORTED_REASON_PARTITION),
                "ALGORITHM=DEFAULT");
       DBUG_RETURN(true);
     }
@@ -9363,64 +9363,64 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
     */
     if ((thd->mdl_context.upgrade_shared_lock(mdl_ticket, MDL_SHARED_NO_WRITE,
              thd->variables.lock_wait_timeout)) ||
-        lock_tables(thd, table_list, alter_ctx.tables_opened, 0))
+        lock_tables(thd, table_list, oida_ctx.tables_opened, 0))
     {
       DBUG_RETURN(true);
     }
 
-    // In-place execution of ALTER TABLE for partitioning.
-    DBUG_RETURN(fast_alter_partition_table(thd, table, alter_info,
+    // In-place execution of OIDA TABLE for partitioning.
+    DBUG_RETURN(fast_oida_partition_table(thd, table, oida_info,
                                            create_info, table_list,
-                                           &alter_ctx.db,
-                                           &alter_ctx.table_name));
+                                           &oida_ctx.db,
+                                           &oida_ctx.table_name));
   }
 #endif
 
   /*
     Use copy algorithm if:
-    - old_alter_table system variable is set without in-place requested using
+    - old_oida_table system variable is set without in-place requested using
       the ALGORITHM clause.
     - Or if in-place is impossible for given operation.
-    - Changes to partitioning which were not handled by fast_alter_part_table()
+    - Changes to partitioning which were not handled by fast_oida_part_table()
       needs to be handled using table copying algorithm unless the engine
       supports auto-partitioning as such engines can do some changes
       using in-place API.
   */
-  if ((thd->variables.old_alter_table &&
-       alter_info->requested_algorithm !=
-       Alter_info::ALTER_TABLE_ALGORITHM_INPLACE)
-      || is_inplace_alter_impossible(table, create_info, alter_info)
+  if ((thd->variables.old_oida_table &&
+       oida_info->requested_algorithm !=
+       Oida_info::OIDA_TABLE_ALGORITHM_INPLACE)
+      || is_inplace_oida_impossible(table, create_info, oida_info)
       || IF_PARTITIONING((partition_changed &&
           !(table->s->db_type()->partition_flags() & HA_USE_AUTO_PARTITION)), 0))
   {
-    if (alter_info->requested_algorithm ==
-        Alter_info::ALTER_TABLE_ALGORITHM_INPLACE)
+    if (oida_info->requested_algorithm ==
+        Oida_info::OIDA_TABLE_ALGORITHM_INPLACE)
     {
-      my_error(ER_ALTER_OPERATION_NOT_SUPPORTED, MYF(0),
+      my_error(ER_OIDA_OPERATION_NOT_SUPPORTED, MYF(0),
                "ALGORITHM=INPLACE", "ALGORITHM=COPY");
       DBUG_RETURN(true);
     }
-    alter_info->requested_algorithm= Alter_info::ALTER_TABLE_ALGORITHM_COPY;
+    oida_info->requested_algorithm= Oida_info::OIDA_TABLE_ALGORITHM_COPY;
   }
 
   /*
-    ALTER TABLE ... ENGINE to the same engine is a common way to
-    request table rebuild. Set ALTER_RECREATE flag to force table
+    OIDA TABLE ... ENGINE to the same engine is a common way to
+    request table rebuild. Set OIDA_RECREATE flag to force table
     rebuild.
   */
   if (create_info->db_type == table->s->db_type() &&
       create_info->used_fields & HA_CREATE_USED_ENGINE)
-    alter_info->flags|= ALTER_RECREATE;
+    oida_info->flags|= OIDA_RECREATE;
 
   /*
-    If the old table had partitions and we are doing ALTER TABLE ...
+    If the old table had partitions and we are doing OIDA TABLE ...
     engine= <new_engine>, the new table must preserve the original
     partitioning. This means that the new engine is still the
     partitioning engine, not the engine specified in the parser.
-    This is discovered in prep_alter_part_table, which in such case
+    This is discovered in prep_oida_part_table, which in such case
     updates create_info->db_type.
     It's therefore important that the assignment below is done
-    after prep_alter_part_table.
+    after prep_oida_part_table.
   */
   handlerton *new_db_type= create_info->db_type;
   handlerton *old_db_type= table->s->db_type();
@@ -9453,12 +9453,12 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
   */
   char index_file[FN_REFLEN], data_file[FN_REFLEN];
 
-  if (!alter_ctx.is_database_changed())
+  if (!oida_ctx.is_database_changed())
   {
     if (create_info->index_file_name)
     {
       /* Fix index_file_name to have 'tmp_name' as basename */
-      strmov(index_file, alter_ctx.tmp_name.str);
+      strmov(index_file, oida_ctx.tmp_name.str);
       create_info->index_file_name=fn_same(index_file,
                                            create_info->index_file_name,
                                            1);
@@ -9466,7 +9466,7 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
     if (create_info->data_file_name)
     {
       /* Fix data_file_name to have 'tmp_name' as basename */
-      strmov(data_file, alter_ctx.tmp_name.str);
+      strmov(data_file, oida_ctx.tmp_name.str);
       create_info->data_file_name=fn_same(data_file,
                                           create_info->data_file_name,
                                           1);
@@ -9478,8 +9478,8 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
     create_info->data_file_name=create_info->index_file_name=0;
   }
 
-  DEBUG_SYNC(thd, "alter_table_before_create_table_no_lock");
-  /* We can abort alter table for any table type */
+  DEBUG_SYNC(thd, "oida_table_before_create_table_no_lock");
+  /* We can abort oida table for any table type */
   thd->abort_on_warning= !ignore && thd->is_strict_mode();
 
   /*
@@ -9487,8 +9487,8 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
     We don't log the statement, it will be logged later.
 
     Keep information about keys in newly created table as it
-    will be used later to construct Alter_inplace_info object
-    and by fill_alter_inplace_info() call.
+    will be used later to construct Oida_inplace_info object
+    and by fill_oida_inplace_info() call.
   */
   KEY *key_info;
   uint key_count;
@@ -9501,13 +9501,13 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
   LEX_CUSTRING frm= {0,0};
 
   tmp_disable_binlog(thd);
-  create_info->options|=HA_CREATE_TMP_ALTER;
+  create_info->options|=HA_CREATE_TMP_OIDA;
   error= create_table_impl(thd,
-                           &alter_ctx.db, &alter_ctx.table_name,
-                           &alter_ctx.new_db, &alter_ctx.tmp_name,
-                           alter_ctx.get_tmp_path(),
-                           thd->lex->create_info, create_info, alter_info,
-                           C_ALTER_TABLE_FRM_ONLY, NULL,
+                           &oida_ctx.db, &oida_ctx.table_name,
+                           &oida_ctx.new_db, &oida_ctx.tmp_name,
+                           oida_ctx.get_tmp_path(),
+                           thd->lex->create_info, create_info, oida_info,
+                           C_OIDA_TABLE_FRM_ONLY, NULL,
                            &key_info, &key_count, &frm);
   reenable_binlog(thd);
   thd->abort_on_warning= false;
@@ -9520,44 +9520,44 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
   /* Remember that we have not created table in storage engine yet. */
   bool no_ha_table= true;
 
-  if (alter_info->requested_algorithm != Alter_info::ALTER_TABLE_ALGORITHM_COPY)
+  if (oida_info->requested_algorithm != Oida_info::OIDA_TABLE_ALGORITHM_COPY)
   {
-    Alter_inplace_info ha_alter_info(create_info, alter_info,
+    Oida_inplace_info ha_oida_info(create_info, oida_info,
                                      key_info, key_count,
                                      IF_PARTITIONING(thd->work_part_info, NULL),
                                      ignore);
-    TABLE *altered_table= NULL;
+    TABLE *oidaed_table= NULL;
     bool use_inplace= true;
 
-    /* Fill the Alter_inplace_info structure. */
-    if (fill_alter_inplace_info(thd, table, varchar, &ha_alter_info))
+    /* Fill the Oida_inplace_info structure. */
+    if (fill_oida_inplace_info(thd, table, varchar, &ha_oida_info))
       goto err_new_table_cleanup;
 
     /*
-      We can ignore ALTER_COLUMN_ORDER and instead check
-      ALTER_STORED_COLUMN_ORDER & ALTER_VIRTUAL_COLUMN_ORDER. This
-      is ok as ALTER_COLUMN_ORDER may be wrong if we use AFTER last_field
-      ALTER_COLUMN_NAME is set if field really was renamed.
+      We can ignore OIDA_COLUMN_ORDER and instead check
+      OIDA_STORED_COLUMN_ORDER & OIDA_VIRTUAL_COLUMN_ORDER. This
+      is ok as OIDA_COLUMN_ORDER may be wrong if we use AFTER last_field
+      OIDA_COLUMN_NAME is set if field really was renamed.
     */
 
-    if (!(ha_alter_info.handler_flags &
-          ~(ALTER_COLUMN_ORDER | ALTER_RENAME_COLUMN)))
+    if (!(ha_oida_info.handler_flags &
+          ~(OIDA_COLUMN_ORDER | OIDA_RENAME_COLUMN)))
     {
       /*
-        No-op ALTER, no need to call handler API functions.
+        No-op OIDA, no need to call handler API functions.
 
-        If this code path is entered for an ALTER statement that
+        If this code path is entered for an OIDA statement that
         should not be a real no-op, new handler flags should be added
-        and fill_alter_inplace_info() adjusted.
+        and fill_oida_inplace_info() adjusted.
 
-        Note that we can end up here if an ALTER statement has clauses
+        Note that we can end up here if an OIDA statement has clauses
         that cancel each other out (e.g. ADD/DROP identically index).
 
         Also note that we ignore the LOCK clause here.
 
          TODO don't create the frm in the first place
       */
-      const char *path= alter_ctx.get_tmp_path();
+      const char *path= oida_ctx.get_tmp_path();
       table->file->ha_create_partitioning_metadata(path, NULL, CHF_DELETE_FLAG);
       deletefrm(path);
       my_free(const_cast<uchar*>(frm.str));
@@ -9567,107 +9567,107 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
     // We assume that the table is non-temporary.
     DBUG_ASSERT(!table->s->tmp_table);
 
-    if (!(altered_table=
+    if (!(oidaed_table=
           thd->create_and_open_tmp_table(new_db_type, &frm,
-                                         alter_ctx.get_tmp_path(),
-                                         alter_ctx.new_db.str,
-                                         alter_ctx.tmp_name.str,
+                                         oida_ctx.get_tmp_path(),
+                                         oida_ctx.new_db.str,
+                                         oida_ctx.tmp_name.str,
                                          false, true)))
       goto err_new_table_cleanup;
 
-    /* Set markers for fields in TABLE object for altered table. */
-    update_altered_table(ha_alter_info, altered_table);
+    /* Set markers for fields in TABLE object for oidaed table. */
+    update_oidaed_table(ha_oida_info, oidaed_table);
 
     /*
-      Mark all columns in 'altered_table' as used to allow usage
+      Mark all columns in 'oidaed_table' as used to allow usage
       of its record[0] buffer and Field objects during in-place
-      ALTER TABLE.
+      OIDA TABLE.
     */
-    altered_table->column_bitmaps_set_no_signal(&altered_table->s->all_set,
-                                                &altered_table->s->all_set);
-    restore_record(altered_table, s->default_values); // Create empty record
+    oidaed_table->column_bitmaps_set_no_signal(&oidaed_table->s->all_set,
+                                                &oidaed_table->s->all_set);
+    restore_record(oidaed_table, s->default_values); // Create empty record
     /* Check that we can call default functions with default field values */
     thd->count_cuted_fields= CHECK_FIELD_EXPRESSION;
-    altered_table->reset_default_fields();
-    if (altered_table->default_field &&
-        altered_table->update_default_fields(0, 1))
+    oidaed_table->reset_default_fields();
+    if (oidaed_table->default_field &&
+        oidaed_table->update_default_fields(0, 1))
       goto err_new_table_cleanup;
     thd->count_cuted_fields= CHECK_FIELD_IGNORE;
 
     // Ask storage engine whether to use copy or in-place
-    enum_alter_inplace_result inplace_supported=
-      table->file->check_if_supported_inplace_alter(altered_table,
-                                                    &ha_alter_info);
+    enum_oida_inplace_result inplace_supported=
+      table->file->check_if_supported_inplace_oida(oidaed_table,
+                                                    &ha_oida_info);
 
     switch (inplace_supported) {
-    case HA_ALTER_INPLACE_EXCLUSIVE_LOCK:
+    case HA_OIDA_INPLACE_EXCLUSIVE_LOCK:
       // If SHARED lock and no particular algorithm was requested, use COPY.
-      if (alter_info->requested_lock ==
-          Alter_info::ALTER_TABLE_LOCK_SHARED &&
-          alter_info->requested_algorithm ==
-          Alter_info::ALTER_TABLE_ALGORITHM_DEFAULT)
+      if (oida_info->requested_lock ==
+          Oida_info::OIDA_TABLE_LOCK_SHARED &&
+          oida_info->requested_algorithm ==
+          Oida_info::OIDA_TABLE_ALGORITHM_DEFAULT)
       {
         use_inplace= false;
       }
       // Otherwise, if weaker lock was requested, report errror.
-      else if (alter_info->requested_lock ==
-               Alter_info::ALTER_TABLE_LOCK_NONE ||
-               alter_info->requested_lock ==
-               Alter_info::ALTER_TABLE_LOCK_SHARED)
+      else if (oida_info->requested_lock ==
+               Oida_info::OIDA_TABLE_LOCK_NONE ||
+               oida_info->requested_lock ==
+               Oida_info::OIDA_TABLE_LOCK_SHARED)
       {
-        ha_alter_info.report_unsupported_error("LOCK=NONE/SHARED",
+        ha_oida_info.report_unsupported_error("LOCK=NONE/SHARED",
                                                "LOCK=EXCLUSIVE");
-        thd->drop_temporary_table(altered_table, NULL, false);
+        thd->drop_temporary_table(oidaed_table, NULL, false);
         goto err_new_table_cleanup;
       }
       break;
-    case HA_ALTER_INPLACE_SHARED_LOCK_AFTER_PREPARE:
-    case HA_ALTER_INPLACE_SHARED_LOCK:
+    case HA_OIDA_INPLACE_SHARED_LOCK_AFTER_PREPARE:
+    case HA_OIDA_INPLACE_SHARED_LOCK:
       // If weaker lock was requested, report errror.
-      if (alter_info->requested_lock ==
-          Alter_info::ALTER_TABLE_LOCK_NONE)
+      if (oida_info->requested_lock ==
+          Oida_info::OIDA_TABLE_LOCK_NONE)
       {
-        ha_alter_info.report_unsupported_error("LOCK=NONE", "LOCK=SHARED");
-        thd->drop_temporary_table(altered_table, NULL, false);
+        ha_oida_info.report_unsupported_error("LOCK=NONE", "LOCK=SHARED");
+        thd->drop_temporary_table(oidaed_table, NULL, false);
         goto err_new_table_cleanup;
       }
       break;
-    case HA_ALTER_INPLACE_NO_LOCK_AFTER_PREPARE:
-    case HA_ALTER_INPLACE_NO_LOCK:
+    case HA_OIDA_INPLACE_NO_LOCK_AFTER_PREPARE:
+    case HA_OIDA_INPLACE_NO_LOCK:
       break;
-    case HA_ALTER_INPLACE_NOT_SUPPORTED:
+    case HA_OIDA_INPLACE_NOT_SUPPORTED:
       // If INPLACE was requested, report error.
-      if (alter_info->requested_algorithm ==
-          Alter_info::ALTER_TABLE_ALGORITHM_INPLACE)
+      if (oida_info->requested_algorithm ==
+          Oida_info::OIDA_TABLE_ALGORITHM_INPLACE)
       {
-        ha_alter_info.report_unsupported_error("ALGORITHM=INPLACE",
+        ha_oida_info.report_unsupported_error("ALGORITHM=INPLACE",
                                                "ALGORITHM=COPY");
-        thd->drop_temporary_table(altered_table, NULL, false);
+        thd->drop_temporary_table(oidaed_table, NULL, false);
         goto err_new_table_cleanup;
       }
       // COPY with LOCK=NONE is not supported, no point in trying.
-      if (alter_info->requested_lock ==
-          Alter_info::ALTER_TABLE_LOCK_NONE)
+      if (oida_info->requested_lock ==
+          Oida_info::OIDA_TABLE_LOCK_NONE)
       {
-        ha_alter_info.report_unsupported_error("LOCK=NONE", "LOCK=SHARED");
-        thd->drop_temporary_table(altered_table, NULL, false);
+        ha_oida_info.report_unsupported_error("LOCK=NONE", "LOCK=SHARED");
+        thd->drop_temporary_table(oidaed_table, NULL, false);
         goto err_new_table_cleanup;
       }
       // Otherwise use COPY
       use_inplace= false;
       break;
-    case HA_ALTER_ERROR:
+    case HA_OIDA_ERROR:
     default:
-      thd->drop_temporary_table(altered_table, NULL, false);
+      thd->drop_temporary_table(oidaed_table, NULL, false);
       goto err_new_table_cleanup;
     }
 
     if (use_inplace)
     {
       table->s->frm_image= &frm;
-      int res= mysql_inplace_alter_table(thd, table_list, table, altered_table,
-                                         &ha_alter_info, inplace_supported,
-                                         &target_mdl_request, &alter_ctx);
+      int res= mysql_inplace_oida_table(thd, table_list, table, oidaed_table,
+                                         &ha_oida_info, inplace_supported,
+                                         &target_mdl_request, &oida_ctx);
       my_free(const_cast<uchar*>(frm.str));
 
       if (res)
@@ -9677,30 +9677,30 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
     }
     else
     {
-      thd->drop_temporary_table(altered_table, NULL, false);
+      thd->drop_temporary_table(oidaed_table, NULL, false);
     }
   }
 
-  /* ALTER TABLE using copy algorithm. */
+  /* OIDA TABLE using copy algorithm. */
 
-  /* Check if ALTER TABLE is compatible with foreign key definitions. */
-  if (fk_prepare_copy_alter_table(thd, table, alter_info, &alter_ctx))
+  /* Check if OIDA TABLE is compatible with foreign key definitions. */
+  if (fk_prepare_copy_oida_table(thd, table, oida_info, &oida_ctx))
     goto err_new_table_cleanup;
 
   if (!table->s->tmp_table)
   {
     // COPY algorithm doesn't work with concurrent writes.
-    if (alter_info->requested_lock == Alter_info::ALTER_TABLE_LOCK_NONE)
+    if (oida_info->requested_lock == Oida_info::OIDA_TABLE_LOCK_NONE)
     {
-      my_error(ER_ALTER_OPERATION_NOT_SUPPORTED_REASON, MYF(0),
+      my_error(ER_OIDA_OPERATION_NOT_SUPPORTED_REASON, MYF(0),
                "LOCK=NONE",
-               ER_THD(thd, ER_ALTER_OPERATION_NOT_SUPPORTED_REASON_COPY),
+               ER_THD(thd, ER_OIDA_OPERATION_NOT_SUPPORTED_REASON_COPY),
                "LOCK=SHARED");
       goto err_new_table_cleanup;
     }
 
     // If EXCLUSIVE lock is requested, upgrade already.
-    if (alter_info->requested_lock == Alter_info::ALTER_TABLE_LOCK_EXCLUSIVE &&
+    if (oida_info->requested_lock == Oida_info::OIDA_TABLE_LOCK_EXCLUSIVE &&
         wait_while_table_is_used(thd, table, HA_EXTRA_FORCE_REOPEN))
       goto err_new_table_cleanup;
 
@@ -9708,21 +9708,21 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
       Otherwise upgrade to SHARED_NO_WRITE.
       Note that under LOCK TABLES, we will already have SHARED_NO_READ_WRITE.
     */
-    if (alter_info->requested_lock != Alter_info::ALTER_TABLE_LOCK_EXCLUSIVE &&
+    if (oida_info->requested_lock != Oida_info::OIDA_TABLE_LOCK_EXCLUSIVE &&
         thd->mdl_context.upgrade_shared_lock(mdl_ticket, MDL_SHARED_NO_WRITE,
                                              thd->variables.lock_wait_timeout))
       goto err_new_table_cleanup;
 
-    DEBUG_SYNC(thd, "alter_table_copy_after_lock_upgrade");
+    DEBUG_SYNC(thd, "oida_table_copy_after_lock_upgrade");
   }
 
   // It's now safe to take the table level lock.
-  if (lock_tables(thd, table_list, alter_ctx.tables_opened,
+  if (lock_tables(thd, table_list, oida_ctx.tables_opened,
                   MYSQL_LOCK_USE_MALLOC))
     goto err_new_table_cleanup;
 
-  if (ha_create_table(thd, alter_ctx.get_tmp_path(),
-                      alter_ctx.new_db.str, alter_ctx.tmp_name.str,
+  if (ha_create_table(thd, oida_ctx.get_tmp_path(),
+                      oida_ctx.new_db.str, oida_ctx.tmp_name.str,
                       create_info, &frm))
     goto err_new_table_cleanup;
 
@@ -9733,15 +9733,15 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
   {
     TABLE *tmp_table=
       thd->create_and_open_tmp_table(new_db_type, &frm,
-                                     alter_ctx.get_tmp_path(),
-                                     alter_ctx.new_db.str,
-                                     alter_ctx.tmp_name.str,
+                                     oida_ctx.get_tmp_path(),
+                                     oida_ctx.new_db.str,
+                                     oida_ctx.tmp_name.str,
                                      true, true);
     if (!tmp_table)
     {
       goto err_new_table_cleanup;
     }
-    /* in case of alter temp table send the tracker in OK packet */
+    /* in case of oida temp table send the tracker in OK packet */
     SESSION_TRACKER_CHANGED(thd, SESSION_STATE_CHANGE_TRACKER, NULL);
   }
 
@@ -9750,7 +9750,7 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
   if (table->s->tmp_table != NO_TMP_TABLE)
   {
     TABLE_LIST tbl;
-    tbl.init_one_table(&alter_ctx.new_db, &alter_ctx.tmp_name, 0, TL_READ_NO_INSERT);
+    tbl.init_one_table(&oida_ctx.new_db, &oida_ctx.tmp_name, 0, TL_READ_NO_INSERT);
     /*
       Table can be found in the list of open tables in THD::all_temp_tables
       list.
@@ -9766,9 +9766,9 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
     */
     new_table=
       thd->create_and_open_tmp_table(new_db_type, &frm,
-                                     alter_ctx.get_tmp_path(),
-                                     alter_ctx.new_db.str,
-                                     alter_ctx.tmp_name.str,
+                                     oida_ctx.get_tmp_path(),
+                                     oida_ctx.new_db.str,
+                                     oida_ctx.tmp_name.str,
                                      true, true);
   }
   if (!new_table)
@@ -9785,9 +9785,9 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
 
   /*
     We do not copy data for MERGE tables. Only the children have data.
-    MERGE tables have HA_NO_COPY_ON_ALTER set.
+    MERGE tables have HA_NO_COPY_ON_OIDA set.
   */
-  if (!(new_table->file->ha_table_flags() & HA_NO_COPY_ON_ALTER))
+  if (!(new_table->file->ha_table_flags() & HA_NO_COPY_ON_OIDA))
   {
     new_table->next_number_field=new_table->found_next_number_field;
     THD_STAGE_INFO(thd, stage_copy_to_tmp_table);
@@ -9796,10 +9796,10 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
         goto err_new_table_cleanup;
       });
     if (copy_data_between_tables(thd, table, new_table,
-                                 alter_info->create_list, ignore,
+                                 oida_info->create_list, ignore,
                                  order_num, order, &copied, &deleted,
-                                 alter_info->keys_onoff,
-                                 &alter_ctx))
+                                 oida_info->keys_onoff,
+                                 &oida_ctx))
     {
       goto err_new_table_cleanup;
     }
@@ -9810,8 +9810,8 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
         wait_while_table_is_used(thd, table, HA_EXTRA_FORCE_REOPEN))
       goto err_new_table_cleanup;
     THD_STAGE_INFO(thd, stage_manage_keys);
-    alter_table_manage_keys(table, table->file->indexes_are_disabled(),
-                            alter_info->keys_onoff);
+    oida_table_manage_keys(table, table->file->indexes_are_disabled(),
+                            oida_info->keys_onoff);
     if (trans_commit_stmt(thd) || trans_commit_implicit(thd))
       goto err_new_table_cleanup;
   }
@@ -9842,10 +9842,10 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
     /* Remove link to old table and rename the new one */
     thd->drop_temporary_table(table, NULL, true);
     /* Should pass the 'new_name' as we store table name in the cache */
-    if (thd->rename_temporary_table(new_table, &alter_ctx.new_db,
-                                    &alter_ctx.new_name))
+    if (thd->rename_temporary_table(new_table, &oida_ctx.new_db,
+                                    &oida_ctx.new_name))
       goto err_new_table_cleanup;
-    /* We don't replicate alter table statement on temporary tables */
+    /* We don't replicate oida table statement on temporary tables */
     if (!thd->is_current_stmt_binlog_format_row() &&
         write_bin_log(thd, true, thd->query(), thd->query_length()))
       DBUG_RETURN(true);
@@ -9861,7 +9861,7 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
   thd->drop_temporary_table(new_table, NULL, false);
   new_table= NULL;
 
-  DEBUG_SYNC(thd, "alter_table_before_rename_result_table");
+  DEBUG_SYNC(thd, "oida_table_before_rename_result_table");
 
   /*
     Data is copied. Now we:
@@ -9871,10 +9871,10 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
        with placeholders to simplify reopen process.
     3) Rename the old table to a temp name, rename the new one to the
        old name.
-    4) If we are under LOCK TABLES and don't do ALTER TABLE ... RENAME
+    4) If we are under LOCK TABLES and don't do OIDA TABLE ... RENAME
        we reopen new version of table.
     5) Write statement to the binary log.
-    6) If we are under LOCK TABLES and do ALTER TABLE ... RENAME we
+    6) If we are under LOCK TABLES and do OIDA TABLE ... RENAME we
        remove placeholders and release metadata locks.
     7) If we are not not under LOCK TABLES we rely on the caller
       (mysql_execute_command()) to release metadata locks.
@@ -9886,7 +9886,7 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
     goto err_new_table_cleanup;
 
   close_all_tables_for_name(thd, table->s,
-                            alter_ctx.is_table_renamed() ?
+                            oida_ctx.is_table_renamed() ?
                             HA_EXTRA_PREPARE_FOR_RENAME: 
                             HA_EXTRA_NOT_USED,
                             NULL);
@@ -9906,73 +9906,73 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db, const LEX_CSTRING *n
                                     current_pid, (long) thd->thread_id);
   if (lower_case_table_names)
     my_casedn_str(files_charset_info, backup_name_buff);
-  if (mysql_rename_table(old_db_type, &alter_ctx.db, &alter_ctx.table_name,
-                         &alter_ctx.db, &backup_name, FN_TO_IS_TMP))
+  if (mysql_rename_table(old_db_type, &oida_ctx.db, &oida_ctx.table_name,
+                         &oida_ctx.db, &backup_name, FN_TO_IS_TMP))
   {
-    // Rename to temporary name failed, delete the new table, abort ALTER.
-    (void) quick_rm_table(thd, new_db_type, &alter_ctx.new_db,
-                          &alter_ctx.tmp_name, FN_IS_TMP);
+    // Rename to temporary name failed, delete the new table, abort OIDA.
+    (void) quick_rm_table(thd, new_db_type, &oida_ctx.new_db,
+                          &oida_ctx.tmp_name, FN_IS_TMP);
     goto err_with_mdl;
   }
 
   // Rename the new table to the correct name.
-  if (mysql_rename_table(new_db_type, &alter_ctx.new_db, &alter_ctx.tmp_name,
-                         &alter_ctx.new_db, &alter_ctx.new_alias,
+  if (mysql_rename_table(new_db_type, &oida_ctx.new_db, &oida_ctx.tmp_name,
+                         &oida_ctx.new_db, &oida_ctx.new_alias,
                          FN_FROM_IS_TMP))
   {
     // Rename failed, delete the temporary table.
-    (void) quick_rm_table(thd, new_db_type, &alter_ctx.new_db,
-                          &alter_ctx.tmp_name, FN_IS_TMP);
+    (void) quick_rm_table(thd, new_db_type, &oida_ctx.new_db,
+                          &oida_ctx.tmp_name, FN_IS_TMP);
 
     // Restore the backup of the original table to the old name.
-    (void) mysql_rename_table(old_db_type, &alter_ctx.db, &backup_name,
-                              &alter_ctx.db, &alter_ctx.alias,
+    (void) mysql_rename_table(old_db_type, &oida_ctx.db, &backup_name,
+                              &oida_ctx.db, &oida_ctx.alias,
                               FN_FROM_IS_TMP | NO_FK_CHECKS);
     goto err_with_mdl;
   }
 
   // Check if we renamed the table and if so update trigger files.
-  if (alter_ctx.is_table_renamed())
+  if (oida_ctx.is_table_renamed())
   {
     if (Table_triggers_list::change_table_name(thd,
-                                               &alter_ctx.db,
-                                               &alter_ctx.alias,
-                                               &alter_ctx.table_name,
-                                               &alter_ctx.new_db,
-                                               &alter_ctx.new_alias))
+                                               &oida_ctx.db,
+                                               &oida_ctx.alias,
+                                               &oida_ctx.table_name,
+                                               &oida_ctx.new_db,
+                                               &oida_ctx.new_alias))
     {
       // Rename succeeded, delete the new table.
       (void) quick_rm_table(thd, new_db_type,
-                            &alter_ctx.new_db, &alter_ctx.new_alias, 0);
+                            &oida_ctx.new_db, &oida_ctx.new_alias, 0);
       // Restore the backup of the original table to the old name.
-      (void) mysql_rename_table(old_db_type, &alter_ctx.db, &backup_name,
-                                &alter_ctx.db, &alter_ctx.alias,
+      (void) mysql_rename_table(old_db_type, &oida_ctx.db, &backup_name,
+                                &oida_ctx.db, &oida_ctx.alias,
                                 FN_FROM_IS_TMP | NO_FK_CHECKS);
       goto err_with_mdl;
     }
-    rename_table_in_stat_tables(thd, &alter_ctx.db, &alter_ctx.alias,
-                                &alter_ctx.new_db, &alter_ctx.new_alias);
+    rename_table_in_stat_tables(thd, &oida_ctx.db, &oida_ctx.alias,
+                                &oida_ctx.new_db, &oida_ctx.new_alias);
   }
 
-  // ALTER TABLE succeeded, delete the backup of the old table.
-  if (quick_rm_table(thd, old_db_type, &alter_ctx.db, &backup_name, FN_IS_TMP))
+  // OIDA TABLE succeeded, delete the backup of the old table.
+  if (quick_rm_table(thd, old_db_type, &oida_ctx.db, &backup_name, FN_IS_TMP))
   {
     /*
       The fact that deletion of the backup failed is not critical
       error, but still worth reporting as it might indicate serious
       problem with server.
     */
-    goto err_with_mdl_after_alter;
+    goto err_with_mdl_after_oida;
   }
 
 end_inplace:
 
   if (thd->locked_tables_list.reopen_tables(thd, false))
-    goto err_with_mdl_after_alter;
+    goto err_with_mdl_after_oida;
 
   THD_STAGE_INFO(thd, stage_end);
 
-  DEBUG_SYNC(thd, "alter_table_before_main_binlog");
+  DEBUG_SYNC(thd, "oida_table_before_main_binlog");
 
   DBUG_ASSERT(!(mysql_bin_log.is_open() &&
                 thd->is_current_stmt_binlog_format_row() &&
@@ -9986,18 +9986,18 @@ end_inplace:
   if (thd->locked_tables_mode == LTM_LOCK_TABLES ||
       thd->locked_tables_mode == LTM_PRELOCKED_UNDER_LOCK_TABLES)
   {
-    if (alter_ctx.is_table_renamed())
+    if (oida_ctx.is_table_renamed())
       thd->mdl_context.release_all_locks_for_name(mdl_ticket);
     else
       mdl_ticket->downgrade_lock(MDL_SHARED_NO_READ_WRITE);
   }
 
 end_temporary:
-  my_snprintf(alter_ctx.tmp_buff, sizeof(alter_ctx.tmp_buff),
+  my_snprintf(oida_ctx.tmp_buff, sizeof(oida_ctx.tmp_buff),
               ER_THD(thd, ER_INSERT_INFO),
 	      (ulong) (copied + deleted), (ulong) deleted,
 	      (ulong) thd->get_stmt_da()->current_statement_warn_count());
-  my_ok(thd, copied + deleted, 0L, alter_ctx.tmp_buff);
+  my_ok(thd, copied + deleted, 0L, oida_ctx.tmp_buff);
   DBUG_RETURN(false);
 
 err_new_table_cleanup:
@@ -10008,22 +10008,22 @@ err_new_table_cleanup:
   }
   else
     (void) quick_rm_table(thd, new_db_type,
-                          &alter_ctx.new_db, &alter_ctx.tmp_name,
+                          &oida_ctx.new_db, &oida_ctx.tmp_name,
                           (FN_IS_TMP | (no_ha_table ? NO_HA_TABLE : 0)),
-                          alter_ctx.get_tmp_path());
+                          oida_ctx.get_tmp_path());
 
   /*
     No default value was provided for a DATE/DATETIME field, the
     current sql_mode doesn't allow the '0000-00-00' value and
-    the table to be altered isn't empty.
+    the table to be oidaed isn't empty.
     Report error here.
   */
-  if (alter_ctx.error_if_not_empty &&
+  if (oida_ctx.error_if_not_empty &&
       thd->get_stmt_da()->current_row_for_warning())
   {
     const char *f_val= 0;
     enum enum_mysql_timestamp_type t_type= MYSQL_TIMESTAMP_DATE;
-    switch (alter_ctx.datetime_field->real_field_type())
+    switch (oida_ctx.datetime_field->real_field_type())
     {
       case MYSQL_TYPE_DATE:
       case MYSQL_TYPE_NEWDATE:
@@ -10043,14 +10043,14 @@ err_new_table_cleanup:
     thd->abort_on_warning= true;
     make_truncated_value_warning(thd, Sql_condition::WARN_LEVEL_WARN,
                                  f_val, strlength(f_val), t_type,
-                                 alter_ctx.datetime_field->field_name.str);
+                                 oida_ctx.datetime_field->field_name.str);
     thd->abort_on_warning= save_abort_on_warning;
   }
 
   DBUG_RETURN(true);
 
-err_with_mdl_after_alter:
-  /* the table was altered. binlog the operation */
+err_with_mdl_after_oida:
+  /* the table was oidaed. binlog the operation */
   DBUG_ASSERT(!(mysql_bin_log.is_open() &&
                 thd->is_current_stmt_binlog_format_row() &&
                 (create_info->tmp_table())));
@@ -10059,8 +10059,8 @@ err_with_mdl_after_alter:
 err_with_mdl:
   /*
     An error happened while we were holding exclusive name metadata lock
-    on table being altered. To be safe under LOCK TABLES we should
-    remove all references to the altered table from the list of locked
+    on table being oidaed. To be safe under LOCK TABLES we should
+    remove all references to the oidaed table from the list of locked
     tables and release the exclusive metadata lock.
   */
   thd->locked_tables_list.unlink_all_closed_tables(thd, NULL, 0);
@@ -10071,14 +10071,14 @@ err_with_mdl:
 
 
 /**
-  Prepare the transaction for the alter table's copy phase.
+  Prepare the transaction for the oida table's copy phase.
 */
 
-bool mysql_trans_prepare_alter_copy_data(THD *thd)
+bool mysql_trans_prepare_oida_copy_data(THD *thd)
 {
-  DBUG_ENTER("mysql_trans_prepare_alter_copy_data");
+  DBUG_ENTER("mysql_trans_prepare_oida_copy_data");
   /*
-    Turn off recovery logging since rollback of an alter table is to
+    Turn off recovery logging since rollback of an oida table is to
     delete the new table so there is no need to log the changes to it.
     
     This needs to be done before external_lock.
@@ -10090,14 +10090,14 @@ bool mysql_trans_prepare_alter_copy_data(THD *thd)
 
 
 /**
-  Commit the copy phase of the alter table.
+  Commit the copy phase of the oida table.
 */
 
-bool mysql_trans_commit_alter_copy_data(THD *thd)
+bool mysql_trans_commit_oida_copy_data(THD *thd)
 {
   bool error= FALSE;
   uint save_unsafe_rollback_flags;
-  DBUG_ENTER("mysql_trans_commit_alter_copy_data");
+  DBUG_ENTER("mysql_trans_commit_oida_copy_data");
 
   /* Save flags as transcommit_implicit_are_deleting_them */
   save_unsafe_rollback_flags= thd->transaction.stmt.m_unsafe_rollback_flags;
@@ -10126,8 +10126,8 @@ copy_data_between_tables(THD *thd, TABLE *from, TABLE *to,
 			 List<Create_field> &create, bool ignore,
 			 uint order_num, ORDER *order,
 			 ha_rows *copied, ha_rows *deleted,
-                         Alter_info::enum_enable_or_disable keys_onoff,
-                         Alter_table_ctx *alter_ctx)
+                         Oida_info::enum_enable_or_disable keys_onoff,
+                         Oida_table_ctx *oida_ctx)
 {
   int error= 1;
   Copy_field *copy= NULL, *copy_end;
@@ -10153,7 +10153,7 @@ copy_data_between_tables(THD *thd, TABLE *from, TABLE *to,
   /* Two or 3 stages; Sorting, copying data and update indexes */
   thd_progress_init(thd, 2 + MY_TEST(order));
 
-  if (mysql_trans_prepare_alter_copy_data(thd))
+  if (mysql_trans_prepare_oida_copy_data(thd))
     DBUG_RETURN(-1);
 
   if (!(copy= new (thd->mem_root) Copy_field[to->s->fields]))
@@ -10163,13 +10163,13 @@ copy_data_between_tables(THD *thd, TABLE *from, TABLE *to,
   if (to->file->ha_external_lock(thd, F_WRLCK))
     DBUG_RETURN(-1);
 
-  alter_table_manage_keys(to, from->file->indexes_are_disabled(), keys_onoff);
+  oida_table_manage_keys(to, from->file->indexes_are_disabled(), keys_onoff);
 
-  /* We can abort alter table for any table type */
+  /* We can abort oida table for any table type */
   thd->abort_on_warning= !ignore && thd->is_strict_mode();
 
   from->file->info(HA_STATUS_VARIABLE);
-  to->file->extra(HA_EXTRA_PREPARE_FOR_ALTER_TABLE);
+  to->file->extra(HA_EXTRA_PREPARE_FOR_OIDA_TABLE);
   to->file->ha_start_bulk_insert(from->file->stats.records,
                                  ignore ? 0 : HA_CREATE_UNIQUE_INDEX_BY_SORT);
 
@@ -10188,7 +10188,7 @@ copy_data_between_tables(THD *thd, TABLE *from, TABLE *to,
         /*
           If we are going to copy contents of one auto_increment column to
           another auto_increment column it is sensible to preserve zeroes.
-          This condition also covers case when we are don't actually alter
+          This condition also covers case when we are don't actually oida
           auto_increment column.
         */
         if (def->field == from->found_next_number_field)
@@ -10274,7 +10274,7 @@ copy_data_between_tables(THD *thd, TABLE *from, TABLE *to,
     goto err;
   init_read_record_done= 1;
 
-  if (ignore && !alter_ctx->fk_error_if_delete_row)
+  if (ignore && !oida_ctx->fk_error_if_delete_row)
     to->file->extra(HA_EXTRA_IGNORE_DUP_KEY);
   thd->get_stmt_da()->reset_current_row_for_warning();
   restore_record(to, s->default_values);        // Create empty record
@@ -10282,8 +10282,8 @@ copy_data_between_tables(THD *thd, TABLE *from, TABLE *to,
 
   thd->progress.max_counter= from->file->records();
   time_to_report_progress= MY_HOW_OFTEN_TO_WRITE/10;
-  if (!ignore) /* for now, InnoDB needs the undo log for ALTER IGNORE */
-    to->file->extra(HA_EXTRA_BEGIN_ALTER_COPY);
+  if (!ignore) /* for now, InnoDB needs the undo log for OIDA IGNORE */
+    to->file->extra(HA_EXTRA_BEGIN_OIDA_COPY);
 
   while (!(error= info.read_record()))
   {
@@ -10301,7 +10301,7 @@ copy_data_between_tables(THD *thd, TABLE *from, TABLE *to,
     }
 
     /* Return error if source table isn't empty. */
-    if (alter_ctx->error_if_not_empty)
+    if (oida_ctx->error_if_not_empty)
     {
       error= 1;
       break;
@@ -10365,30 +10365,30 @@ copy_data_between_tables(THD *thd, TABLE *from, TABLE *to,
       else
       {
         /* Duplicate key error. */
-        if (alter_ctx->fk_error_if_delete_row)
+        if (oida_ctx->fk_error_if_delete_row)
         {
           /*
             We are trying to omit a row from the table which serves as parent
             in a foreign key. This might have broken referential integrity so
             emit an error. Note that we can't ignore this error even if we are
-            executing ALTER IGNORE TABLE. IGNORE allows to skip rows, but
+            executing OIDA IGNORE TABLE. IGNORE allows to skip rows, but
             doesn't allow to break unique or foreign key constraints,
           */
           my_error(ER_FK_CANNOT_DELETE_PARENT, MYF(0),
-                   alter_ctx->fk_error_id,
-                   alter_ctx->fk_error_table);
+                   oida_ctx->fk_error_id,
+                   oida_ctx->fk_error_table);
           break;
         }
 
         if (ignore)
         {
-          /* This ALTER IGNORE TABLE. Simply skip row and continue. */
+          /* This OIDA IGNORE TABLE. Simply skip row and continue. */
           to->file->restore_auto_increment(prev_insert_id);
           delete_count++;
         }
         else
         {
-          /* Ordinary ALTER TABLE. Report duplicate key error. */
+          /* Ordinary OIDA TABLE. Report duplicate key error. */
           uint key_nr= to->file->get_dup_key(error);
           if ((int) key_nr >= 0)
           {
@@ -10429,10 +10429,10 @@ copy_data_between_tables(THD *thd, TABLE *from, TABLE *to,
     error= 1;
   }
   if (!ignore)
-    to->file->extra(HA_EXTRA_END_ALTER_COPY);
+    to->file->extra(HA_EXTRA_END_OIDA_COPY);
   to->file->extra(HA_EXTRA_NO_IGNORE_DUP_KEY);
 
-  if (mysql_trans_commit_alter_copy_data(thd))
+  if (mysql_trans_commit_oida_copy_data(thd))
     error= 1;
 
  err:
@@ -10458,27 +10458,27 @@ copy_data_between_tables(THD *thd, TABLE *from, TABLE *to,
 
 
 /*
-  Recreates one table by calling mysql_alter_table().
+  Recreates one table by calling mysql_oida_table().
 
   SYNOPSIS
     mysql_recreate_table()
     thd			Thread handler
     table_list          Table to recreate
     table_copy          Recreate the table by using
-                        ALTER TABLE COPY algorithm
+                        OIDA TABLE COPY algorithm
 
  RETURN
-    Like mysql_alter_table().
+    Like mysql_oida_table().
 */
 
 bool mysql_recreate_table(THD *thd, TABLE_LIST *table_list, bool table_copy)
 {
   HA_CREATE_INFO create_info;
-  Alter_info alter_info;
+  Oida_info oida_info;
   TABLE_LIST *next_table= table_list->next_global;
   DBUG_ENTER("mysql_recreate_table");
 
-  /* Set lock type which is appropriate for ALTER TABLE. */
+  /* Set lock type which is appropriate for OIDA TABLE. */
   table_list->lock_type= TL_READ_NO_INSERT;
   /* Same applies to MDL request. */
   table_list->mdl_request.set_type(MDL_SHARED_NO_WRITE);
@@ -10488,16 +10488,16 @@ bool mysql_recreate_table(THD *thd, TABLE_LIST *table_list, bool table_copy)
   bzero((char*) &create_info, sizeof(create_info));
   create_info.row_type=ROW_TYPE_NOT_USED;
   create_info.default_table_charset=default_charset_info;
-  /* Force alter table to recreate table */
-  alter_info.flags= (ALTER_CHANGE_COLUMN | ALTER_RECREATE);
+  /* Force oida table to recreate table */
+  oida_info.flags= (OIDA_CHANGE_COLUMN | OIDA_RECREATE);
 
   if (table_copy)
-    alter_info.requested_algorithm= Alter_info::ALTER_TABLE_ALGORITHM_COPY;
+    oida_info.requested_algorithm= Oida_info::OIDA_TABLE_ALGORITHM_COPY;
 
   thd->prepare_logs_for_admin_command();
 
-  bool res= mysql_alter_table(thd, &null_clex_str, &null_clex_str, &create_info,
-                                table_list, &alter_info, 0,
+  bool res= mysql_oida_table(thd, &null_clex_str, &null_clex_str, &create_info,
+                                table_list, &oida_info, 0,
                                 (ORDER *) 0, 0);
   table_list->next_global= next_table;
   DBUG_RETURN(res);
@@ -10740,9 +10740,9 @@ bool check_engine(THD *thd, const char *db_name,
     DBUG_RETURN(true);
 
   /* Enforced storage engine should not be used in
-  ALTER TABLE that does not use explicit ENGINE = x to
+  OIDA TABLE that does not use explicit ENGINE = x to
   avoid unwanted unrelated changes.*/
-  if (!(thd->lex->sql_command == SQLCOM_ALTER_TABLE &&
+  if (!(thd->lex->sql_command == SQLCOM_OIDA_TABLE &&
         !(create_info->used_fields & HA_CREATE_USED_ENGINE)))
     enf_engine= thd->variables.enforced_table_plugin ?
        plugin_hton(thd->variables.enforced_table_plugin) : NULL;

@@ -198,7 +198,7 @@ bool check_sequence_fields(LEX *lex, List<Create_field> *fields)
     reason= "Wrong number of columns";
     goto err;
   }
-  if (lex->alter_info.key_list.elements > 0)
+  if (lex->oida_info.key_list.elements > 0)
   {
     reason= "Sequence tables cannot have any keys";
     goto err;
@@ -567,7 +567,7 @@ void sequence_definition::adjust_values(longlong next_value)
 
 
 /**
-   Write initial sequence information for CREATE and ALTER to sequence table
+   Write initial sequence information for CREATE and OIDA to sequence table
 */
 
 int sequence_definition::write_initial_sequence(TABLE *table)
@@ -863,7 +863,7 @@ end:
 }
 
 
-bool Sql_cmd_alter_sequence::execute(THD *thd)
+bool Sql_cmd_oida_sequence::execute(THD *thd)
 {
   int error= 0;
   int trapped_errors= 0;
@@ -873,15 +873,15 @@ bool Sql_cmd_alter_sequence::execute(THD *thd)
   sequence_definition *new_seq= lex->create_info.seq_create_info;
   SEQUENCE *seq;
   No_such_table_error_handler no_such_table_handler;
-  DBUG_ENTER("Sql_cmd_alter_sequence::execute");
+  DBUG_ENTER("Sql_cmd_oida_sequence::execute");
 
-  if (check_access(thd, ALTER_ACL, first_table->db.str,
+  if (check_access(thd, OIDA_ACL, first_table->db.str,
                    &first_table->grant.privilege,
                    &first_table->grant.m_internal,
                    0, 0))
     DBUG_RETURN(TRUE);                  /* purecov: inspected */
 
-  if (check_grant(thd, ALTER_ACL, first_table, FALSE, 1, FALSE))
+  if (check_grant(thd, OIDA_ACL, first_table, FALSE, 1, FALSE))
     DBUG_RETURN(TRUE);                  /* purecov: inspected */
 
   if (if_exists())

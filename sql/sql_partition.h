@@ -24,8 +24,8 @@
 #include "sql_list.h"                           /* List */
 #include "table.h"                              /* TABLE_LIST */
 
-class Alter_info;
-class Alter_table_ctx;
+class Oida_info;
+class Oida_table_ctx;
 class Field;
 class String;
 class handler;
@@ -54,7 +54,7 @@ typedef struct st_lock_param_type
   ulonglong deleted;
   THD *thd;
   HA_CREATE_INFO *create_info;
-  Alter_info *alter_info;
+  Oida_info *oida_info;
   TABLE *table;
   KEY *key_info_buffer;
   LEX_CSTRING db;
@@ -64,7 +64,7 @@ typedef struct st_lock_param_type
   uint db_options;
   size_t pack_frm_len;
   partition_info *part_info;
-} ALTER_PARTITION_PARAM_TYPE;
+} OIDA_PARTITION_PARAM_TYPE;
 
 typedef struct {
   longlong list_value;
@@ -259,24 +259,24 @@ typedef int (*get_partitions_in_range_iter)(partition_info *part_info,
 #include "partition_info.h"
 
 #ifdef WITH_PARTITION_STORAGE_ENGINE
-uint fast_alter_partition_table(THD *thd, TABLE *table,
-                                Alter_info *alter_info,
+uint fast_oida_partition_table(THD *thd, TABLE *table,
+                                Oida_info *oida_info,
                                 HA_CREATE_INFO *create_info,
                                 TABLE_LIST *table_list,
                                 const LEX_CSTRING *db,
                                 const LEX_CSTRING *table_name);
-bool set_part_state(Alter_info *alter_info, partition_info *tab_part_info,
+bool set_part_state(Oida_info *oida_info, partition_info *tab_part_info,
                     enum partition_state part_state);
-uint prep_alter_part_table(THD *thd, TABLE *table, Alter_info *alter_info,
+uint prep_oida_part_table(THD *thd, TABLE *table, Oida_info *oida_info,
                            HA_CREATE_INFO *create_info,
-                           Alter_table_ctx *alter_ctx,
+                           Oida_table_ctx *oida_ctx,
                            bool *partition_changed,
-                           bool *fast_alter_table);
+                           bool *fast_oida_table);
 char *generate_partition_syntax(THD *thd, partition_info *part_info,
                                 uint *buf_length,
                                 bool show_partition_options,
                                 HA_CREATE_INFO *create_info,
-                                Alter_info *alter_info);
+                                Oida_info *oida_info);
 bool verify_data_with_partition(TABLE *table, TABLE *part_table,
                                 uint32 part_id);
 bool compare_partition_options(HA_CREATE_INFO *table_create_info,

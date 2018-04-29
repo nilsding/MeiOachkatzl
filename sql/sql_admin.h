@@ -16,7 +16,7 @@
 #ifndef SQL_TABLE_MAINTENANCE_H
 #define SQL_TABLE_MAINTENANCE_H
 
-/* Must be able to hold ALTER TABLE t PARTITION BY ... KEY ALGORITHM = 1 ... */
+/* Must be able to hold OIDA TABLE t PARTITION BY ... KEY ALGORITHM = 1 ... */
 #define SQL_ADMIN_MSG_TEXT_SIZE (128 * 1024)
 
 bool mysql_assign_to_keycache(THD* thd, TABLE_LIST* table_list,

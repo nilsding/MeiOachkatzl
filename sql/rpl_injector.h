@@ -36,7 +36,7 @@ struct TABLE;
  
   The original purpose of this is to allow clusters---which handle replication
   inside the cluster through other means---to insert new rows into binary log.
-  Note, however, that the injector should be used whenever rows are altered in
+  Note, however, that the injector should be used whenever rows are oidaed in
   any manner that is outside of MySQL server visibility and which therefore
   are not seen by the MySQL server.
  */
@@ -288,7 +288,7 @@ public:
     /* 
        Create a new transaction.  This member function will prepare for a
        sequence of *_row calls by, for example, reserving resources and
-       locking files. There are two overloaded alternatives: one returning a
+       locking files. There are two overloaded oidanatives: one returning a
        transaction by value and one using placement semantics. The following
        two calls are equivalent, with the exception that the latter will
        overwrite the transaction.

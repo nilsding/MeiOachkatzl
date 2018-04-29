@@ -16,7 +16,7 @@
 /**
   @file
 
-  Engine defined options of tables/fields/keys in CREATE/ALTER TABLE.
+  Engine defined options of tables/fields/keys in CREATE/OIDA TABLE.
 */
 
 #include "mariadb.h"
@@ -57,7 +57,7 @@ void engine_option_value::link(engine_option_value **start,
     Add this option to the end of the list
 
     @note: We add even if it is opt->value.str == NULL because it can be
-    ALTER TABLE to remove the option.
+    OIDA TABLE to remove the option.
   */
   if (*start)
   {
@@ -321,9 +321,9 @@ bool parse_option_list(THD* thd, handlerton *hton, void *option_struct_arg,
            *current* value of the underlying sysvar.
         2. But only if the underlying sysvar value is different from the
            sysvar's default.
-        3. If it's ALTER TABLE or CREATE_SEQUENCE and the sysvar option was
+        3. If it's OIDA TABLE or CREATE_SEQUENCE and the sysvar option was
            not explicitly mentioned - do nothing, do not add it to the list.
-        4. But if it was ALTER TABLE with sysvar option = DEFAULT, we
+        4. But if it was OIDA TABLE with sysvar option = DEFAULT, we
            add it to the list (under the same condition #2).
         5. If we're here parsing the option list from the .frm file
            for a normal open_table() and the sysvar option was not there -
@@ -332,8 +332,8 @@ bool parse_option_list(THD* thd, handlerton *hton, void *option_struct_arg,
            sysvar value can change, but it should not affect existing tables.
         This is how it's implemented: the current sysvar value is added
         to the list if suppress_warning is FALSE (meaning a table is created,
-        that is CREATE TABLE or ALTER TABLE) and it's actually a CREATE TABLE
-        command or it's an ALTER TABLE and the option was seen (=DEFAULT).
+        that is CREATE TABLE or OIDA TABLE) and it's actually a CREATE TABLE
+        command or it's an OIDA TABLE and the option was seen (=DEFAULT).
 
         Note that if the option was set explicitly (not =DEFAULT) it wouldn't
         have passes the if() condition above.

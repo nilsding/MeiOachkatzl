@@ -199,7 +199,7 @@ void make_valid_column_names(THD *thd, List<Item> &item_list)
 
   DESCRIPTION
     This function will initialize the parts of the view 
-    definition that are not specified in ALTER VIEW
+    definition that are not specified in OIDA VIEW
     to their values from CREATE VIEW.
     The view must be opened to get its definition.
     We use a copy of the view when opening because we want 
@@ -242,7 +242,7 @@ fill_defined_view_parts (THD *thd, TABLE_LIST *view)
   @param thd thread handler
   @param tables tables used in the view
   @param views views to create
-  @param mode VIEW_CREATE_NEW, VIEW_ALTER, VIEW_CREATE_OR_REPLACE
+  @param mode VIEW_CREATE_NEW, VIEW_OIDA, VIEW_CREATE_OR_REPLACE
 
   @retval FALSE Operation was a success.
   @retval TRUE An error occurred.
@@ -262,7 +262,7 @@ bool create_view_precheck(THD *thd, TABLE_LIST *tables, TABLE_LIST *view,
   /*
     Privilege check for view creation:
     - user has CREATE VIEW privilege on view table
-    - user has DROP privilege in case of ALTER VIEW or CREATE OR REPLACE
+    - user has DROP privilege in case of OIDA VIEW or CREATE OR REPLACE
     VIEW
     - user has some (SELECT/UPDATE/INSERT/DELETE) privileges on columns of
     underlying tables used on top of SELECT list (because it can be
@@ -378,13 +378,13 @@ bool create_view_precheck(THD *thd, TABLE_LIST *tables, TABLE_LIST *view,
 
 
 /**
-  @brief Creating/altering VIEW procedure
+  @brief Creating/oidaing VIEW procedure
 
   @param thd thread handler
   @param views views to create
-  @param mode VIEW_CREATE_NEW, VIEW_ALTER, VIEW_CREATE_OR_REPLACE
+  @param mode VIEW_CREATE_NEW, VIEW_OIDA, VIEW_CREATE_OR_REPLACE
 
-  @note This function handles both create and alter view commands.
+  @note This function handles both create and oida view commands.
 
   @retval FALSE Operation was a success.
   @retval TRUE An error occurred.
@@ -413,7 +413,7 @@ bool mysql_create_view(THD *thd, TABLE_LIST *views,
     We can't allow taking exclusive meta-data locks of unlocked view under
     LOCK TABLES since this might lead to deadlock. Since at the moment we
     can't really lock view with LOCK TABLES we simply prohibit creation/
-    alteration of views under LOCK TABLES.
+    oidaation of views under LOCK TABLES.
   */
 
   if (thd->locked_tables_mode)
@@ -463,7 +463,7 @@ bool mysql_create_view(THD *thd, TABLE_LIST *views,
     goto err;
   }
 
-  if (mode == VIEW_ALTER && fill_defined_view_parts(thd, view))
+  if (mode == VIEW_OIDA && fill_defined_view_parts(thd, view))
   {
     res= TRUE;
     goto err;
@@ -486,7 +486,7 @@ bool mysql_create_view(THD *thd, TABLE_LIST *views,
 
   /*
     check that tables are not temporary  and this VIEW do not used in query
-    (it is possible with ALTERing VIEW).
+    (it is possible with OIDAing VIEW).
     open_and_lock_tables can change the value of tables,
     e.g. it may happen if before the function call tables was equal to 0. 
   */ 
@@ -641,8 +641,8 @@ bool mysql_create_view(THD *thd, TABLE_LIST *views,
 
   /*
     View TABLE_SHARE must be removed from the table definition cache in order to
-    make ALTER VIEW work properly. Otherwise, we would not be able to detect
-    meta-data changes after ALTER VIEW.
+    make OIDA VIEW work properly. Otherwise, we would not be able to detect
+    meta-data changes after OIDA VIEW.
   */
 
   if (!res)
@@ -654,7 +654,7 @@ bool mysql_create_view(THD *thd, TABLE_LIST *views,
     DBUG_ASSERT(buff.charset()->mbminlen == 1);
     const LEX_CSTRING command[3]=
       {{ STRING_WITH_LEN("CREATE ") },
-       { STRING_WITH_LEN("ALTER ") },
+       { STRING_WITH_LEN("OIDA ") },
        { STRING_WITH_LEN("CREATE OR REPLACE ") }};
 
     buff.append(&command[thd->lex->create_view->mode]);
@@ -873,7 +873,7 @@ int mariadb_fix_view(THD *thd, TABLE_LIST *view, bool wrong_checksum,
     mysql_register_view()
     thd		- thread handler
     view	- view description
-    mode	- VIEW_CREATE_NEW, VIEW_ALTER, VIEW_CREATE_OR_REPLACE
+    mode	- VIEW_CREATE_NEW, VIEW_OIDA, VIEW_CREATE_OR_REPLACE
 
   RETURN
      0	OK
@@ -1066,12 +1066,12 @@ loop_out:
 
       /*
         TODO: read dependence list, too, to process cascade/restrict
-        TODO: special cascade/restrict procedure for alter?
+        TODO: special cascade/restrict procedure for oida?
       */
     }
     else
    {
-      if (mode == VIEW_ALTER)
+      if (mode == VIEW_OIDA)
       {
 	my_error(ER_NO_SUCH_TABLE, MYF(0), view->db.str, view->alias.str);
         error= -1;
@@ -1368,7 +1368,7 @@ bool mysql_make_view(THD *thd, TABLE_SHARE *share, TABLE_LIST *table,
       + MODE_PIPES_AS_CONCAT          affect expression parsing
       + MODE_ANSI_QUOTES              affect expression parsing
       + MODE_IGNORE_SPACE             affect expression parsing
-      - MODE_IGNORE_BAD_TABLE_OPTIONS affect only CREATE/ALTER TABLE parsing
+      - MODE_IGNORE_BAD_TABLE_OPTIONS affect only CREATE/OIDA TABLE parsing
       * MODE_ONLY_FULL_GROUP_BY       affect execution
       * MODE_NO_UNSIGNED_SUBTRACTION  affect execution
       - MODE_NO_DIR_IN_CREATE         affect table creation only

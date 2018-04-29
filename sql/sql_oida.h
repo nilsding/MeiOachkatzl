@@ -14,19 +14,19 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
-#ifndef SQL_ALTER_TABLE_H
-#define SQL_ALTER_TABLE_H
+#ifndef SQL_OIDA_TABLE_H
+#define SQL_OIDA_TABLE_H
 
-class Alter_drop;
-class Alter_column;
+class Oida_drop;
+class Oida_column;
 class Key;
 
 /**
   Data describing the table being created by CREATE TABLE or
-  altered by ALTER TABLE.
+  oidaed by OIDA TABLE.
 */
 
-class Alter_info
+class Oida_info
 {
 public:
 
@@ -35,56 +35,56 @@ public:
   bool data_modifying() const
   {
     return flags & (
-      ALTER_PARSER_ADD_COLUMN |
-      ALTER_PARSER_DROP_COLUMN |
-      ALTER_CHANGE_COLUMN |
-      ALTER_COLUMN_ORDER);
+      OIDA_PARSER_ADD_COLUMN |
+      OIDA_PARSER_DROP_COLUMN |
+      OIDA_CHANGE_COLUMN |
+      OIDA_COLUMN_ORDER);
   }
 
   /**
      The different values of the ALGORITHM clause.
-     Describes which algorithm to use when altering the table.
+     Describes which algorithm to use when oidaing the table.
   */
-  enum enum_alter_table_algorithm
+  enum enum_oida_table_algorithm
   {
     // In-place if supported, copy otherwise.
-    ALTER_TABLE_ALGORITHM_DEFAULT,
+    OIDA_TABLE_ALGORITHM_DEFAULT,
 
     // In-place if supported, error otherwise.
-    ALTER_TABLE_ALGORITHM_INPLACE,
+    OIDA_TABLE_ALGORITHM_INPLACE,
 
     // Copy if supported, error otherwise.
-    ALTER_TABLE_ALGORITHM_COPY
+    OIDA_TABLE_ALGORITHM_COPY
   };
 
 
   /**
      The different values of the LOCK clause.
-     Describes the level of concurrency during ALTER TABLE.
+     Describes the level of concurrency during OIDA TABLE.
   */
-  enum enum_alter_table_lock
+  enum enum_oida_table_lock
   {
     // Maximum supported level of concurency for the given operation.
-    ALTER_TABLE_LOCK_DEFAULT,
+    OIDA_TABLE_LOCK_DEFAULT,
 
     // Allow concurrent reads & writes. If not supported, give erorr.
-    ALTER_TABLE_LOCK_NONE,
+    OIDA_TABLE_LOCK_NONE,
 
     // Allow concurrent reads only. If not supported, give error.
-    ALTER_TABLE_LOCK_SHARED,
+    OIDA_TABLE_LOCK_SHARED,
 
     // Block reads and writes.
-    ALTER_TABLE_LOCK_EXCLUSIVE
+    OIDA_TABLE_LOCK_EXCLUSIVE
   };
 
 
   // Columns and keys to be dropped.
-  List<Alter_drop>              drop_list;
-  // Columns for ALTER_COLUMN_CHANGE_DEFAULT.
-  List<Alter_column>            alter_list;
-  // List of keys, used by both CREATE and ALTER TABLE.
+  List<Oida_drop>              drop_list;
+  // Columns for OIDA_COLUMN_CHANGE_DEFAULT.
+  List<Oida_column>            oida_list;
+  // List of keys, used by both CREATE and OIDA TABLE.
   List<Key>                     key_list;
-  // List of columns, used by both CREATE and ALTER TABLE.
+  // List of columns, used by both CREATE and OIDA TABLE.
   List<Create_field>            create_list;
 
   enum flags_bits
@@ -92,8 +92,8 @@ public:
     CHECK_CONSTRAINT_IF_NOT_EXISTS= 1
   };
   List<Virtual_column_info>     check_constraint_list;
-  // Type of ALTER TABLE operation.
-  alter_table_operations        flags;
+  // Type of OIDA TABLE operation.
+  oida_table_operations        flags;
   ulong                         partition_flags;
   // Enable or disable keys.
   enum_enable_or_disable        keys_onoff;
@@ -101,24 +101,24 @@ public:
   List<const char>              partition_names;
   // Number of partitions.
   uint                          num_parts;
-  // Type of ALTER TABLE algorithm.
-  enum_alter_table_algorithm    requested_algorithm;
-  // Type of ALTER TABLE lock.
-  enum_alter_table_lock         requested_lock;
+  // Type of OIDA TABLE algorithm.
+  enum_oida_table_algorithm    requested_algorithm;
+  // Type of OIDA TABLE lock.
+  enum_oida_table_lock         requested_lock;
 
 
-  Alter_info() :
+  Oida_info() :
   flags(0), partition_flags(0),
     keys_onoff(LEAVE_AS_IS),
     num_parts(0),
-    requested_algorithm(ALTER_TABLE_ALGORITHM_DEFAULT),
-    requested_lock(ALTER_TABLE_LOCK_DEFAULT)
+    requested_algorithm(OIDA_TABLE_ALGORITHM_DEFAULT),
+    requested_lock(OIDA_TABLE_LOCK_DEFAULT)
   {}
 
   void reset()
   {
     drop_list.empty();
-    alter_list.empty();
+    oida_list.empty();
     key_list.empty();
     create_list.empty();
     check_constraint_list.empty();
@@ -127,27 +127,27 @@ public:
     keys_onoff= LEAVE_AS_IS;
     num_parts= 0;
     partition_names.empty();
-    requested_algorithm= ALTER_TABLE_ALGORITHM_DEFAULT;
-    requested_lock= ALTER_TABLE_LOCK_DEFAULT;
+    requested_algorithm= OIDA_TABLE_ALGORITHM_DEFAULT;
+    requested_lock= OIDA_TABLE_LOCK_DEFAULT;
   }
 
 
   /**
-    Construct a copy of this object to be used for mysql_alter_table
+    Construct a copy of this object to be used for mysql_oida_table
     and mysql_create_table.
 
-    Historically, these two functions modify their Alter_info
+    Historically, these two functions modify their Oida_info
     arguments. This behaviour breaks re-execution of prepared
     statements and stored procedures and is compensated by always
-    supplying a copy of Alter_info to these functions.
+    supplying a copy of Oida_info to these functions.
 
-    @param  rhs       Alter_info to make copy of
-    @param  mem_root  Mem_root for new Alter_info
+    @param  rhs       Oida_info to make copy of
+    @param  mem_root  Mem_root for new Oida_info
 
     @note You need to use check the error in THD for out
     of memory condition after calling this function.
   */
-  Alter_info(const Alter_info &rhs, MEM_ROOT *mem_root);
+  Oida_info(const Oida_info &rhs, MEM_ROOT *mem_root);
 
 
   /**
@@ -175,18 +175,18 @@ public:
   bool set_requested_lock(const LEX_CSTRING *str);
 
 private:
-  Alter_info &operator=(const Alter_info &rhs); // not implemented
-  Alter_info(const Alter_info &rhs);            // not implemented
+  Oida_info &operator=(const Oida_info &rhs); // not implemented
+  Oida_info(const Oida_info &rhs);            // not implemented
 };
 
 
-/** Runtime context for ALTER TABLE. */
-class Alter_table_ctx
+/** Runtime context for OIDA TABLE. */
+class Oida_table_ctx
 {
 public:
-  Alter_table_ctx();
+  Oida_table_ctx();
 
-  Alter_table_ctx(THD *thd, TABLE_LIST *table_list, uint tables_opened_arg,
+  Oida_table_ctx(THD *thd, TABLE_LIST *table_list, uint tables_opened_arg,
                   const LEX_CSTRING *new_db_arg, const LEX_CSTRING *new_name_arg);
 
   /**
@@ -229,13 +229,13 @@ public:
   }
 
   /**
-     @return path to the temporary table created during ALTER TABLE.
+     @return path to the temporary table created during OIDA TABLE.
   */
   const char *get_tmp_path() const
   { return tmp_path; }
 
   /**
-    Mark ALTER TABLE as needing to produce foreign key error if
+    Mark OIDA TABLE as needing to produce foreign key error if
     it deletes a row from the table being changed.
   */
   void set_fk_error_if_delete_row(FOREIGN_KEY_INFO *fk)
@@ -277,52 +277,52 @@ private:
   char tmp_path[FN_REFLEN + 1];
 
 #ifdef DBUG_ASSERT_EXISTS
-  /** Indicates that we are altering temporary table. Used only in asserts. */
+  /** Indicates that we are oidaing temporary table. Used only in asserts. */
   bool tmp_table;
 #endif
 
-  Alter_table_ctx &operator=(const Alter_table_ctx &rhs); // not implemented
-  Alter_table_ctx(const Alter_table_ctx &rhs);            // not implemented
+  Oida_table_ctx &operator=(const Oida_table_ctx &rhs); // not implemented
+  Oida_table_ctx(const Oida_table_ctx &rhs);            // not implemented
 };
 
 
 /**
-  Sql_cmd_common_alter_table represents the common properties of the ALTER TABLE
+  Sql_cmd_common_oida_table represents the common properties of the OIDA TABLE
   statements.
-  @todo move Alter_info and other ALTER generic structures from Lex here.
+  @todo move Oida_info and other OIDA generic structures from Lex here.
 */
-class Sql_cmd_common_alter_table : public Sql_cmd
+class Sql_cmd_common_oida_table : public Sql_cmd
 {
 protected:
   /**
     Constructor.
   */
-  Sql_cmd_common_alter_table()
+  Sql_cmd_common_oida_table()
   {}
 
-  virtual ~Sql_cmd_common_alter_table()
+  virtual ~Sql_cmd_common_oida_table()
   {}
 
   virtual enum_sql_command sql_command_code() const
   {
-    return SQLCOM_ALTER_TABLE;
+    return SQLCOM_OIDA_TABLE;
   }
 };
 
 /**
-  Sql_cmd_alter_table represents the generic ALTER TABLE statement.
-  @todo move Alter_info and other ALTER specific structures from Lex here.
+  Sql_cmd_oida_table represents the generic OIDA TABLE statement.
+  @todo move Oida_info and other OIDA specific structures from Lex here.
 */
-class Sql_cmd_alter_table : public Sql_cmd_common_alter_table
+class Sql_cmd_oida_table : public Sql_cmd_common_oida_table
 {
 public:
   /**
-    Constructor, used to represent a ALTER TABLE statement.
+    Constructor, used to represent a OIDA TABLE statement.
   */
-  Sql_cmd_alter_table()
+  Sql_cmd_oida_table()
   {}
 
-  ~Sql_cmd_alter_table()
+  ~Sql_cmd_oida_table()
   {}
 
   bool execute(THD *thd);
@@ -330,35 +330,35 @@ public:
 
 
 /**
-  Sql_cmd_alter_sequence represents the ALTER SEQUENCE statement.
+  Sql_cmd_oida_sequence represents the OIDA SEQUENCE statement.
 */
-class Sql_cmd_alter_sequence : public Sql_cmd,
+class Sql_cmd_oida_sequence : public Sql_cmd,
                                public DDL_options
 {
 public:
   /**
-    Constructor, used to represent a ALTER TABLE statement.
+    Constructor, used to represent a OIDA TABLE statement.
   */
-  Sql_cmd_alter_sequence(const DDL_options &options)
+  Sql_cmd_oida_sequence(const DDL_options &options)
    :DDL_options(options)
   {}
 
-  ~Sql_cmd_alter_sequence()
+  ~Sql_cmd_oida_sequence()
   {}
 
   enum_sql_command sql_command_code() const
   {
-    return SQLCOM_ALTER_SEQUENCE;
+    return SQLCOM_OIDA_SEQUENCE;
   }
   bool execute(THD *thd);
 };
 
 
 /**
-  Sql_cmd_alter_table_tablespace represents ALTER TABLE
+  Sql_cmd_oida_table_tablespace represents OIDA TABLE
   IMPORT/DISCARD TABLESPACE statements.
 */
-class Sql_cmd_discard_import_tablespace : public Sql_cmd_common_alter_table
+class Sql_cmd_discard_import_tablespace : public Sql_cmd_common_oida_table
 {
 public:
   enum enum_tablespace_op_type

@@ -3146,10 +3146,10 @@ bool Firstmatch_picker::check_qep(JOIN *join,
                                      read_time);
         }
         /*
-          We ought to save the alternate POSITIONs produced by
+          We ought to save the oidanate POSITIONs produced by
           optimize_wo_join_buffering but the problem is that providing save
           space uses too much space. Instead, we will re-calculate the
-          alternate POSITIONs after we've picked the best QEP.
+          oidanate POSITIONs after we've picked the best QEP.
         */
         *handled_fanout= firstmatch_need_tables;
         /* *record_count and *read_time were set by the above call */

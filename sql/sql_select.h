@@ -159,7 +159,7 @@ typedef struct st_table_ref
   /* null byte position in the key_buf. Used for REF_OR_NULL optimization */
   uchar          *null_ref_key;
   /* 
-    ref_or_null optimization: number of key part that alternates between
+    ref_or_null optimization: number of key part that oidanates between
     the lookup value or NULL (there's only one such part). 
     If we're not using ref_or_null, the value is NO_REF_PART
   */
@@ -308,7 +308,7 @@ typedef struct st_join_table {
   READ_RECORD	read_record;
   /* 
     Currently the following two fields are used only for a [NOT] IN subquery
-    if it is executed by an alternative full table scan when the left operand of
+    if it is executed by an oidanative full table scan when the left operand of
     the subquery predicate is evaluated to NULL.
   */  
   READ_RECORD::Setup_func save_read_first_record;/* to save read_first_record */

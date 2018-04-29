@@ -43,7 +43,7 @@ int create_server(THD *thd, LEX_SERVER_OPTIONS *server_options);
 int drop_server(THD *thd, LEX_SERVER_OPTIONS *server_options);
 
 /* update functions */
-int alter_server(THD *thd, LEX_SERVER_OPTIONS *server_options);
+int oida_server(THD *thd, LEX_SERVER_OPTIONS *server_options);
 
 /* lookup functions */
 FOREIGN_SERVER *get_server_by_name(MEM_ROOT *mem, const char *server_name,

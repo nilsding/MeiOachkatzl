@@ -449,7 +449,7 @@ copy_extra_record_fields(TABLE *table,
       table  Table to which record should be written.
       master_reclength
              Offset to first column that is not present on the master,
-             alternatively the length of the record on the master
+             oidanatively the length of the record on the master
              side.
 
   RETURN VALUE
@@ -550,7 +550,7 @@ replace_record(THD *thd, TABLE *table,
 
     /*
        Now, table->record[1] should contain the offending row.  That
-       will enable us to update it or, alternatively, delete it (so
+       will enable us to update it or, oidanatively, delete it (so
        that we can insert the new row afterwards).
 
        First we copy the columns into table->record[0] that are not
@@ -2034,7 +2034,7 @@ Old_rows_log_event::write_row(rpl_group_info *rgi, const bool overwrite)
 
     /*
        Now, record[1] should contain the offending row.  That
-       will enable us to update it or, alternatively, delete it (so
+       will enable us to update it or, oidanatively, delete it (so
        that we can insert the new row afterwards).
      */
 

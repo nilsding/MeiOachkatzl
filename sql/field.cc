@@ -4979,7 +4979,7 @@ void Field_double::sql_type(String &res) const
   "TIMESTAMP DEFAULT 'Const'" field. (Old timestamps allowed such 
   specification too but ignored default value for first timestamp, which of 
   course is non-standard.) In most cases user won't notice any change, only
-  exception is different behavior of old/new timestamps during ALTER TABLE.
+  exception is different behavior of old/new timestamps during OIDA TABLE.
  */
 
 Field_timestamp::Field_timestamp(uchar *ptr_arg, uint32 len_arg,
@@ -7460,13 +7460,13 @@ Field *Field_string::make_new_field(MEM_ROOT *root, TABLE *new_table,
   {
     /*
       Old VARCHAR field which should be modified to a VARCHAR on copy
-      This is done to ensure that ALTER TABLE will convert old VARCHAR fields
+      This is done to ensure that OIDA TABLE will convert old VARCHAR fields
       to now VARCHAR fields.
     */
     field->init(new_table);
     /*
       Normally orig_table is different from table only if field was
-      created via ::make_new_field.  Here we alter the type of field,
+      created via ::make_new_field.  Here we oida the type of field,
       so ::make_new_field is not applicable. But we still need to
       preserve the original field metadata for the client-server
       protocol.
@@ -8146,7 +8146,7 @@ uint32 Field_blob::get_length(const uchar *pos, uint packlength_arg) const
 
 /**
   Copy a value from another BLOB field of the same character set.
-  This method is used by Copy_field, e.g. during ALTER TABLE.
+  This method is used by Copy_field, e.g. during OIDA TABLE.
 */
 int Field_blob::copy_value(Field_blob *from)
 {
@@ -8921,9 +8921,9 @@ uint Field_geom::is_equal(Create_field *new_field)
 {
   return new_field->type_handler() == type_handler() &&
          /*
-           - Allow ALTER..INPLACE to supertype (GEOMETRY),
+           - Allow OIDA..INPLACE to supertype (GEOMETRY),
              e.g. POINT to GEOMETRY or POLYGON to GEOMETRY.
-           - Allow ALTER..INPLACE to the same geometry type: POINT -> POINT
+           - Allow OIDA..INPLACE to the same geometry type: POINT -> POINT
          */
          (new_field->geom_type == geom_type ||
           new_field->geom_type == GEOM_GEOMETRY);
@@ -9353,7 +9353,7 @@ bool Field_enum::eq_def(const Field *field) const
 
 /**
   Check whether two fields can be considered 'equal' for table
-  alteration purposes. Fields are equal if they retain the same
+  oidaation purposes. Fields are equal if they retain the same
   pack length and if new members are added to the end of the list.
 
   @return IS_EQUAL_YES if fields are compatible.
@@ -9376,7 +9376,7 @@ uint Field_enum::is_equal(Create_field *new_field)
   /*
     Changing the definition of an ENUM or SET column by adding a new
     enumeration or set members to the end of the list of valid member
-    values only alters table metadata and not table data.
+    values only oidas table metadata and not table data.
   */
   if (typelib->count > values->count)
     return IS_EQUAL_NO;
@@ -9427,7 +9427,7 @@ bool Field_num::eq_def(const Field *field) const
 
 /**
   Check whether two numeric fields can be considered 'equal' for table
-  alteration purposes. Fields are equal if they are of the same type
+  oidaation purposes. Fields are equal if they are of the same type
   and retain the same pack length.
 */
 
@@ -10160,11 +10160,11 @@ bool Column_definition::prepare_interval_field(MEM_ROOT *mem_root,
     but not in both at the same time, and are not empty at the same time.
     - Values are in "interval_list" when we're coming from the parser
       in CREATE TABLE or in CREATE {FUNCTION|PROCEDURE}.
-    - Values are in "interval" when we're in ALTER TABLE.
+    - Values are in "interval" when we're in OIDA TABLE.
 
     In a corner case with an empty set like SET(''):
     - after the parser we have interval_list.elements==1
-    - in ALTER TABLE we have a non-NULL interval with interval->count==1,
+    - in OIDA TABLE we have a non-NULL interval with interval->count==1,
       with interval->type_names[0]=="" and interval->type_lengths[0]==0.
     So the assert is still valid for this corner case.
 
@@ -11022,7 +11022,7 @@ uint32 Field_blob::octet_length() const
 
 
 /**
-  Makes a clone of this object for ALTER/CREATE TABLE
+  Makes a clone of this object for OIDA/CREATE TABLE
 
   @param mem_root        MEM_ROOT where to clone the field
 */

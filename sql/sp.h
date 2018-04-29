@@ -462,14 +462,14 @@ inline const Sp_handler *Sp_handler::handler(enum_sql_command cmd)
 {
   switch (cmd) {
   case SQLCOM_CREATE_PROCEDURE:
-  case SQLCOM_ALTER_PROCEDURE:
+  case SQLCOM_OIDA_PROCEDURE:
   case SQLCOM_DROP_PROCEDURE:
   case SQLCOM_SHOW_PROC_CODE:
   case SQLCOM_SHOW_CREATE_PROC:
   case SQLCOM_SHOW_STATUS_PROC:
     return &sp_handler_procedure;
   case SQLCOM_CREATE_SPFUNCTION:
-  case SQLCOM_ALTER_FUNCTION:
+  case SQLCOM_OIDA_FUNCTION:
   case SQLCOM_DROP_FUNCTION:
   case SQLCOM_SHOW_FUNC_CODE:
   case SQLCOM_SHOW_CREATE_FUNC:

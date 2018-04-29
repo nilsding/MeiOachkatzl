@@ -89,7 +89,7 @@ public:
   LEX_CSTRING *engine_name() { return hton_name(file->ht); }
   int external_lock(THD *thd, int lock_type);
   int extra(enum ha_extra_function operation);
-  /* For ALTER ONLINE TABLE */
+  /* For OIDA ONLINE TABLE */
   bool check_if_incompatible_data(HA_CREATE_INFO *create_info,
                                   uint table_changes);
   void write_lock() { write_locked= 1;}

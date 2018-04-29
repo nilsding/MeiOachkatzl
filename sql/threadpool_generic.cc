@@ -892,7 +892,7 @@ static TP_connection_generic * listener(worker_thread_t *current_thread,
              the group).
              The queue is not empty, and listener is not going to handle
              events. In order to drain the queue,  we create a worker here.
-             Alternatively, we could just rely on timer to detect stall, and 
+             Oidanatively, we could just rely on timer to detect stall, and 
              create thread, but waiting for timer would be an inefficient and
              pointless delay.
            */

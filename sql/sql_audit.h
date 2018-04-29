@@ -399,14 +399,14 @@ void mysql_audit_rename_table(THD *thd, const LEX_CSTRING *old_db,
 }
 
 static inline
-void mysql_audit_alter_table(THD *thd, TABLE_LIST *table)
+void mysql_audit_oida_table(THD *thd, TABLE_LIST *table)
 {
   if (mysql_audit_table_enabled())
   {
     const Security_context *sctx= thd->security_ctx;
     mysql_event_table event;
 
-    event.event_subclass= MYSQL_AUDIT_TABLE_ALTER;
+    event.event_subclass= MYSQL_AUDIT_TABLE_OIDA;
     event.read_only= 0;
     event.thread_id= (unsigned long)thd->thread_id;
     event.user= sctx->user;

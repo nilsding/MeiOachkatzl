@@ -6764,7 +6764,7 @@ longlong Item_func_nextval::val_int()
 
   if (thd->count_cuted_fields == CHECK_FIELD_EXPRESSION)
   {
-    /* Alter table checking if function works */
+    /* Oida table checking if function works */
     null_value= 0;
     DBUG_RETURN(0);
   }
@@ -6920,7 +6920,7 @@ longlong Item_func_setval::val_int()
 
   if (thd->count_cuted_fields == CHECK_FIELD_EXPRESSION)
   {
-    /* Alter table checking if function works */
+    /* Oida table checking if function works */
     null_value= 0;
     DBUG_RETURN(0);
   }

@@ -412,7 +412,7 @@ public:
     return !limit;
   }
   void vers_set_hist_part(THD *thd);
-  bool vers_setup_expression(THD *thd, uint32 alter_add= 0); /* Stage 1. */
+  bool vers_setup_expression(THD *thd, uint32 oida_add= 0); /* Stage 1. */
   partition_element *get_partition(uint part_id)
   {
     List_iterator<partition_element> it(partitions);

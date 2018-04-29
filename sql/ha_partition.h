@@ -372,7 +372,7 @@ private:
   MY_BITMAP m_locked_partitions;
   /** Stores shared auto_increment etc. */
   Partition_share *part_share;
-  /** Temporary storage for new partitions Handler_shares during ALTER */
+  /** Temporary storage for new partitions Handler_shares during OIDA */
   List<Parts_share_refs> m_new_partitions_share_refs;
   /** Sorted array of partition ids in descending order of number of rows. */
   uint32 *m_part_ids_sorted_by_num_of_records;
@@ -445,7 +445,7 @@ public:
     MODULE meta data changes
     -------------------------------------------------------------------------
     Meta data routines to CREATE, DROP, RENAME table and often used at
-    ALTER TABLE (update_create_info used from ALTER TABLE and SHOW ..).
+    OIDA TABLE (update_create_info used from OIDA TABLE and SHOW ..).
 
     update_table_comment is used in SHOW TABLE commands to provide a
     chance for the handler to add any interesting comments to the table
@@ -599,7 +599,7 @@ public:
     -------------------------------------------------------------------------
     This part of the handler interface is used to change the records
     after INSERT, DELETE, UPDATE, REPLACE method calls but also other
-    special meta-data operations as ALTER TABLE, LOAD DATA, TRUNCATE.
+    special meta-data operations as OIDA TABLE, LOAD DATA, TRUNCATE.
     -------------------------------------------------------------------------
 
     These methods are used for insert (write_row), update (update_row)
@@ -643,12 +643,12 @@ public:
 
   /*
     Method for truncating a specific partition.
-    (i.e. ALTER TABLE t1 TRUNCATE PARTITION p).
+    (i.e. OIDA TABLE t1 TRUNCATE PARTITION p).
 
     @remark This method is a partitioning-specific hook
             and thus not a member of the general SE API.
   */
-  int truncate_partition(Alter_info *, bool *binlog_stmt);
+  int truncate_partition(Oida_info *, bool *binlog_stmt);
 
   virtual bool is_fatal_error(int error, uint flags)
   {
@@ -865,7 +865,7 @@ private:
                                           handler *file, uint *n);
   static const uint NO_CURRENT_PART_ID= NOT_A_PARTITION_ID;
   int loop_extra(enum ha_extra_function operation);
-  int loop_extra_alter(enum ha_extra_function operations);
+  int loop_extra_oida(enum ha_extra_function operations);
   void late_extra_cache(uint partition_id);
   void late_extra_no_cache(uint partition_id);
   void prepare_extra_cache(uint cachesize);
@@ -1185,10 +1185,10 @@ public:
   }
 
   /**
-    wrapper function for handlerton alter_table_flags, since
+    wrapper function for handlerton oida_table_flags, since
     the ha_partition_hton cannot know all its capabilities
   */
-  virtual alter_table_operations alter_table_flags(alter_table_operations flags);
+  virtual oida_table_operations oida_table_flags(oida_table_operations flags);
   /*
     unireg.cc will call the following to make sure that the storage engine
     can handle the data it is about to send.
@@ -1351,21 +1351,21 @@ public:
 
   /*
     -------------------------------------------------------------------------
-    MODULE in-place ALTER TABLE
+    MODULE in-place OIDA TABLE
     -------------------------------------------------------------------------
     These methods are in the handler interface. (used by innodb-plugin)
-    They are used for in-place alter table:
+    They are used for in-place oida table:
     -------------------------------------------------------------------------
   */
-    virtual enum_alter_inplace_result
-      check_if_supported_inplace_alter(TABLE *altered_table,
-                                       Alter_inplace_info *ha_alter_info);
-    virtual bool prepare_inplace_alter_table(TABLE *altered_table,
-                                             Alter_inplace_info *ha_alter_info);
-    virtual bool inplace_alter_table(TABLE *altered_table,
-                                     Alter_inplace_info *ha_alter_info);
-    virtual bool commit_inplace_alter_table(TABLE *altered_table,
-                                            Alter_inplace_info *ha_alter_info,
+    virtual enum_oida_inplace_result
+      check_if_supported_inplace_oida(TABLE *oidaed_table,
+                                       Oida_inplace_info *ha_oida_info);
+    virtual bool prepare_inplace_oida_table(TABLE *oidaed_table,
+                                             Oida_inplace_info *ha_oida_info);
+    virtual bool inplace_oida_table(TABLE *oidaed_table,
+                                     Oida_inplace_info *ha_oida_info);
+    virtual bool commit_inplace_oida_table(TABLE *oidaed_table,
+                                            Oida_inplace_info *ha_oida_info,
                                             bool commit);
     virtual void notify_table_changed();
 

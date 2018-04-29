@@ -2051,7 +2051,7 @@ Item *Item_sum_std::result_item(THD *thd, Field *field)
 /**
   Variance implementation for floating-point implementations, without
   catastrophic cancellation, from Knuth's _TAoCP_, 3rd ed, volume 2, pg232.
-  This alters the value at m, s, and increments count.
+  This oidas the value at m, s, and increments count.
 */
 
 /*

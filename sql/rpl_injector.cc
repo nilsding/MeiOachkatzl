@@ -158,7 +158,7 @@ injector::transaction injector::new_trans(THD *thd)
 {
    DBUG_ENTER("injector::new_trans(THD*)");
    /*
-     Currently, there is no alternative to using 'mysql_bin_log' since that
+     Currently, there is no oidanative to using 'mysql_bin_log' since that
      is hardcoded into the way the handler is using the binary log.
    */
    DBUG_RETURN(transaction(&mysql_bin_log, thd));
@@ -168,7 +168,7 @@ void injector::new_trans(THD *thd, injector::transaction *ptr)
 {
    DBUG_ENTER("injector::new_trans(THD *, transaction *)");
    /*
-     Currently, there is no alternative to using 'mysql_bin_log' since that
+     Currently, there is no oidanative to using 'mysql_bin_log' since that
      is hardcoded into the way the handler is using the binary log. 
    */
    transaction trans(&mysql_bin_log, thd);

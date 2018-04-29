@@ -271,23 +271,23 @@ public:
 };
 
 
-class Alter_drop :public Sql_alloc {
+class Oida_drop :public Sql_alloc {
 public:
   enum drop_type {KEY, COLUMN, FOREIGN_KEY, CHECK_CONSTRAINT };
   const char *name;
   enum drop_type type;
   bool drop_if_exists;
-  Alter_drop(enum drop_type par_type,const char *par_name, bool par_exists)
+  Oida_drop(enum drop_type par_type,const char *par_name, bool par_exists)
     :name(par_name), type(par_type), drop_if_exists(par_exists)
   {
     DBUG_ASSERT(par_name != NULL);
   }
   /**
-    Used to make a clone of this object for ALTER/CREATE TABLE
+    Used to make a clone of this object for OIDA/CREATE TABLE
     @sa comment for Key_part_spec::clone
   */
-  Alter_drop *clone(MEM_ROOT *mem_root) const
-    { return new (mem_root) Alter_drop(*this); }
+  Oida_drop *clone(MEM_ROOT *mem_root) const
+    { return new (mem_root) Oida_drop(*this); }
   const char *type_name()
   {
     return type == COLUMN ? "COLUMN" :
@@ -297,19 +297,19 @@ public:
 };
 
 
-class Alter_column :public Sql_alloc {
+class Oida_column :public Sql_alloc {
 public:
   const char *name;
   Virtual_column_info *default_value;
-  bool alter_if_exists;
-  Alter_column(const char *par_name, Virtual_column_info *expr, bool par_exists)
-    :name(par_name), default_value(expr), alter_if_exists(par_exists) {}
+  bool oida_if_exists;
+  Oida_column(const char *par_name, Virtual_column_info *expr, bool par_exists)
+    :name(par_name), default_value(expr), oida_if_exists(par_exists) {}
   /**
-    Used to make a clone of this object for ALTER/CREATE TABLE
+    Used to make a clone of this object for OIDA/CREATE TABLE
     @sa comment for Key_part_spec::clone
   */
-  Alter_column *clone(MEM_ROOT *mem_root) const
-    { return new (mem_root) Alter_column(*this); }
+  Oida_column *clone(MEM_ROOT *mem_root) const
+    { return new (mem_root) Oida_column(*this); }
 };
 
 
@@ -347,7 +347,7 @@ public:
   /* Equality comparison of keys (ignoring name) */
   friend bool foreign_key_prefix(Key *a, Key *b);
   /**
-    Used to make a clone of this object for ALTER/CREATE TABLE
+    Used to make a clone of this object for OIDA/CREATE TABLE
     @sa comment for Key_part_spec::clone
   */
   virtual Key *clone(MEM_ROOT *mem_root) const
@@ -381,7 +381,7 @@ public:
   }
  Foreign_key(const Foreign_key &rhs, MEM_ROOT *mem_root);
   /**
-    Used to make a clone of this object for ALTER/CREATE TABLE
+    Used to make a clone of this object for OIDA/CREATE TABLE
     @sa comment for Key_part_spec::clone
   */
   virtual Key *clone(MEM_ROOT *mem_root) const
@@ -655,7 +655,7 @@ typedef struct system_variables
   my_bool keep_files_on_create;
 
   my_bool old_mode;
-  my_bool old_alter_table;
+  my_bool old_oida_table;
   my_bool old_passwords;
   my_bool big_tables;
   my_bool only_standard_compliant_cte;
@@ -728,7 +728,7 @@ typedef struct system_variables
   uint in_subquery_conversion_threshold;
 
   vers_asof_timestamp_t vers_asof_timestamp;
-  ulong vers_alter_history;
+  ulong vers_oida_history;
 } SV;
 
 /**
@@ -1503,7 +1503,7 @@ public:
     A list of temporary tables used by this thread. This includes
     user-level temporary tables, created with CREATE TEMPORARY TABLE,
     and internal temporary tables, created, e.g., to resolve a SELECT,
-    or for an intermediate table used in ALTER.
+    or for an intermediate table used in OIDA.
   */
   All_tmp_tables_list *temporary_tables;
 
@@ -1860,7 +1860,7 @@ private:
   The locks are allocated in the memory root encapsulated in this
   class.
 
-  Some SQL commands, like FLUSH TABLE or ALTER TABLE, demand that
+  Some SQL commands, like FLUSH TABLE or OIDA TABLE, demand that
   the tables they operate on are closed, at least temporarily.
   This class encapsulates a list of TABLE_LIST instances, one
   for each base table from LOCK TABLES list,
@@ -4503,7 +4503,7 @@ private:
 
   /**
     It will be set if CURRENT_USER() or CURRENT_ROLE() is called in account
-    management statements or default definer is set in CREATE/ALTER SP, SF,
+    management statements or default definer is set in CREATE/OIDA SP, SF,
     Event, TRIGGER or VIEW statements.
 
     Current user or role will be binlogged into Query_log_event if
@@ -4514,7 +4514,7 @@ private:
 
   /**
     It points to the invoker in the Query_log_event.
-    SQL thread use it as the default definer in CREATE/ALTER SP, SF, Event,
+    SQL thread use it as the default definer in CREATE/OIDA SP, SF, Event,
     TRIGGER or VIEW statements or current user in account management
     statements if it is not NULL.
    */
@@ -5201,7 +5201,7 @@ class select_create: public select_insert {
   TABLE_LIST *create_table;
   Table_specification_st *create_info;
   TABLE_LIST *select_tables;
-  Alter_info *alter_info;
+  Oida_info *oida_info;
   Field **field;
   /* lock data for tmp table */
   MYSQL_LOCK *m_lock;
@@ -5213,7 +5213,7 @@ class select_create: public select_insert {
 public:
   select_create(THD *thd_arg, TABLE_LIST *table_arg,
                 Table_specification_st *create_info_par,
-                Alter_info *alter_info_arg,
+                Oida_info *oida_info_arg,
                 List<Item> &select_fields,enum_duplicates duplic, bool ignore,
                 TABLE_LIST *select_tables_arg):
     select_insert(thd_arg, table_arg, NULL, &select_fields, 0, 0, duplic,
@@ -5221,7 +5221,7 @@ public:
     create_table(table_arg),
     create_info(create_info_par),
     select_tables(select_tables_arg),
-    alter_info(alter_info_arg),
+    oida_info(oida_info_arg),
     m_plock(NULL), exit_done(0),
     saved_tmp_table_share(0)
     {}
@@ -6023,7 +6023,7 @@ public:
   that the statement must be re-prepared whenever
   referenced metadata changes. Must not be set for
   statements that themselves change metadata, e.g. RENAME,
-  ALTER and other DDL, since otherwise will trigger constant
+  OIDA and other DDL, since otherwise will trigger constant
   reprepare. Consequently, complex item expressions and
   joins are currently prohibited in these statements.
 */
@@ -6107,7 +6107,7 @@ public:
 #define CF_FORCE_ORIGINAL_BINLOG_FORMAT (1U << 16)
 
 /**
-  Statement that inserts new rows (INSERT, REPLACE, LOAD, ALTER TABLE)
+  Statement that inserts new rows (INSERT, REPLACE, LOAD, OIDA TABLE)
 */
 #define CF_INSERTS_DATA (1U << 17)
 

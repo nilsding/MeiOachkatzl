@@ -40,12 +40,12 @@
 #include "sql_partition.h"    // struct partition_info
 #include "sql_db.h"           // mysql_change_db, mysql_create_db,
                               // mysql_rm_db, mysql_upgrade_db,
-                              // mysql_alter_db,
+                              // mysql_oida_db,
                               // check_db_dir_existence,
                               // my_dbopt_cleanup
 #include "sql_table.h"        // mysql_create_like_table,
                               // mysql_create_table,
-                              // mysql_alter_table,
+                              // mysql_oida_table,
                               // mysql_backup_table,
                               // mysql_restore_table
 #include "sql_reload.h"       // reload_acl_and_cache
@@ -54,7 +54,7 @@
                               // check_mqh,
                               // reset_mqh
 #include "sql_rename.h"       // mysql_rename_tables
-#include "sql_tablespace.h"   // mysql_alter_tablespace
+#include "sql_tablespace.h"   // mysql_oida_tablespace
 #include "hostname.h"         // hostname_cache_refresh
 #include "sql_acl.h"          // *_ACL, check_grant, is_acl_user,
                               // has_any_table_level_privileges,
@@ -67,7 +67,7 @@
 #include "sql_select.h"       // handle_select, mysql_select,
                               // mysql_explain_union
 #include "sql_load.h"         // mysql_load
-#include "sql_servers.h"      // create_servers, alter_servers,
+#include "sql_servers.h"      // create_servers, oida_servers,
                               // drop_servers, servers_reload
 #include "sql_handler.h"      // mysql_ha_open, mysql_ha_close,
                               // mysql_ha_read
@@ -443,9 +443,9 @@ static bool stmt_causes_implicit_commit(THD *thd, uint mask)
     skip= (lex->tmp_table() ||
            (thd->variables.option_bits & OPTION_GTID_BEGIN));
     break;
-  case SQLCOM_ALTER_TABLE:
-  case SQLCOM_ALTER_SEQUENCE:
-    /* If ALTER TABLE of non-temporary table, do implicit commit */
+  case SQLCOM_OIDA_TABLE:
+  case SQLCOM_OIDA_SEQUENCE:
+    /* If OIDA TABLE of non-temporary table, do implicit commit */
     skip= (lex->tmp_table());
     break;
   case SQLCOM_CREATE_TABLE:
@@ -546,10 +546,10 @@ void init_update_queries(void)
                                             CF_AUTO_COMMIT_TRANS |
                                             CF_SCHEMA_CHANGE);
   sql_command_flags[SQLCOM_CREATE_INDEX]=   CF_CHANGES_DATA | CF_AUTO_COMMIT_TRANS | CF_REPORT_PROGRESS;
-  sql_command_flags[SQLCOM_ALTER_TABLE]=    CF_CHANGES_DATA | CF_WRITE_LOGS_COMMAND |
+  sql_command_flags[SQLCOM_OIDA_TABLE]=    CF_CHANGES_DATA | CF_WRITE_LOGS_COMMAND |
                                             CF_AUTO_COMMIT_TRANS | CF_REPORT_PROGRESS |
                                             CF_INSERTS_DATA;
-  sql_command_flags[SQLCOM_ALTER_SEQUENCE]= CF_CHANGES_DATA | CF_WRITE_LOGS_COMMAND |
+  sql_command_flags[SQLCOM_OIDA_SEQUENCE]= CF_CHANGES_DATA | CF_WRITE_LOGS_COMMAND |
                                             CF_AUTO_COMMIT_TRANS | CF_SCHEMA_CHANGE;
   sql_command_flags[SQLCOM_TRUNCATE]=       CF_CHANGES_DATA | CF_WRITE_LOGS_COMMAND |
                                             CF_AUTO_COMMIT_TRANS;
@@ -564,8 +564,8 @@ void init_update_queries(void)
   sql_command_flags[SQLCOM_DROP_PACKAGE]=   CF_CHANGES_DATA | CF_AUTO_COMMIT_TRANS;
   sql_command_flags[SQLCOM_CREATE_PACKAGE_BODY]= CF_CHANGES_DATA | CF_AUTO_COMMIT_TRANS;
   sql_command_flags[SQLCOM_DROP_PACKAGE_BODY]= CF_CHANGES_DATA | CF_AUTO_COMMIT_TRANS;
-  sql_command_flags[SQLCOM_ALTER_DB_UPGRADE]= CF_AUTO_COMMIT_TRANS;
-  sql_command_flags[SQLCOM_ALTER_DB]=       CF_CHANGES_DATA | CF_AUTO_COMMIT_TRANS;
+  sql_command_flags[SQLCOM_OIDA_DB_UPGRADE]= CF_AUTO_COMMIT_TRANS;
+  sql_command_flags[SQLCOM_OIDA_DB]=       CF_CHANGES_DATA | CF_AUTO_COMMIT_TRANS;
   sql_command_flags[SQLCOM_RENAME_TABLE]=   CF_CHANGES_DATA | CF_AUTO_COMMIT_TRANS;
   sql_command_flags[SQLCOM_DROP_INDEX]=     CF_CHANGES_DATA | CF_AUTO_COMMIT_TRANS | CF_REPORT_PROGRESS;
   sql_command_flags[SQLCOM_CREATE_VIEW]=    CF_CHANGES_DATA | CF_REEXECUTION_FRAGILE |
@@ -574,7 +574,7 @@ void init_update_queries(void)
   sql_command_flags[SQLCOM_CREATE_TRIGGER]= CF_CHANGES_DATA | CF_AUTO_COMMIT_TRANS;
   sql_command_flags[SQLCOM_DROP_TRIGGER]=   CF_CHANGES_DATA | CF_AUTO_COMMIT_TRANS;
   sql_command_flags[SQLCOM_CREATE_EVENT]=   CF_CHANGES_DATA | CF_AUTO_COMMIT_TRANS;
-  sql_command_flags[SQLCOM_ALTER_EVENT]=    CF_CHANGES_DATA | CF_AUTO_COMMIT_TRANS;
+  sql_command_flags[SQLCOM_OIDA_EVENT]=    CF_CHANGES_DATA | CF_AUTO_COMMIT_TRANS;
   sql_command_flags[SQLCOM_DROP_EVENT]=     CF_CHANGES_DATA | CF_AUTO_COMMIT_TRANS;
 
   sql_command_flags[SQLCOM_UPDATE]=	    CF_CHANGES_DATA | CF_REEXECUTION_FRAGILE |
@@ -691,7 +691,7 @@ void init_update_queries(void)
   sql_command_flags[SQLCOM_CREATE_USER]=       CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_RENAME_USER]=       CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_DROP_USER]=         CF_CHANGES_DATA;
-  sql_command_flags[SQLCOM_ALTER_USER]=        CF_CHANGES_DATA;
+  sql_command_flags[SQLCOM_OIDA_USER]=        CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_CREATE_ROLE]=       CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_GRANT]=             CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_GRANT_ROLE]=        CF_CHANGES_DATA;
@@ -703,8 +703,8 @@ void init_update_queries(void)
   sql_command_flags[SQLCOM_CREATE_SPFUNCTION]= CF_CHANGES_DATA | CF_AUTO_COMMIT_TRANS;
   sql_command_flags[SQLCOM_DROP_PROCEDURE]=    CF_CHANGES_DATA | CF_AUTO_COMMIT_TRANS;
   sql_command_flags[SQLCOM_DROP_FUNCTION]=     CF_CHANGES_DATA | CF_AUTO_COMMIT_TRANS;
-  sql_command_flags[SQLCOM_ALTER_PROCEDURE]=   CF_CHANGES_DATA | CF_AUTO_COMMIT_TRANS;
-  sql_command_flags[SQLCOM_ALTER_FUNCTION]=    CF_CHANGES_DATA | CF_AUTO_COMMIT_TRANS;
+  sql_command_flags[SQLCOM_OIDA_PROCEDURE]=   CF_CHANGES_DATA | CF_AUTO_COMMIT_TRANS;
+  sql_command_flags[SQLCOM_OIDA_FUNCTION]=    CF_CHANGES_DATA | CF_AUTO_COMMIT_TRANS;
   sql_command_flags[SQLCOM_INSTALL_PLUGIN]=    CF_CHANGES_DATA | CF_AUTO_COMMIT_TRANS;
   sql_command_flags[SQLCOM_UNINSTALL_PLUGIN]=  CF_CHANGES_DATA | CF_AUTO_COMMIT_TRANS;
 
@@ -729,8 +729,8 @@ void init_update_queries(void)
     We don't want to change to statement based replication for these commands
   */
   sql_command_flags[SQLCOM_ROLLBACK]|= CF_FORCE_ORIGINAL_BINLOG_FORMAT;
-  /* We don't want to replicate ALTER TABLE for temp tables in row format */
-  sql_command_flags[SQLCOM_ALTER_TABLE]|= CF_FORCE_ORIGINAL_BINLOG_FORMAT;
+  /* We don't want to replicate OIDA TABLE for temp tables in row format */
+  sql_command_flags[SQLCOM_OIDA_TABLE]|= CF_FORCE_ORIGINAL_BINLOG_FORMAT;
   /* We don't want to replicate TRUNCATE for temp tables in row format */
   sql_command_flags[SQLCOM_TRUNCATE]|= CF_FORCE_ORIGINAL_BINLOG_FORMAT;
   /* We don't want to replicate DROP for temp tables in row format */
@@ -750,7 +750,7 @@ void init_update_queries(void)
   sql_command_flags[SQLCOM_CHECKSUM]=  CF_REPORT_PROGRESS;
 
   sql_command_flags[SQLCOM_CREATE_USER]|=       CF_AUTO_COMMIT_TRANS;
-  sql_command_flags[SQLCOM_ALTER_USER]|=        CF_AUTO_COMMIT_TRANS;
+  sql_command_flags[SQLCOM_OIDA_USER]|=        CF_AUTO_COMMIT_TRANS;
   sql_command_flags[SQLCOM_DROP_USER]|=         CF_AUTO_COMMIT_TRANS;
   sql_command_flags[SQLCOM_RENAME_USER]|=       CF_AUTO_COMMIT_TRANS;
   sql_command_flags[SQLCOM_CREATE_ROLE]|=       CF_AUTO_COMMIT_TRANS;
@@ -764,7 +764,7 @@ void init_update_queries(void)
   sql_command_flags[SQLCOM_FLUSH]=              CF_AUTO_COMMIT_TRANS;
   sql_command_flags[SQLCOM_RESET]=              CF_AUTO_COMMIT_TRANS;
   sql_command_flags[SQLCOM_CREATE_SERVER]=      CF_AUTO_COMMIT_TRANS;
-  sql_command_flags[SQLCOM_ALTER_SERVER]=       CF_AUTO_COMMIT_TRANS;
+  sql_command_flags[SQLCOM_OIDA_SERVER]=       CF_AUTO_COMMIT_TRANS;
   sql_command_flags[SQLCOM_DROP_SERVER]=        CF_AUTO_COMMIT_TRANS;
 
   /*
@@ -780,7 +780,7 @@ void init_update_queries(void)
   sql_command_flags[SQLCOM_DROP_TABLE]|=      CF_PREOPEN_TMP_TABLES;
   sql_command_flags[SQLCOM_DROP_SEQUENCE]|=   CF_PREOPEN_TMP_TABLES;
   sql_command_flags[SQLCOM_CREATE_INDEX]|=    CF_PREOPEN_TMP_TABLES;
-  sql_command_flags[SQLCOM_ALTER_TABLE]|=     CF_PREOPEN_TMP_TABLES;
+  sql_command_flags[SQLCOM_OIDA_TABLE]|=     CF_PREOPEN_TMP_TABLES;
   sql_command_flags[SQLCOM_TRUNCATE]|=        CF_PREOPEN_TMP_TABLES;
   sql_command_flags[SQLCOM_LOAD]|=            CF_PREOPEN_TMP_TABLES;
   sql_command_flags[SQLCOM_DROP_INDEX]|=      CF_PREOPEN_TMP_TABLES;
@@ -814,7 +814,7 @@ void init_update_queries(void)
   sql_command_flags[SQLCOM_CREATE_SEQUENCE]|= CF_HA_CLOSE;
   sql_command_flags[SQLCOM_DROP_TABLE]|=      CF_HA_CLOSE;
   sql_command_flags[SQLCOM_DROP_SEQUENCE]|=   CF_HA_CLOSE;
-  sql_command_flags[SQLCOM_ALTER_TABLE]|=     CF_HA_CLOSE;
+  sql_command_flags[SQLCOM_OIDA_TABLE]|=     CF_HA_CLOSE;
   sql_command_flags[SQLCOM_TRUNCATE]|=        CF_HA_CLOSE;
   sql_command_flags[SQLCOM_REPAIR]|=          CF_HA_CLOSE;
   sql_command_flags[SQLCOM_OPTIMIZE]|=        CF_HA_CLOSE;
@@ -832,7 +832,7 @@ void init_update_queries(void)
   */
   sql_command_flags[SQLCOM_CREATE_TABLE]|=     CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_CREATE_SEQUENCE]|=  CF_DISALLOW_IN_RO_TRANS;
-  sql_command_flags[SQLCOM_ALTER_TABLE]|=      CF_DISALLOW_IN_RO_TRANS;
+  sql_command_flags[SQLCOM_OIDA_TABLE]|=      CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_DROP_TABLE]|=       CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_DROP_SEQUENCE]|=    CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_RENAME_TABLE]|=     CF_DISALLOW_IN_RO_TRANS;
@@ -844,31 +844,31 @@ void init_update_queries(void)
   sql_command_flags[SQLCOM_DROP_PACKAGE]|=     CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_CREATE_PACKAGE_BODY]|= CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_DROP_PACKAGE_BODY]|= CF_DISALLOW_IN_RO_TRANS;
-  sql_command_flags[SQLCOM_ALTER_DB_UPGRADE]|= CF_DISALLOW_IN_RO_TRANS;
-  sql_command_flags[SQLCOM_ALTER_DB]|=         CF_DISALLOW_IN_RO_TRANS;
+  sql_command_flags[SQLCOM_OIDA_DB_UPGRADE]|= CF_DISALLOW_IN_RO_TRANS;
+  sql_command_flags[SQLCOM_OIDA_DB]|=         CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_CREATE_VIEW]|=      CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_DROP_VIEW]|=        CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_CREATE_TRIGGER]|=   CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_DROP_TRIGGER]|=     CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_CREATE_EVENT]|=     CF_DISALLOW_IN_RO_TRANS;
-  sql_command_flags[SQLCOM_ALTER_EVENT]|=      CF_DISALLOW_IN_RO_TRANS;
+  sql_command_flags[SQLCOM_OIDA_EVENT]|=      CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_DROP_EVENT]|=       CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_CREATE_USER]|=      CF_DISALLOW_IN_RO_TRANS;
-  sql_command_flags[SQLCOM_ALTER_USER]|=       CF_DISALLOW_IN_RO_TRANS;
+  sql_command_flags[SQLCOM_OIDA_USER]|=       CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_RENAME_USER]|=      CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_DROP_USER]|=        CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_CREATE_SERVER]|=    CF_DISALLOW_IN_RO_TRANS;
-  sql_command_flags[SQLCOM_ALTER_SERVER]|=     CF_DISALLOW_IN_RO_TRANS;
+  sql_command_flags[SQLCOM_OIDA_SERVER]|=     CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_DROP_SERVER]|=      CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_CREATE_FUNCTION]|=  CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_CREATE_PROCEDURE]|= CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_CREATE_SPFUNCTION]|=CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_DROP_PROCEDURE]|=   CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_DROP_FUNCTION]|=    CF_DISALLOW_IN_RO_TRANS;
-  sql_command_flags[SQLCOM_ALTER_PROCEDURE]|=  CF_DISALLOW_IN_RO_TRANS;
-  sql_command_flags[SQLCOM_ALTER_FUNCTION]|=   CF_DISALLOW_IN_RO_TRANS;
+  sql_command_flags[SQLCOM_OIDA_PROCEDURE]|=  CF_DISALLOW_IN_RO_TRANS;
+  sql_command_flags[SQLCOM_OIDA_FUNCTION]|=   CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_TRUNCATE]|=         CF_DISALLOW_IN_RO_TRANS;
-  sql_command_flags[SQLCOM_ALTER_TABLESPACE]|= CF_DISALLOW_IN_RO_TRANS;
+  sql_command_flags[SQLCOM_OIDA_TABLESPACE]|= CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_REPAIR]|=           CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_OPTIMIZE]|=         CF_DISALLOW_IN_RO_TRANS;
   sql_command_flags[SQLCOM_GRANT]|=            CF_DISALLOW_IN_RO_TRANS;
@@ -2980,7 +2980,7 @@ static int mysql_create_routine(THD *thd, LEX *lex)
   /* Checking the drop permissions if CREATE OR REPLACE is used */
   if (lex->create_info.or_replace())
   {
-    if (check_routine_access(thd, ALTER_PROC_ACL, &lex->sphead->m_db,
+    if (check_routine_access(thd, OIDA_PROC_ACL, &lex->sphead->m_db,
                              &lex->sphead->m_name,
                              Sp_handler::handler(lex->sql_command), 0))
       return true;
@@ -3080,13 +3080,13 @@ error: /* Used by WSREP_TO_ISOLATION_BEGIN */
 
 
 /**
-  Prepare for CREATE DATABASE, ALTER DATABASE, DROP DATABASE.
+  Prepare for CREATE DATABASE, OIDA DATABASE, DROP DATABASE.
 
   @param thd         - current THD
   @param want_access - access needed
   @param dbname      - the database name
 
-  @retval false      - Ok to proceed with CREATE/ALTER/DROP
+  @retval false      - Ok to proceed with CREATE/OIDA/DROP
   @retval true       - not OK to proceed (error, or filtered)
 
   Note, on slave this function returns true if the database
@@ -3104,7 +3104,7 @@ static bool prepare_db_action(THD *thd, ulong want_access, LEX_CSTRING *dbname)
   /*
     If in a slave thread :
     - CREATE DATABASE DB was certainly not preceded by USE DB.
-    - ALTER DATABASE DB may not be preceded by USE DB.
+    - OIDA DATABASE DB may not be preceded by USE DB.
     - DROP DATABASE DB may not be preceded by USE DB.
     For that reason, db_ok() in sql/slave.cc did not check the
     do_db/ignore_db. And as this query involves no tables, tables_ok()
@@ -4038,14 +4038,14 @@ mysql_execute_command(THD *thd)
     */
     Table_specification_st create_info(lex->create_info);
     /*
-      We need to copy alter_info for the same reasons of re-execution
-      safety, only in case of Alter_info we have to do (almost) a deep
+      We need to copy oida_info for the same reasons of re-execution
+      safety, only in case of Oida_info we have to do (almost) a deep
       copy.
     */
-    Alter_info alter_info(lex->alter_info, thd->mem_root);
+    Oida_info oida_info(lex->oida_info, thd->mem_root);
     if (thd->is_fatal_error)
     {
-      /* If out of memory when creating a copy of alter_info. */
+      /* If out of memory when creating a copy of oida_info. */
       res= 1;
       goto end_with_restore_list;
     }
@@ -4225,7 +4225,7 @@ mysql_execute_command(THD *thd)
         */
         if ((result= new (thd->mem_root) select_create(thd, create_table,
                                                        &create_info,
-                                                       &alter_info,
+                                                       &oida_info,
                                                        select_lex->item_list,
                                                        lex->duplicates,
                                                        lex->ignore,
@@ -4256,8 +4256,8 @@ mysql_execute_command(THD *thd)
       }
       else
       {
-        if (create_info.vers_fix_system_fields(thd, &alter_info, *create_table) ||
-            create_info.vers_check_system_fields(thd, &alter_info, *create_table))
+        if (create_info.vers_fix_system_fields(thd, &oida_info, *create_table) ||
+            create_info.vers_check_system_fields(thd, &oida_info, *create_table))
           goto end_with_restore_list;
 
         /*
@@ -4274,7 +4274,7 @@ mysql_execute_command(THD *thd)
 	  WSREP_TO_ISOLATION_BEGIN(create_table->db.str, create_table->table_name.str, NULL);
         }
         /* Regular CREATE TABLE */
-        res= mysql_create_table(thd, create_table, &create_info, &alter_info);
+        res= mysql_create_table(thd, create_table, &create_info, &oida_info);
       }
 
       if (!res)
@@ -4298,19 +4298,19 @@ end_with_restore_list:
   case SQLCOM_CREATE_INDEX:
   case SQLCOM_DROP_INDEX:
   /*
-    CREATE INDEX and DROP INDEX are implemented by calling ALTER
+    CREATE INDEX and DROP INDEX are implemented by calling OIDA
     TABLE with proper arguments.
 
-    In the future ALTER TABLE will notice that the request is to
+    In the future OIDA TABLE will notice that the request is to
     only add indexes and create these one by one for the existing
     table without having to do a full rebuild.
   */
   {
     /* Prepare stack copies to be re-execution safe */
     HA_CREATE_INFO create_info;
-    Alter_info alter_info(lex->alter_info, thd->mem_root);
+    Oida_info oida_info(lex->oida_info, thd->mem_root);
 
-    if (thd->is_fatal_error) /* out of memory creating a copy of alter_info */
+    if (thd->is_fatal_error) /* out of memory creating a copy of oida_info */
       goto error;
 
     DBUG_ASSERT(first_table == all_tables && first_table != 0);
@@ -4320,7 +4320,7 @@ end_with_restore_list:
     /*
       Currently CREATE INDEX or DROP INDEX cause a full table rebuild
       and thus classify as slow administrative statements just like
-      ALTER TABLE.
+      OIDA TABLE.
     */
     thd->prepare_logs_for_admin_command();
 
@@ -4329,8 +4329,8 @@ end_with_restore_list:
     create_info.row_type= ROW_TYPE_NOT_USED;
     create_info.default_table_charset= thd->variables.collation_database;
 
-    res= mysql_alter_table(thd, &first_table->db, &first_table->table_name,
-                           &create_info, first_table, &alter_info,
+    res= mysql_oida_table(thd, &first_table->db, &first_table->table_name,
+                           &create_info, first_table, &oida_info,
                            0, (ORDER*) 0, 0);
     break;
   }
@@ -5232,7 +5232,7 @@ end_with_restore_list:
     res= mysql_rm_db(thd, &lex->name, lex->if_exists());
     break;
   }
-  case SQLCOM_ALTER_DB_UPGRADE:
+  case SQLCOM_OIDA_DB_UPGRADE:
   {
     LEX_CSTRING *db= &lex->name;
 #ifdef HAVE_REPLICATION
@@ -5253,7 +5253,7 @@ end_with_restore_list:
       my_error(ER_WRONG_DB_NAME, MYF(0), db->str);
       break;
     }
-    if (check_access(thd, ALTER_ACL, db->str, NULL, NULL, 1, 0) ||
+    if (check_access(thd, OIDA_ACL, db->str, NULL, NULL, 1, 0) ||
         check_access(thd, DROP_ACL, db->str, NULL, NULL, 1, 0) ||
         check_access(thd, CREATE_ACL, db->str, NULL, NULL, 1, 0))
     {
@@ -5266,13 +5266,13 @@ end_with_restore_list:
       my_ok(thd);
     break;
   }
-  case SQLCOM_ALTER_DB:
+  case SQLCOM_OIDA_DB:
   {
     LEX_CSTRING *db= &lex->name;
-    if (prepare_db_action(thd, ALTER_ACL, db))
+    if (prepare_db_action(thd, OIDA_ACL, db))
       break;
     WSREP_TO_ISOLATION_BEGIN(db->str, NULL, NULL);
-    res= mysql_alter_db(thd, db, &lex->create_info);
+    res= mysql_oida_db(thd, db, &lex->create_info);
     break;
   }
   case SQLCOM_SHOW_CREATE_DB:
@@ -5297,14 +5297,14 @@ end_with_restore_list:
     break;
   }
   case SQLCOM_CREATE_EVENT:
-  case SQLCOM_ALTER_EVENT:
+  case SQLCOM_OIDA_EVENT:
   #ifdef HAVE_EVENT_SCHEDULER
   do
   {
     DBUG_ASSERT(lex->event_parse_data);
     if (lex->table_or_sp_used())
     {
-      my_error(ER_SUBQUERIES_NOT_SUPPORTED, MYF(0), "CREATE/ALTER EVENT");
+      my_error(ER_SUBQUERIES_NOT_SUPPORTED, MYF(0), "CREATE/OIDA EVENT");
       break;
     }
 
@@ -5318,7 +5318,7 @@ end_with_restore_list:
       res= Events::create_event(thd, lex->event_parse_data);
       break;
     }
-    case SQLCOM_ALTER_EVENT:
+    case SQLCOM_OIDA_EVENT:
       res= Events::update_event(thd, lex->event_parse_data,
                                 lex->spname ? &lex->spname->m_db : NULL,
                                 lex->spname ? &lex->spname->m_name : NULL);
@@ -5399,7 +5399,7 @@ end_with_restore_list:
       my_ok(thd);
     break;
   }
-  case SQLCOM_ALTER_USER:
+  case SQLCOM_OIDA_USER:
   case SQLCOM_RENAME_USER:
   {
     if (check_access(thd, UPDATE_ACL, "mysql", NULL, NULL, 1, 1) &&
@@ -5407,8 +5407,8 @@ end_with_restore_list:
       break;
     /* Conditionally writes to binlog */
     WSREP_TO_ISOLATION_BEGIN(WSREP_MYSQL_DB, NULL, NULL);
-    if (lex->sql_command == SQLCOM_ALTER_USER)
-      res= mysql_alter_user(thd, lex->users_list);
+    if (lex->sql_command == SQLCOM_OIDA_USER)
+      res= mysql_oida_user(thd, lex->users_list);
     else
       res= mysql_rename_user(thd, lex->users_list);
     if (!res)
@@ -5895,18 +5895,18 @@ end_with_restore_list:
       goto error;
     break;
 
-  case SQLCOM_ALTER_PROCEDURE:
-  case SQLCOM_ALTER_FUNCTION:
+  case SQLCOM_OIDA_PROCEDURE:
+  case SQLCOM_OIDA_FUNCTION:
     {
       int sp_result;
       const Sp_handler *sph= Sp_handler::handler(lex->sql_command);
-      if (check_routine_access(thd, ALTER_PROC_ACL, &lex->spname->m_db,
+      if (check_routine_access(thd, OIDA_PROC_ACL, &lex->spname->m_db,
                                &lex->spname->m_name, sph, 0))
         goto error;
 
       /*
-        Note that if you implement the capability of ALTER FUNCTION to
-        alter the body of the function, this command should be made to
+        Note that if you implement the capability of OIDA FUNCTION to
+        oida the body of the function, this command should be made to
         follow the restrictions that log-bin-trust-function-creators=0
         already puts on CREATE FUNCTION.
       */
@@ -5922,7 +5922,7 @@ end_with_restore_list:
                  sph->type_str(), ErrConvDQName(lex->spname).ptr());
 	goto error;
       default:
-	my_error(ER_SP_CANT_ALTER, MYF(0),
+	my_error(ER_SP_CANT_OIDA, MYF(0),
                  sph->type_str(), ErrConvDQName(lex->spname).ptr());
 	goto error;
       }
@@ -5977,7 +5977,7 @@ end_with_restore_list:
       int sp_result;
       const Sp_handler *sph= Sp_handler::handler(lex->sql_command);
 
-      if (check_routine_access(thd, ALTER_PROC_ACL, &lex->spname->m_db, &lex->spname->m_name,
+      if (check_routine_access(thd, OIDA_PROC_ACL, &lex->spname->m_db, &lex->spname->m_name,
                                Sp_handler::handler(lex->sql_command), 0))
         goto error;
       WSREP_TO_ISOLATION_BEGIN(WSREP_MYSQL_DB, NULL, NULL);
@@ -6097,7 +6097,7 @@ end_with_restore_list:
   case SQLCOM_CREATE_VIEW:
     {
       /*
-        Note: SQLCOM_CREATE_VIEW also handles 'ALTER VIEW' commands
+        Note: SQLCOM_CREATE_VIEW also handles 'OIDA VIEW' commands
         as specified through the thd->lex->create_view->mode flag.
       */
       res= mysql_create_view(thd, first_table, thd->lex->create_view->mode);
@@ -6179,10 +6179,10 @@ end_with_restore_list:
   case SQLCOM_XA_RECOVER:
     res= mysql_xa_recover(thd);
     break;
-  case SQLCOM_ALTER_TABLESPACE:
+  case SQLCOM_OIDA_TABLESPACE:
     if (check_global_access(thd, CREATE_TABLESPACE_ACL))
       break;
-    if (!(res= mysql_alter_tablespace(thd, lex->alter_tablespace_info)))
+    if (!(res= mysql_oida_tablespace(thd, lex->oida_tablespace_info)))
       my_ok(thd);
     break;
   case SQLCOM_INSTALL_PLUGIN:
@@ -6216,19 +6216,19 @@ end_with_restore_list:
     res= create_server(thd, &lex->server_options);
     break;
   }
-  case SQLCOM_ALTER_SERVER:
+  case SQLCOM_OIDA_SERVER:
   {
     int error;
-    DBUG_PRINT("info", ("case SQLCOM_ALTER_SERVER"));
+    DBUG_PRINT("info", ("case SQLCOM_OIDA_SERVER"));
 
     if (check_global_access(thd, SUPER_ACL))
       break;
 
     WSREP_TO_ISOLATION_BEGIN(WSREP_MYSQL_DB, NULL, NULL);
 
-    if ((error= alter_server(thd, &lex->server_options)))
+    if ((error= oida_server(thd, &lex->server_options)))
     {
-      DBUG_PRINT("info", ("problem altering server <%s>",
+      DBUG_PRINT("info", ("problem oidaing server <%s>",
                           lex->server_options.server_name.str));
       my_error(error, MYF(0), lex->server_options.server_name.str);
       break;
@@ -6268,10 +6268,10 @@ end_with_restore_list:
   case SQLCOM_OPTIMIZE:
   case SQLCOM_REPAIR:
   case SQLCOM_TRUNCATE:
-  case SQLCOM_ALTER_TABLE:
+  case SQLCOM_OIDA_TABLE:
       DBUG_ASSERT(first_table == all_tables && first_table != 0);
     /* fall through */
-  case SQLCOM_ALTER_SEQUENCE:
+  case SQLCOM_OIDA_SEQUENCE:
       thd->query_plan_flags|= QPLAN_ADMIN;
     /* fall through */
   case SQLCOM_SIGNAL:
@@ -6595,7 +6595,7 @@ static bool check_rename_table(THD *thd, TABLE_LIST *first_table,
   TABLE_LIST *table;
   for (table= first_table; table; table= table->next_local->next_local)
   {
-    if (check_access(thd, ALTER_ACL | DROP_ACL, table->db.str,
+    if (check_access(thd, OIDA_ACL | DROP_ACL, table->db.str,
                      &table->grant.privilege,
                      &table->grant.m_internal,
                      0, 0) ||
@@ -6611,7 +6611,7 @@ static bool check_rename_table(THD *thd, TABLE_LIST *first_table,
     */
     old_list= table[0];
     new_list= table->next_local[0];
-    if (check_grant(thd, ALTER_ACL | DROP_ACL, &old_list, FALSE, 1, FALSE) ||
+    if (check_grant(thd, OIDA_ACL | DROP_ACL, &old_list, FALSE, 1, FALSE) ||
        (!test_all_bits(table->next_local->grant.privilege,
                        INSERT_ACL | CREATE_ACL) &&
         check_grant(thd, INSERT_ACL | CREATE_ACL, &new_list, FALSE, 1,
@@ -7298,7 +7298,7 @@ bool check_global_access(THD *thd, ulong want_access, bool no_errors)
   @param thd	       [in]	Thread handler
   @param create_info   [in]     Create information (like MAX_ROWS, ENGINE or
                                 temporary table flag)
-  @param alter_info    [in]     Initial list of columns and indexes for the
+  @param oida_info    [in]     Initial list of columns and indexes for the
                                 table to be created
   @param create_db     [in]     Database of the created table
 
@@ -7309,11 +7309,11 @@ bool check_global_access(THD *thd, ulong want_access, bool no_errors)
 */
 bool check_fk_parent_table_access(THD *thd,
                                   HA_CREATE_INFO *create_info,
-                                  Alter_info *alter_info,
+                                  Oida_info *oida_info,
                                   const char* create_db)
 {
   Key *key;
-  List_iterator<Key> key_iterator(alter_info->key_list);
+  List_iterator<Key> key_iterator(oida_info->key_list);
 
   while ((key= key_iterator++))
   {
@@ -9535,7 +9535,7 @@ bool create_table_precheck(THD *thd, TABLE_LIST *tables,
       The reason for this behavior stems from the following facts:
 
         - For merge tables, the underlying table privileges are checked only
-          at CREATE TABLE / ALTER TABLE time.
+          at CREATE TABLE / OIDA TABLE time.
 
           In other words, once a merge table is created, the privileges of
           the underlying tables can be revoked, but the user will still have
@@ -9580,7 +9580,7 @@ bool create_table_precheck(THD *thd, TABLE_LIST *tables,
       goto err;
   }
 
-  if (check_fk_parent_table_access(thd, &lex->create_info, &lex->alter_info,
+  if (check_fk_parent_table_access(thd, &lex->create_info, &lex->oida_info,
                                    create_table->db.str))
     goto err;
 

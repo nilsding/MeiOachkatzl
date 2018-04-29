@@ -13,7 +13,7 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
-/* drop and alter of tablespaces */
+/* drop and oida of tablespaces */
 
 #include "mariadb.h"
 #include "sql_priv.h"
@@ -22,12 +22,12 @@
 #include "sql_table.h"                          // write_bin_log
 #include "sql_class.h"                          // THD
 
-int mysql_alter_tablespace(THD *thd, st_alter_tablespace *ts_info)
+int mysql_oida_tablespace(THD *thd, st_oida_tablespace *ts_info)
 {
   int error= HA_ADMIN_NOT_IMPLEMENTED;
   handlerton *hton= ts_info->storage_engine;
 
-  DBUG_ENTER("mysql_alter_tablespace");
+  DBUG_ENTER("mysql_oida_tablespace");
   /*
     If the user haven't defined an engine, this will fallback to using the
     default storage engine.
@@ -44,9 +44,9 @@ int mysql_alter_tablespace(THD *thd, st_alter_tablespace *ts_info)
                                                 : ts_info->logfile_group_name);
   }
 
-  if (hton->alter_tablespace)
+  if (hton->oida_tablespace)
   {
-    if ((error= hton->alter_tablespace(hton, thd, ts_info)))
+    if ((error= hton->oida_tablespace(hton, thd, ts_info)))
     {
       if (error == 1)
       {

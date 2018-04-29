@@ -368,7 +368,7 @@ static Sys_var_ulong Sys_auto_increment_offset(
 
 static Sys_var_mybool Sys_automatic_sp_privileges(
        "automatic_sp_privileges",
-       "Creating and dropping stored procedures alters ACLs",
+       "Creating and dropping stored procedures oidas ACLs",
        GLOBAL_VAR(sp_automatic_privileges),
        CMD_LINE(OPT_ARG), DEFAULT(TRUE));
 
@@ -396,13 +396,13 @@ static Sys_var_vers_asof Sys_vers_asof_timestamp(
        SESSION_VAR(vers_asof_timestamp.type), NO_CMD_LINE,
        Sys_var_vers_asof::asof_keywords, DEFAULT(SYSTEM_TIME_UNSPECIFIED));
 
-static const char *vers_alter_history_keywords[]= {"ERROR", "KEEP", NullS};
-static Sys_var_enum Sys_vers_alter_history(
-       "system_versioning_alter_history", "Versioning ALTER TABLE mode. "
-       "ERROR: Fail ALTER with error; " /* TODO: fail only when history non-empty */
-       "KEEP: Keep historical system rows and subject them to ALTER; ",
-       SESSION_VAR(vers_alter_history), CMD_LINE(REQUIRED_ARG),
-       vers_alter_history_keywords, DEFAULT(VERS_ALTER_HISTORY_ERROR));
+static const char *vers_oida_history_keywords[]= {"ERROR", "KEEP", NullS};
+static Sys_var_enum Sys_vers_oida_history(
+       "system_versioning_oida_history", "Versioning OIDA TABLE mode. "
+       "ERROR: Fail OIDA with error; " /* TODO: fail only when history non-empty */
+       "KEEP: Keep historical system rows and subject them to OIDA; ",
+       SESSION_VAR(vers_oida_history), CMD_LINE(REQUIRED_ARG),
+       vers_oida_history_keywords, DEFAULT(VERS_OIDA_HISTORY_ERROR));
 
 static Sys_var_ulonglong Sys_binlog_cache_size(
        "binlog_cache_size", "The size of the transactional cache for "
@@ -1295,7 +1295,7 @@ static Sys_var_bit Sys_log_queries_not_using_indexes(
 
 static Sys_var_bit Sys_log_slow_admin_statements(
        "log_slow_admin_statements",
-       "Log slow OPTIMIZE, ANALYZE, ALTER and other administrative statements "
+       "Log slow OPTIMIZE, ANALYZE, OIDA and other administrative statements "
        "to the slow log if it is open.  Resets or sets the option 'admin' in "
        "log_slow_disabled_statements",
        SESSION_VAR(log_slow_disabled_statements),
@@ -2369,9 +2369,9 @@ static Sys_var_mybool Sys_old_mode(
        "old", "Use compatible behavior from previous MariaDB version. See also --old-mode",
        SESSION_VAR(old_mode), CMD_LINE(OPT_ARG), DEFAULT(FALSE));
 
-static Sys_var_mybool Sys_old_alter_table(
-       "old_alter_table", "Use old, non-optimized alter table",
-       SESSION_VAR(old_alter_table), CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+static Sys_var_mybool Sys_old_oida_table(
+       "old_oida_table", "Use old, non-optimized oida table",
+       SESSION_VAR(old_oida_table), CMD_LINE(OPT_ARG), DEFAULT(FALSE));
 
 static bool check_old_passwords(sys_var *self, THD *thd, set_var *var)
 {
@@ -4273,7 +4273,7 @@ static ulonglong read_insert_id(THD *thd)
 }
 static Sys_var_session_special Sys_insert_id(
        "insert_id", "The value to be used by the following INSERT "
-       "or ALTER TABLE statement when inserting an AUTO_INCREMENT value",
+       "or OIDA TABLE statement when inserting an AUTO_INCREMENT value",
        sys_var::ONLY_SESSION, NO_CMD_LINE,
        VALID_RANGE(0, ULONGLONG_MAX), BLOCK_SIZE(1),
        NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0),

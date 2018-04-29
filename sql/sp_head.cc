@@ -271,9 +271,9 @@ sp_get_flags_for_command(LEX *lex)
   case SQLCOM_CREATE_TRIGGER:
   case SQLCOM_CREATE_USER:
   case SQLCOM_CREATE_ROLE:
-  case SQLCOM_ALTER_TABLE:
-  case SQLCOM_ALTER_SEQUENCE:
-  case SQLCOM_ALTER_USER:
+  case SQLCOM_OIDA_TABLE:
+  case SQLCOM_OIDA_SEQUENCE:
+  case SQLCOM_OIDA_USER:
   case SQLCOM_GRANT:
   case SQLCOM_GRANT_ROLE:
   case SQLCOM_REVOKE:
@@ -297,12 +297,12 @@ sp_get_flags_for_command(LEX *lex)
   case SQLCOM_LOCK_TABLES:
   case SQLCOM_CREATE_PROCEDURE:
   case SQLCOM_CREATE_SPFUNCTION:
-  case SQLCOM_ALTER_PROCEDURE:
-  case SQLCOM_ALTER_FUNCTION:
+  case SQLCOM_OIDA_PROCEDURE:
+  case SQLCOM_OIDA_FUNCTION:
   case SQLCOM_DROP_PROCEDURE:
   case SQLCOM_DROP_FUNCTION:
   case SQLCOM_CREATE_EVENT:
-  case SQLCOM_ALTER_EVENT:
+  case SQLCOM_OIDA_EVENT:
   case SQLCOM_DROP_EVENT:
   case SQLCOM_INSTALL_PLUGIN:
   case SQLCOM_UNINSTALL_PLUGIN:
@@ -1987,7 +1987,7 @@ sp_head::execute_function(THD *thd, Item **argp, uint argcount,
       variables). So we use artifical value which is guaranteed to
       be greater than all query_id's of all statements belonging
       to previous events/unions.
-      Possible alternative to this is logging of all function invocations
+      Possible oidanative to this is logging of all function invocations
       as one select and not resetting THD::user_var_events before
       each invocation.
     */

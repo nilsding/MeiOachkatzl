@@ -49,7 +49,7 @@ public:
   longlong increment;
   longlong cache;
   ulonglong round;
-  longlong restart;              // alter sequence restart value
+  longlong restart;              // oida sequence restart value
   bool     cycle;
   uint used_fields;              // Which fields where used in CREATE
 
@@ -88,7 +88,7 @@ protected:
 class SEQUENCE :public sequence_definition
 {
 public:
-  enum seq_init { SEQ_UNINTIALIZED, SEQ_IN_PREPARE, SEQ_IN_ALTER,
+  enum seq_init { SEQ_UNINTIALIZED, SEQ_IN_PREPARE, SEQ_IN_OIDA,
                   SEQ_READY_TO_USE };
   SEQUENCE();
   ~SEQUENCE();

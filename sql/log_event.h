@@ -508,7 +508,7 @@ class String;
 
   I (Guilhem) have read through every option's usage, and it looks
   like OPTION_AUTO_IS_NULL and OPTION_NO_FOREIGN_KEYS are the only
-  ones which alter how the query modifies the table. It's good to
+  ones which oida how the query modifies the table. It's good to
   replicate OPTION_RELAXED_UNIQUE_CHECKS too because otherwise, the
   slave may insert data slower than the master, in InnoDB.
   OPTION_BIG_SELECTS is not needed (the slave thread runs with

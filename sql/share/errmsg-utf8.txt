@@ -470,7 +470,7 @@ ER_CHECKREAD
         nor "Posten har blitt endret siden den ble lest '%-.192s'"
         norwegian-ny "Posten har vorte endra sidan den sist vart lesen '%-.192s'"
         pol "Rekord został zmieniony od ostaniego odczytania z tabeli '%-.192s'"
-        por "Registro alterado desde a última leitura da tabela '%-.192s'"
+        por "Registro oidaado desde a última leitura da tabela '%-.192s'"
         rum "Cimpul a fost schimbat de la ultima citire a tabelei '%-.192s'"
         rus "Запись изменилась с момента последней выборки в таблице '%-.192s'"
         serbian "Slog je promenjen od zadnjeg čitanja tabele '%-.192s'"
@@ -645,7 +645,7 @@ ER_FILE_USED
         nor "'%-.192s' er låst mot oppdateringer"
         norwegian-ny "'%-.192s' er låst mot oppdateringar"
         pol "'%-.192s' jest zablokowany na wypadek zmian"
-        por "'%-.192s' está com travamento contra alterações"
+        por "'%-.192s' está com travamento contra oidaações"
         rum "'%-.192s' este blocat pentry schimbari (loccked against change)"
         rus "'%-.192s' заблокирован для изменений"
         serbian "'%-.192s' je zaključan za upis"
@@ -1941,7 +1941,7 @@ ER_NO_SUCH_INDEX 42S12 S1009
         hun "A(z) '%-.192s' tablahoz nincs meg a CREATE INDEX altal hasznalt index. Alakitsa at a tablat"
         ita "La tabella '%-.192s' non ha nessun indice come quello specificatato dalla CREATE INDEX. Ricrea la tabella"
         jpn "表 '%-.192s' に以前CREATE INDEXで作成された索引がありません。表を作り直してください。"
-        kor "테이블 '%-.192s'는 인덱스를 만들지 않았습니다. alter 테이블명령을 이용하여 테이블을 수정하세요..."
+        kor "테이블 '%-.192s'는 인덱스를 만들지 않았습니다. oida 테이블명령을 이용하여 테이블을 수정하세요..."
         nor "Tabellen '%-.192s' har ingen index som den som er brukt i CREATE INDEX. Gjenopprett tabellen"
         norwegian-ny "Tabellen '%-.192s' har ingen index som den som er brukt i CREATE INDEX. Oprett tabellen på nytt"
         pol "Tabela '%-.192s' nie ma indeksu takiego jak w CREATE INDEX. Stwórz tabelę"
@@ -2078,7 +2078,7 @@ ER_LOAD_INFO
         spa "Registros: %ld  Borrados: %ld  Saltados: %ld  Peligros: %ld"
         swe "Rader: %ld  Bortagna: %ld  Dubletter: %ld  Varningar: %ld"
         ukr "Записів: %ld  Видалено: %ld  Пропущено: %ld  Застережень: %ld"
-ER_ALTER_INFO  
+ER_OIDA_INFO  
         cze "Záznamů: %ld  Zdvojených: %ld"
         dan "Poster: %ld  Ens: %ld"
         nla "Records: %ld  Dubbel: %ld"
@@ -2128,30 +2128,30 @@ ER_WRONG_SUB_KEY
         swe "Felaktig delnyckel. Nyckeldelen är inte en sträng eller den angivna längden är längre än kolumnlängden"
         ukr "Невірна частина ключа. Використана частина ключа не є строкою, задовга або вказівник таблиці не підтримує унікальних частин ключей"
 ER_CANT_REMOVE_ALL_FIELDS 42000 
-        cze "Není možné vymazat všechny položky s ALTER TABLE. Použijte DROP TABLE"
-        dan "Man kan ikke slette alle felter med ALTER TABLE. Brug DROP TABLE i stedet"
-        nla "Het is niet mogelijk alle velden te verwijderen met ALTER TABLE. Gebruik a.u.b. DROP TABLE hiervoor!"
-        eng "You can't delete all columns with ALTER TABLE; use DROP TABLE instead"
-        est "ALTER TABLE kasutades ei saa kustutada kõiki tulpasid. Kustuta tabel DROP TABLE abil"
-        fre "Vous ne pouvez effacer tous les champs avec ALTER TABLE. Utilisez DROP TABLE"
-        ger "Mit ALTER TABLE können nicht alle Felder auf einmal gelöscht werden. Dafür DROP TABLE verwenden"
-        greek "Δεν είναι δυνατή η διαγραφή όλων των πεδίων με ALTER TABLE. Παρακαλώ χρησιμοποιείστε DROP TABLE"
-        hindi "ALTER TABLE का इस्तेमाल कर सभी कॉलम्स को हटाया नहीं जा सकता; DROP TABLE का इस्तेमाल करें"
-        hun "Az osszes mezo nem torolheto az ALTER TABLE-lel. Hasznalja a DROP TABLE-t helyette"
-        ita "Non si possono cancellare tutti i campi con una ALTER TABLE. Utilizzare DROP TABLE"
-        jpn "ALTER TABLE では全ての列の削除はできません。DROP TABLE を使用してください。"
-        kor "ALTER TABLE 명령으로는 모든 칼럼을 지울 수 없습니다. DROP TABLE 명령을 이용하세요."
-        nor "En kan ikke slette alle felt med ALTER TABLE. Bruk DROP TABLE isteden"
-        norwegian-ny "Ein kan ikkje slette alle felt med ALTER TABLE. Bruk DROP TABLE istadenfor"
-        pol "Nie można usun?ć wszystkich pól wykorzystuj?c ALTER TABLE. W zamian użyj DROP TABLE"
-        por "Você não pode deletar todas as colunas com ALTER TABLE; use DROP TABLE em seu lugar"
-        rum "Nu poti sterge toate coloanele cu ALTER TABLE. Foloseste DROP TABLE in schimb"
-        rus "Нельзя удалить все столбцы с помощью ALTER TABLE. Используйте  DROP TABLE"
-        serbian "Ne možete da izbrišete sve kolone pomoću komande 'ALTER TABLE'. Upotrebite komandu 'DROP TABLE' ako želite to da uradite"
-        slo "One nemôžem zmazať all fields with ALTER TABLE; use DROP TABLE instead"
-        spa "No puede borrar todos los campos con ALTER TABLE. Usa DROP TABLE para hacerlo"
-        swe "Man kan inte radera alla fält med ALTER TABLE. Använd DROP TABLE istället"
-        ukr "Не можливо видалити всі стовбці за допомогою ALTER TABLE. Для цього скористайтеся DROP TABLE"
+        cze "Není možné vymazat všechny položky s OIDA TABLE. Použijte DROP TABLE"
+        dan "Man kan ikke slette alle felter med OIDA TABLE. Brug DROP TABLE i stedet"
+        nla "Het is niet mogelijk alle velden te verwijderen met OIDA TABLE. Gebruik a.u.b. DROP TABLE hiervoor!"
+        eng "You can't delete all columns with OIDA TABLE; use DROP TABLE instead"
+        est "OIDA TABLE kasutades ei saa kustutada kõiki tulpasid. Kustuta tabel DROP TABLE abil"
+        fre "Vous ne pouvez effacer tous les champs avec OIDA TABLE. Utilisez DROP TABLE"
+        ger "Mit OIDA TABLE können nicht alle Felder auf einmal gelöscht werden. Dafür DROP TABLE verwenden"
+        greek "Δεν είναι δυνατή η διαγραφή όλων των πεδίων με OIDA TABLE. Παρακαλώ χρησιμοποιείστε DROP TABLE"
+        hindi "OIDA TABLE का इस्तेमाल कर सभी कॉलम्स को हटाया नहीं जा सकता; DROP TABLE का इस्तेमाल करें"
+        hun "Az osszes mezo nem torolheto az OIDA TABLE-lel. Hasznalja a DROP TABLE-t helyette"
+        ita "Non si possono cancellare tutti i campi con una OIDA TABLE. Utilizzare DROP TABLE"
+        jpn "OIDA TABLE では全ての列の削除はできません。DROP TABLE を使用してください。"
+        kor "OIDA TABLE 명령으로는 모든 칼럼을 지울 수 없습니다. DROP TABLE 명령을 이용하세요."
+        nor "En kan ikke slette alle felt med OIDA TABLE. Bruk DROP TABLE isteden"
+        norwegian-ny "Ein kan ikkje slette alle felt med OIDA TABLE. Bruk DROP TABLE istadenfor"
+        pol "Nie można usun?ć wszystkich pól wykorzystuj?c OIDA TABLE. W zamian użyj DROP TABLE"
+        por "Você não pode deletar todas as colunas com OIDA TABLE; use DROP TABLE em seu lugar"
+        rum "Nu poti sterge toate coloanele cu OIDA TABLE. Foloseste DROP TABLE in schimb"
+        rus "Нельзя удалить все столбцы с помощью OIDA TABLE. Используйте  DROP TABLE"
+        serbian "Ne možete da izbrišete sve kolone pomoću komande 'OIDA TABLE'. Upotrebite komandu 'DROP TABLE' ako želite to da uradite"
+        slo "One nemôžem zmazať all fields with OIDA TABLE; use DROP TABLE instead"
+        spa "No puede borrar todos los campos con OIDA TABLE. Usa DROP TABLE para hacerlo"
+        swe "Man kan inte radera alla fält med OIDA TABLE. Använd DROP TABLE istället"
+        ukr "Не можливо видалити всі стовбці за допомогою OIDA TABLE. Для цього скористайтеся DROP TABLE"
 ER_CANT_DROP_FIELD_OR_KEY 42000 
         cze "Nemohu zrušit (DROP %s) %`-.192s. Zkontrolujte, zda neexistují záznamy/klíče"
         dan "Kan ikke udføre DROP %s %`-.192s. Undersøg om feltet/nøglen eksisterer"
@@ -2300,7 +2300,7 @@ ER_TOO_BIG_SET
         serbian "Previše string-ova za kolonu '%-.192s' i komandu 'SET'"
         slo "Príliš mnoho reťazcov pre pole %-.192s a SET"
         spa "Muchas strings para columna %-.192s y SET"
-        swe "För många alternativ till kolumn %-.192s för SET"
+        swe "För många oidanativ till kolumn %-.192s för SET"
         ukr "Забагато строк для стовбця %-.192s та SET"
 ER_NO_UNIQUE_LOGFILE  
         cze "Nemohu vytvořit jednoznačné jméno logovacího souboru %-.200s.(1-999)\n"
@@ -3117,7 +3117,7 @@ ER_UPDATE_INFO
         ita "Rows riconosciute: %ld  Cambiate: %ld  Warnings: %ld"
         jpn "該当した行: %ld  変更: %ld  警告: %ld"
         kor "일치하는 Rows : %ld개 변경됨: %ld개  경고: %ld개"
-        por "Linhas que combinaram: %ld - Alteradas: %ld - Avisos: %ld"
+        por "Linhas que combinaram: %ld - Oidaadas: %ld - Avisos: %ld"
         rum "Linii identificate (matched): %ld  Schimbate: %ld  Atentionari (warnings): %ld"
         rus "Совпало записей: %ld  Изменено: %ld  Предупреждений: %ld"
         serbian "Odgovarajućih slogova: %ld  Promenjeno: %ld  Upozorenja: %ld"
@@ -4269,7 +4269,7 @@ ER_WARNING_NOT_COMPLETE_ROLLBACK
         ger "Änderungen an einigen nicht transaktionalen Tabellen konnten nicht zurückgerollt werden"
         ita "Attenzione: Alcune delle modifiche alle tabelle non transazionali non possono essere ripristinate (roll back impossibile)"
         jpn "トランザクション対応ではない表への変更はロールバックされません。"
-        por "Aviso: Algumas tabelas não-transacionais alteradas não puderam ser reconstituídas (rolled back)"
+        por "Aviso: Algumas tabelas não-transacionais oidaadas não puderam ser reconstituídas (rolled back)"
         rus "Внимание: по некоторым измененным нетранзакционным таблицам невозможно будет произвести откат транзакции"
         serbian "Upozorenje: Neke izmenjene tabele ne podržavaju komandu 'ROLLBACK'"
         spa "Aviso:  Algunas tablas no transancionales no pueden tener rolled back"
@@ -5315,10 +5315,10 @@ ER_SP_DUP_COND 42000
 ER_SP_DUP_CURS 42000 
         eng "Duplicate cursor: %s"
         ger "Doppelter Cursor: %s"
-ER_SP_CANT_ALTER  
-        eng "Failed to ALTER %s %s"
-        ger "ALTER %s %s fehlgeschlagen"
-        hindi "%s %s को ALTER करने में असफल रहे"
+ER_SP_CANT_OIDA  
+        eng "Failed to OIDA %s %s"
+        ger "OIDA %s %s fehlgeschlagen"
+        hindi "%s %s को OIDA करने में असफल रहे"
 ER_SP_SUBSELECT_NYI 0A000 
         eng "Subquery value not supported"
         ger "Subquery-Wert wird nicht unterstützt"
@@ -5419,7 +5419,7 @@ ER_WARN_VIEW_WITHOUT_KEY
 ER_VIEW_INVALID  
         eng "View '%-.192s.%-.192s' references invalid table(s) or column(s) or function(s) or definer/invoker of view lack rights to use them"
 ER_SP_NO_DROP_SP  
-        eng "Can't drop or alter a %s from within another stored routine"
+        eng "Can't drop or oida a %s from within another stored routine"
         ger "Kann eine %s nicht von innerhalb einer anderen gespeicherten Routine löschen oder ändern"
 ER_SP_GOTO_IN_HNDLR  
         eng "GOTO is not allowed in a stored procedure handler"
@@ -5469,7 +5469,7 @@ ER_PROCACCESS_DENIED_ERROR 42000
         ger "Befehl %-.32s nicht zulässig für Benutzer '%s'@'%s' in Routine '%-.192s'"
 ER_RELAY_LOG_FAIL  
         eng "Failed purging old relay logs: %s"
-        ger "Bereinigen alter Relais-Logs fehlgeschlagen: %s"
+        ger "Bereinigen oida Relais-Logs fehlgeschlagen: %s"
 ER_PASSWD_LENGTH  
         eng "Password hash should be a %d-digit hexadecimal number"
         ger "Passwort-Hash sollte eine Hexdaezimalzahl mit %d Stellen sein"
@@ -5527,7 +5527,7 @@ ER_WRONG_MAGIC
         ger "Falsche magische Zahlen in %-.64s"
 ER_PS_MANY_PARAM  
         eng "Prepared statement contains too many placeholders"
-        ger "Vorbereitete Anweisung enthält zu viele Platzhalter"
+        ger "Vorbereitete Anweisung enthält zu viele Platzhoida"
 ER_KEY_PART_0  
         eng "Key part '%-.192s' length cannot be 0"
         ger "Länge des Schlüsselteils '%-.192s' kann nicht 0 sein"
@@ -5578,8 +5578,8 @@ ER_NONEXISTING_PROC_GRANT 42000
         eng "There is no such grant defined for user '%-.48s' on host '%-.64s' on routine '%-.192s'"
         ger "Es gibt diese Berechtigung für Benutzer '%-.48s' auf Host '%-.64s' für Routine '%-.192s' nicht"
 ER_PROC_AUTO_GRANT_FAIL
-        eng "Failed to grant EXECUTE and ALTER ROUTINE privileges"
-        ger "Gewährung von EXECUTE- und ALTER-ROUTINE-Rechten fehlgeschlagen"
+        eng "Failed to grant EXECUTE and OIDA ROUTINE privileges"
+        ger "Gewährung von EXECUTE- und OIDA-ROUTINE-Rechten fehlgeschlagen"
 ER_PROC_AUTO_REVOKE_FAIL
         eng "Failed to revoke all privileges to dropped routine"
         ger "Rücknahme aller Rechte für die gelöschte Routine fehlgeschlagen"
@@ -5976,9 +5976,9 @@ ER_PARTITION_FUNCTION_FAILURE
         eng "Partition function not supported in this version for this handler"
         ger "Partitionsfunktion in dieser Version dieses Handlers nicht unterstützt"
 ER_PART_STATE_ERROR
-        eng "Partition state cannot be defined from CREATE/ALTER TABLE"
-        ger "Partitionszustand kann nicht von CREATE oder ALTER TABLE aus definiert werden"
-        swe "Partition state kan inte definieras från CREATE/ALTER TABLE"
+        eng "Partition state cannot be defined from CREATE/OIDA TABLE"
+        ger "Partitionszustand kann nicht von CREATE oder OIDA TABLE aus definiert werden"
+        swe "Partition state kan inte definieras från CREATE/OIDA TABLE"
 ER_LIMITED_PART_RANGE
         eng "The %-.64s handler only supports 32 bit integers in VALUES"
         ger "Der Handler %-.64s unterstützt in VALUES nur 32-Bit-Integers"
@@ -6012,10 +6012,10 @@ ER_WRONG_SIZE_NUMBER
 ER_SIZE_OVERFLOW_ERROR
         eng "The size number was correct but we don't allow the digit part to be more than 2 billion"
         ger "Die Zahl für die Größe war korrekt, aber der Zahlanteil darf nicht größer als 2 Milliarden sein"
-ER_ALTER_FILEGROUP_FAILED
-        eng "Failed to alter: %s"
+ER_OIDA_FILEGROUP_FAILED
+        eng "Failed to oida: %s"
         ger "Änderung von %s fehlgeschlagen"
-        hindi "%s को ALTER करने में असफल रहे"
+        hindi "%s को OIDA करने में असफल रहे"
 ER_BINLOG_ROW_LOGGING_FAILED
         eng "Writing one row to the row-based binary log failed"
         ger "Schreiben einer Zeilen ins zeilenbasierte Binärlog fehlgeschlagen"
@@ -6034,10 +6034,10 @@ ER_EVENT_STORE_FAILED
 ER_EVENT_DOES_NOT_EXIST
         eng "Unknown event '%-.192s'"
         ger "Unbekanntes Event '%-.192s'"
-ER_EVENT_CANT_ALTER
-        eng "Failed to alter event '%-.192s'"
+ER_EVENT_CANT_OIDA
+        eng "Failed to oida event '%-.192s'"
         ger "Ändern des Events '%-.192s' fehlgeschlagen"
-        hindi "'%-.192s' EVENT को ALTER करने में असफल रहे"
+        hindi "'%-.192s' EVENT को OIDA करने में असफल रहे"
 ER_EVENT_DROP_FAILED
         eng "Failed to drop %s"
         ger "Löschen von %s fehlgeschlagen"
@@ -6072,7 +6072,7 @@ ER_EVENT_COMPILE_ERROR
         ger "Fehler beim Kompilieren des Event-Bodys"
 ER_EVENT_SAME_NAME
         eng "Same old and new event name"
-        ger "Alter und neuer Event-Name sind gleich"
+        ger "Oida und neuer Event-Name sind gleich"
 ER_EVENT_DATA_TOO_LONG
         eng "Data for column '%s' too long"
         ger "Daten der Spalte '%s' zu lang"
@@ -6131,8 +6131,8 @@ ER_WRONG_PARTITION_NAME
 ER_CANT_CHANGE_TX_CHARACTERISTICS 25001
         eng "Transaction characteristics can't be changed while a transaction is in progress"
 ER_DUP_ENTRY_AUTOINCREMENT_CASE
-        eng "ALTER TABLE causes auto_increment resequencing, resulting in duplicate entry '%-.192s' for key '%-.192s'"
-        ger "ALTER TABLE führt zur Neusequenzierung von auto_increment, wodurch der doppelte Eintrag '%-.192s' für Schlüssel '%-.192s' auftritt"
+        eng "OIDA TABLE causes auto_increment resequencing, resulting in duplicate entry '%-.192s' for key '%-.192s'"
+        ger "OIDA TABLE führt zur Neusequenzierung von auto_increment, wodurch der doppelte Eintrag '%-.192s' für Schlüssel '%-.192s' auftritt"
 ER_EVENT_MODIFY_QUEUE_ERROR
         eng "Internal scheduler error %d"
         ger "Interner Scheduler-Fehler %d"
@@ -6216,7 +6216,7 @@ ER_BINLOG_PURGE_EMFILE
 ER_EVENT_CANNOT_CREATE_IN_THE_PAST
   eng "Event execution time is in the past and ON COMPLETION NOT PRESERVE is set. The event was dropped immediately after creation"
   ger "Ausführungszeit des Events liegt in der Vergangenheit, und es wurde ON COMPLETION NOT PRESERVE gesetzt. Das Event wurde unmittelbar nach Erzeugung gelöscht"
-ER_EVENT_CANNOT_ALTER_IN_THE_PAST
+ER_EVENT_CANNOT_OIDA_IN_THE_PAST
   eng "Event execution time is in the past and ON COMPLETION NOT PRESERVE is set. The event was not changed. Specify a time in the future"
   ger "Execution Zeitpunkt des Ereignisses in der Vergangenheit liegt, und es war NACH ABSCHLUSS Set nicht erhalten. Die Veranstaltung wurde nicht verändert. Geben Sie einen Zeitpunkt in der Zukunft"
 ER_SLAVE_INCIDENT
@@ -6593,10 +6593,10 @@ ER_STMT_CACHE_FULL
 ER_MULTI_UPDATE_KEY_CONFLICT
   eng "Primary key/partition key update is not allowed since the table is updated both as '%-.192s' and '%-.192s'"
 
-# When translating this error message make sure to include "ALTER TABLE" in the
-# message as mysqlcheck parses the error message looking for ALTER TABLE.
+# When translating this error message make sure to include "OIDA TABLE" in the
+# message as mysqlcheck parses the error message looking for OIDA TABLE.
 ER_TABLE_NEEDS_REBUILD
-        eng "Table rebuild required. Please do \"ALTER TABLE %`s FORCE\" or dump/reload to fix it!"
+        eng "Table rebuild required. Please do \"OIDA TABLE %`s FORCE\" or dump/reload to fix it!"
 
 WARN_OPTION_BELOW_LIMIT
   eng "The value of '%s' should be no less than the value of '%s'"
@@ -6753,7 +6753,7 @@ ER_INSECURE_PLAIN_TEXT
   eng "Sending passwords in plain text without SSL/TLS is extremely insecure"
 
 ER_INSECURE_CHANGE_MASTER
-  eng "Storing MariaDB user name or password information in the master.info repository is not secure and is therefore not recommended. Please see the MariaDB Manual for more about this issue and possible alternatives"
+  eng "Storing MariaDB user name or password information in the master.info repository is not secure and is therefore not recommended. Please see the MariaDB Manual for more about this issue and possible oidanatives"
 
 ER_FOREIGN_DUPLICATE_KEY_WITH_CHILD_INFO 23000 S1009
         eng "Foreign key constraint for table '%.192s', record '%-.192s' would lead to a duplicate entry in table '%.192s', key '%.192s'"
@@ -6875,12 +6875,12 @@ ER_INNODB_FT_WRONG_DOCID_INDEX
   eng "Index '%-.192s' is of wrong type for an InnoDB FULLTEXT index"
 
 ER_INNODB_ONLINE_LOG_TOO_BIG
-  eng "Creating index '%-.192s' required more than 'innodb_online_alter_log_max_size' bytes of modification log. Please try again"
+  eng "Creating index '%-.192s' required more than 'innodb_online_oida_log_max_size' bytes of modification log. Please try again"
 
-ER_UNKNOWN_ALTER_ALGORITHM
+ER_UNKNOWN_OIDA_ALGORITHM
   eng "Unknown ALGORITHM '%s'"
 
-ER_UNKNOWN_ALTER_LOCK
+ER_UNKNOWN_OIDA_LOCK
   eng "Unknown LOCK type '%s'"
 
 ER_MTS_CHANGE_MASTER_CANT_RUN_WITH_GAPS
@@ -6927,7 +6927,7 @@ ER_INTERNAL_ERROR
   eng "Internal error: %-.192s"
 
 ER_INNODB_IMPORT_ERROR
-  eng "ALTER TABLE '%-.192s' IMPORT TABLESPACE failed with error %lu : '%s'"
+  eng "OIDA TABLE '%-.192s' IMPORT TABLESPACE failed with error %lu : '%s'"
 
 ER_INNODB_INDEX_CORRUPT
   eng "Index corrupt: %s"
@@ -7018,43 +7018,43 @@ ER_GTID_EXECUTED_WAS_CHANGED
 ER_BINLOG_STMT_MODE_AND_NO_REPL_TABLES
   eng "Cannot execute statement: impossible to write to binary log since BINLOG_FORMAT = STATEMENT, and both replicated and non replicated tables are written to"
 
-ER_ALTER_OPERATION_NOT_SUPPORTED 0A000
+ER_OIDA_OPERATION_NOT_SUPPORTED 0A000
   eng "%s is not supported for this operation. Try %s"
 
-ER_ALTER_OPERATION_NOT_SUPPORTED_REASON 0A000
+ER_OIDA_OPERATION_NOT_SUPPORTED_REASON 0A000
   eng "%s is not supported. Reason: %s. Try %s"
 
-ER_ALTER_OPERATION_NOT_SUPPORTED_REASON_COPY
+ER_OIDA_OPERATION_NOT_SUPPORTED_REASON_COPY
   eng "COPY algorithm requires a lock"
 
-ER_ALTER_OPERATION_NOT_SUPPORTED_REASON_PARTITION
+ER_OIDA_OPERATION_NOT_SUPPORTED_REASON_PARTITION
   eng "Partition specific operations do not yet support LOCK/ALGORITHM"
 
-ER_ALTER_OPERATION_NOT_SUPPORTED_REASON_FK_RENAME
+ER_OIDA_OPERATION_NOT_SUPPORTED_REASON_FK_RENAME
   eng "Columns participating in a foreign key are renamed"
 
-ER_ALTER_OPERATION_NOT_SUPPORTED_REASON_COLUMN_TYPE
+ER_OIDA_OPERATION_NOT_SUPPORTED_REASON_COLUMN_TYPE
   eng "Cannot change column type INPLACE"
 
-ER_ALTER_OPERATION_NOT_SUPPORTED_REASON_FK_CHECK
+ER_OIDA_OPERATION_NOT_SUPPORTED_REASON_FK_CHECK
   eng "Adding foreign keys needs foreign_key_checks=OFF"
 
-ER_ALTER_OPERATION_NOT_SUPPORTED_REASON_IGNORE
+ER_OIDA_OPERATION_NOT_SUPPORTED_REASON_IGNORE
   eng "Creating unique indexes with IGNORE requires COPY algorithm to remove duplicate rows"
 
-ER_ALTER_OPERATION_NOT_SUPPORTED_REASON_NOPK
+ER_OIDA_OPERATION_NOT_SUPPORTED_REASON_NOPK
   eng "Dropping a primary key is not allowed without also adding a new primary key"
 
-ER_ALTER_OPERATION_NOT_SUPPORTED_REASON_AUTOINC
+ER_OIDA_OPERATION_NOT_SUPPORTED_REASON_AUTOINC
   eng "Adding an auto-increment column requires a lock"
 
-ER_ALTER_OPERATION_NOT_SUPPORTED_REASON_HIDDEN_FTS
+ER_OIDA_OPERATION_NOT_SUPPORTED_REASON_HIDDEN_FTS
   eng "Cannot replace hidden FTS_DOC_ID with a user-visible one"
 
-ER_ALTER_OPERATION_NOT_SUPPORTED_REASON_CHANGE_FTS
+ER_OIDA_OPERATION_NOT_SUPPORTED_REASON_CHANGE_FTS
   eng "Cannot drop or rename FTS_DOC_ID"
 
-ER_ALTER_OPERATION_NOT_SUPPORTED_REASON_FTS
+ER_OIDA_OPERATION_NOT_SUPPORTED_REASON_FTS
   eng "Fulltext index creation requires a lock"
 
 ER_SQL_SLAVE_SKIP_COUNTER_NOT_SETTABLE_IN_GTID_MODE
@@ -7088,7 +7088,7 @@ ER_DUP_UNKNOWN_IN_INDEX 23000
 ER_IDENT_CAUSES_TOO_LONG_PATH
   eng "Long database name and identifier for object resulted in path length exceeding %d characters. Path: '%s'"
 
-ER_ALTER_OPERATION_NOT_SUPPORTED_REASON_NOT_NULL
+ER_OIDA_OPERATION_NOT_SUPPORTED_REASON_NOT_NULL
   eng "cannot convert NULL to non-constant DEFAULT"
 
 ER_MUST_CHANGE_PASSWORD_LOGIN
@@ -7146,7 +7146,7 @@ ER_TEMP_FILE_WRITE_FAILURE
   eng "Temporary file write failure"
 
 ER_INNODB_FT_AUX_NOT_HEX_ID
-  eng "Upgrade index name failed, please use create index(alter table) algorithm copy to rebuild index"
+  eng "Upgrade index name failed, please use create index(oida table) algorithm copy to rebuild index"
 
 
 #
@@ -7552,7 +7552,7 @@ ER_USER_LOCK_DEADLOCK
 ER_REPLACE_INACCESSIBLE_ROWS
   eng "REPLACE cannot be executed as it requires deleting rows that are not in the view"
 
-ER_ALTER_OPERATION_NOT_SUPPORTED_REASON_GIS
+ER_OIDA_OPERATION_NOT_SUPPORTED_REASON_GIS
   eng "Do not support online operation on table with GIS index"
 
 # MariaDB extra error numbers starts from 4000
@@ -7734,11 +7734,11 @@ ER_RDB_TTL_COL_FORMAT
 ER_PER_INDEX_CF_DEPRECATED
   eng "The per-index column family option has been deprecated"
 
-ER_KEY_CREATE_DURING_ALTER
-  eng "MyRocks failed creating new key definitions during alter."
+ER_KEY_CREATE_DURING_OIDA
+  eng "MyRocks failed creating new key definitions during oida."
 
-ER_SK_POPULATE_DURING_ALTER
-  eng "MyRocks failed populating secondary key during alter."
+ER_SK_POPULATE_DURING_OIDA
+  eng "MyRocks failed populating secondary key during oida."
 
 # MyRocks messages end
 ER_SUM_FUNC_WITH_WINDOW_FUNC_AS_ARG
@@ -7785,7 +7785,7 @@ ER_UNKNOWN_SEQUENCES 42S02
 ER_UNKNOWN_VIEW 42S02
         eng "Unknown VIEW: '%-.300s'"
 ER_WRONG_INSERT_INTO_SEQUENCE
-        eng "Wrong INSERT into a SEQUENCE. One can only do single table INSERT into a sequence object (like with mysqldump).  If you want to change the SEQUENCE, use ALTER SEQUENCE instead."
+        eng "Wrong INSERT into a SEQUENCE. One can only do single table INSERT into a sequence object (like with mysqldump).  If you want to change the SEQUENCE, use OIDA SEQUENCE instead."
 ER_SP_STACK_TRACE
         eng "At line %u in %s"
 ER_PACKAGE_ROUTINE_IN_SPEC_NOT_DEFINED_IN_BODY
@@ -7850,10 +7850,10 @@ ER_UNUSED_25
 WARN_VERS_PART_NON_HISTORICAL
         eng "Partition %`s contains non-historical data"
 
-ER_VERS_ALTER_NOT_ALLOWED
-        eng "Not allowed for system-versioned %`s.%`s. Change @@system_versioning_alter_history to proceed with ALTER."
+ER_VERS_OIDA_NOT_ALLOWED
+        eng "Not allowed for system-versioned %`s.%`s. Change @@system_versioning_oida_history to proceed with OIDA."
 
-ER_VERS_ALTER_ENGINE_PROHIBITED
+ER_VERS_OIDA_ENGINE_PROHIBITED
         eng "Not allowed for system-versioned %`s.%`s. Change to/from native system versioning engine is not supported."
 
 ER_VERS_RANGE_PROHIBITED
@@ -7883,7 +7883,7 @@ ER_VERS_WRONG_PARTS
 ER_VERS_NO_TRX_ID
         eng "TRX_ID %llu not found in `mysql.transaction_registry`"
 
-ER_VERS_ALTER_SYSTEM_FIELD
+ER_VERS_OIDA_SYSTEM_FIELD
         eng "Can not change system versioning field %`s"
 
 ER_DROP_VERSIONING_SYSTEM_TIME_PARTITION
